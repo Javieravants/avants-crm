@@ -37,13 +37,13 @@ router.post('/pipedrive', async (req, res) => {
 
   try {
     const [action, entity] = event.split('.');
-    // action: added, updated, merged, deleted
-    // entity: deal, person, note, activity...
+    // v1: added/updated/deleted, v2: create/change/delete
+    const normalizedAction = { create: 'added', change: 'updated', delete: 'deleted' }[action] || action;
 
     if (entity === 'deal') {
-      await handleDeal(action, current, previous);
+      await handleDeal(normalizedAction, current, previous);
     } else if (entity === 'person') {
-      await handlePerson(action, current);
+      await handlePerson(normalizedAction, current);
     }
   } catch (err) {
     console.error('Error procesando webhook Pipedrive:', err.message);

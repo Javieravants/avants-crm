@@ -43,11 +43,11 @@ async function registerWebhooks(baseUrl) {
   const webhookUrl = `${baseUrl}/api/webhooks/pipedrive`;
 
   const events = [
-    { action: 'added', object: 'deal' },
-    { action: 'updated', object: 'deal' },
-    { action: 'deleted', object: 'deal' },
-    { action: 'added', object: 'person' },
-    { action: 'updated', object: 'person' },
+    { action: 'create', object: 'deal' },
+    { action: 'change', object: 'deal' },
+    { action: 'delete', object: 'deal' },
+    { action: 'create', object: 'person' },
+    { action: 'change', object: 'person' },
   ];
 
   console.log(`Registrando webhooks en: ${webhookUrl}\n`);
