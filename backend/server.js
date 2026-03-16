@@ -6,13 +6,11 @@ const cors = require('cors');
 const path = require('path');
 
 // Diagnóstico de arranque
-console.log('ENV check:', {
-  NODE_ENV: process.env.NODE_ENV,
-  PORT: process.env.PORT,
-  HAS_DATABASE_URL: !!process.env.DATABASE_URL,
-  HAS_DB_HOST: !!process.env.DB_HOST,
-  HAS_JWT: !!process.env.JWT_SECRET,
-});
+const envKeys = Object.keys(process.env).filter(k =>
+  ['DATABASE_URL','DB_HOST','JWT_SECRET','NODE_ENV','PORT','PIPEDRIVE_API_KEY'].includes(k)
+);
+console.log('ENV available:', envKeys);
+console.log('Total env vars:', Object.keys(process.env).length);
 
 const pool = require('./config/db');
 
