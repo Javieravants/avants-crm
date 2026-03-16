@@ -21,6 +21,7 @@ const settingsRoutes = require('./routes/settings');
 const assistantRoutes = require('./routes/assistant');
 const importRoutes = require('./routes/import');
 const webhookRoutes = require('./routes/webhooks');
+const personasRoutes = require('./routes/personas');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +41,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/personas', personasRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

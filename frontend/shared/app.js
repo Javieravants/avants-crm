@@ -91,6 +91,7 @@ const App = {
 
     const modules = {
       dashboard: () => this.renderDashboard(),
+      personas: () => PersonasModule.render(),
       tickets: () => TicketsModule.render(),
       import: () => ImportModule.render(),
       settings: () => SettingsModule.render(),

@@ -14,6 +14,7 @@ async function seed() {
       ['migration-tickets.sql', 'Tickets'],
       ['migration-import.sql', 'Importación'],
       ['migration-pipedrive.sql', 'Pipedrive'],
+      ['migration-personas.sql', 'Personas'],
     ];
 
     for (const [file, label] of migrations) {
