@@ -1,7 +1,19 @@
-require('dotenv').config({ override: false });
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+
+// Diagnóstico de arranque
+console.log('ENV check:', {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  HAS_DATABASE_URL: !!process.env.DATABASE_URL,
+  HAS_DB_HOST: !!process.env.DB_HOST,
+  HAS_JWT: !!process.env.JWT_SECRET,
+});
+
 const pool = require('./config/db');
 
 const authRoutes = require('./routes/auth');
