@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avants Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared/styles.css">
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-view" class="login-wrapper hidden">
+    <div class="login-box">
+      <h1>Avants Suite</h1>
+      <p>Inicia sesión para continuar</p>
+      <div id="login-error" class="login-error"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-control" placeholder="tu@avants.es" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP SHELL -->
+  <div id="app-view" class="app-layout hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">Avants Suite</div>
+      <nav class="sidebar-nav" id="sidebar-nav">
+        <a class="sidebar-link active" data-module="dashboard">
+          <span class="icon">📊</span> Dashboard
+        </a>
+        <a class="sidebar-link" data-module="fichate">
+          <span class="icon">⏱️</span> Fichate
+        </a>
+        <a class="sidebar-link" data-module="tickets">
+          <span class="icon">🎫</span> Tickets
+          <span class="notif-badge hidden" id="badge-tickets"></span>
+        </a>
+        <a class="sidebar-link" data-module="leads">
+          <span class="icon">📞</span> Leads
+        </a>
+        <a class="sidebar-link" data-module="impagos">
+          <span class="icon">💰</span> Impagos
+        </a>
+        <a class="sidebar-link" data-module="import" id="nav-import">
+          <span class="icon">📥</span> Importar Excel
+        </a>
+        <a class="sidebar-link" data-module="settings" id="nav-settings">
+          <span class="icon">⚙️</span> Settings
+        </a>
+        <a class="sidebar-link" data-module="assistant" id="nav-assistant">
+          <span class="icon">🤖</span> Asistente IA
+        </a>
+        <a class="sidebar-link" data-module="usuarios" id="nav-usuarios">
+          <span class="icon">👤</span> Usuarios
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <strong id="user-name"></strong>
+          <span id="user-role"></span>
+        </div>
+        <button class="btn-logout" id="btn-logout">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content" id="main-content">
+      <!-- Los módulos se cargan aquí dinámicamente -->
+    </main>
+  </div>
+
+  <script src="/shared/auth.js"></script>
+  <script src="/shared/api.js"></script>
+  <script src="/modules/tickets.js"></script>
+  <script src="/modules/settings.js"></script>
+  <script src="/modules/assistant.js"></script>
+  <script src="/modules/import.js"></script>
+  <script src="/shared/app.js"></script>
+</body>
+</html>

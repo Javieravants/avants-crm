@@ -1,0 +1,37 @@
+{
+  "name": "avants-crm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "seed": "node backend/config/seed.js",
+    "migrate:users": "node backend/scripts/migrate-users.js",
+    "migrate:users:manual": "node backend/scripts/migrate-users.js --manual",
+    "migrate:users:dry": "node backend/scripts/migrate-users.js --dry-run",
+    "sync:pipedrive": "node backend/scripts/sync-pipedrive.js",
+    "sync:pipedrive:persons": "node backend/scripts/sync-pipedrive.js --persons",
+    "sync:pipedrive:deals": "node backend/scripts/sync-pipedrive.js --deals",
+    "webhooks:register": "node backend/scripts/register-webhooks.js",
+    "webhooks:list": "node backend/scripts/register-webhooks.js --list",
+    "webhooks:delete": "node backend/scripts/register-webhooks.js --delete"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.1.1",
+    "mysql2": "^3.19.1",
+    "pg": "^8.20.0",
+    "xlsx": "^0.18.5"
+  }
+}
