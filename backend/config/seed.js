@@ -1,4 +1,6 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../../.env'), override: false });
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
+}
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
@@ -6,33 +8,21 @@ const pool = require('./db');
 
 async function seed() {
   try {
-    // Ejecutar init.sql
-    const sql = fs.readFileSync(path.join(__dirname, 'init.sql'), 'utf8');
-    await pool.query(sql);
-    console.log('Tablas base creadas correctamente.');
+    // Orden: base → tickets → importación (crea personas) → pipedrive (modifica personas)
+    const migrations = [
+      ['init.sql', 'Tablas base'],
+      ['migration-tickets.sql', 'Tickets'],
+      ['migration-import.sql', 'Importación'],
+      ['migration-pipedrive.sql', 'Pipedrive'],
+    ];
 
-    // Ejecutar migración de tickets
-    const migrationPath = path.join(__dirname, 'migration-tickets.sql');
-    if (fs.existsSync(migrationPath)) {
-      const migration = fs.readFileSync(migrationPath, 'utf8');
-      await pool.query(migration);
-      console.log('Migración de tickets ejecutada correctamente.');
-    }
-
-    // Ejecutar migración de Pipedrive
-    const pipedriveMigrationPath = path.join(__dirname, 'migration-pipedrive.sql');
-    if (fs.existsSync(pipedriveMigrationPath)) {
-      const pipedriveMigration = fs.readFileSync(pipedriveMigrationPath, 'utf8');
-      await pool.query(pipedriveMigration);
-      console.log('Migración de Pipedrive ejecutada correctamente.');
-    }
-
-    // Ejecutar migración de importación
-    const importMigrationPath = path.join(__dirname, 'migration-import.sql');
-    if (fs.existsSync(importMigrationPath)) {
-      const importMigration = fs.readFileSync(importMigrationPath, 'utf8');
-      await pool.query(importMigration);
-      console.log('Migración de importación ejecutada correctamente.');
+    for (const [file, label] of migrations) {
+      const filePath = path.join(__dirname, file);
+      if (fs.existsSync(filePath)) {
+        const sql = fs.readFileSync(filePath, 'utf8');
+        await pool.query(sql);
+        console.log(`Migración ${label} ejecutada correctamente.`);
+      }
     }
 
     // Crear admin por defecto si no existe
