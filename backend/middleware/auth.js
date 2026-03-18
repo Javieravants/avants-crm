@@ -2,11 +2,20 @@ const jwt = require('jsonwebtoken');
 
 function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token no proporcionado' });
+  let token = null;
+
+  // Bearer header (principal)
+  if (header && header.startsWith('Bearer ')) {
+    token = header.split(' ')[1];
+  }
+  // Query param fallback (para descargas directas)
+  if (!token && req.query.token) {
+    token = req.query.token;
   }
 
-  const token = header.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Token no proporcionado' });
+  }
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
