@@ -22,6 +22,9 @@ const assistantRoutes = require('./routes/assistant');
 const importRoutes = require('./routes/import');
 const webhookRoutes = require('./routes/webhooks');
 const personasRoutes = require('./routes/personas');
+const calculadoraRoutes = require('./routes/calculadora');
+const grabacionesRoutes = require('./routes/grabaciones');
+const fichateRoutes = require('./routes/fichate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +45,9 @@ app.use('/api/assistant', assistantRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/personas', personasRoutes);
+app.use('/api/calculadora', calculadoraRoutes);
+app.use('/api/grabaciones', grabacionesRoutes);
+app.use('/api/fichate', fichateRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -54,8 +60,9 @@ app.get('/api/health', async (req, res) => {
 });
 
 // SPA fallback — devolver index.html para rutas no-API
+// Excluir /calculadora/ que tiene su propia página
 app.use((req, res, next) => {
-  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/calculadora') && !req.path.startsWith('/grabaciones') && !req.path.startsWith('/fichate')) {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
   } else {
     next();

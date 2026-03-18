@@ -205,7 +205,8 @@ const PersonasModule = {
 
       <!-- Tabs -->
       <div class="tabs" id="persona-tabs" style="margin-bottom:16px;">
-        <button class="tab-btn active" data-tab="polizas">Pólizas (${polizasActivas.length})</button>
+        <button class="tab-btn active" data-tab="grabaciones">Pólizas</button>
+        <button class="tab-btn" data-tab="polizas">Pólizas (legacy) (${polizasActivas.length})</button>
         <button class="tab-btn" data-tab="deals">Oportunidades (${dealsAbiertos.length})</button>
         <button class="tab-btn" data-tab="tramites">Trámites (${(p.tickets || []).length})</button>
         <button class="tab-btn" data-tab="familiares">Familiares (${(p.familiares || []).length})</button>
@@ -228,13 +229,16 @@ const PersonasModule = {
       this.renderTab(btn.dataset.tab, p);
     });
 
-    this.renderTab('polizas', p);
+    this.renderTab('grabaciones', p);
   },
 
   renderTab(tab, p) {
     const content = document.getElementById('persona-tab-content');
 
-    if (tab === 'polizas') {
+    if (tab === 'grabaciones') {
+      this.renderTabGrabaciones(content, p);
+      return;
+    } else if (tab === 'polizas') {
       const polizas = (p.deals || []).filter(d => d.estado === 'poliza_activa');
       if (polizas.length === 0) {
         content.innerHTML = '<p class="text-light">Sin pólizas activas</p>';
@@ -383,6 +387,90 @@ const PersonasModule = {
         await API.post(`/personas/${p.id}/notas`, { texto });
         this.showFicha(p.id);
       });
+    }
+  },
+
+  // === TAB GRABACIONES (pólizas del CRM) ===
+  async renderTabGrabaciones(content, p) {
+    content.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-weight:700;font-size:16px;">Pólizas grabadas</h3>
+        <a href="/grabaciones/?persona_id=${p.id}" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none;">+ Grabar póliza</a>
+      </div>
+      <div id="grabaciones-list"><p class="text-light">Cargando...</p></div>
+    `;
+
+    try {
+      const polizas = await API.get('/grabaciones/polizas/persona/' + p.id);
+      const listEl = document.getElementById('grabaciones-list');
+
+      if (!polizas || polizas.length === 0) {
+        listEl.innerHTML = '<p class="text-light">Sin pólizas grabadas en el CRM. Usa "Grabar póliza" para registrar una.</p>';
+        return;
+      }
+
+      const estadoColors = {
+        grabado: '#f59e0b', solicitud_enviada: '#3b82f6', aceptado: '#10b981',
+        poliza_emitida: '#059669', rechazado: '#ef4444', baja: '#6b7280', impago: '#dc2626'
+      };
+      const estadoLabels = {
+        grabado: 'Grabado', solicitud_enviada: 'Solicitud enviada', aceptado: 'Aceptado',
+        poliza_emitida: 'Póliza emitida', rechazado: 'Rechazado', baja: 'Baja', impago: 'Impago'
+      };
+
+      listEl.innerHTML = `
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Estado</th>
+                <th>Prima</th>
+                <th>Nº Póliza</th>
+                <th>Fecha efecto</th>
+                <th>Agente</th>
+                <th>Fecha grabación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${polizas.map(pol => `
+                <tr>
+                  <td><strong>${this._esc(pol.producto || '—')}</strong><br><span class="text-light" style="font-size:11px;">${pol.compania || ''}</span></td>
+                  <td>
+                    <span class="badge" style="background:${estadoColors[pol.estado] || '#6b7280'};color:#fff;font-size:11px;">
+                      ${estadoLabels[pol.estado] || pol.estado}
+                    </span>
+                  </td>
+                  <td>${pol.prima_mensual ? parseFloat(pol.prima_mensual).toFixed(2) + ' €/mes' : '—'}</td>
+                  <td>${pol.n_poliza || '—'}</td>
+                  <td>${pol.fecha_efecto ? new Date(pol.fecha_efecto).toLocaleDateString('es-ES') : '—'}</td>
+                  <td>${pol.agente_nombre || '—'}</td>
+                  <td>${pol.created_at ? new Date(pol.created_at).toLocaleDateString('es-ES') : '—'}</td>
+                  <td>
+                    <select onchange="PersonasModule.cambiarEstadoPoliza(${pol.id}, this.value)" style="font-size:12px;padding:4px;border-radius:8px;border:1px solid #ddd;">
+                      ${['grabado','solicitud_enviada','aceptado','poliza_emitida','rechazado','baja','impago'].map(e =>
+                        `<option value="${e}" ${pol.estado === e ? 'selected' : ''}>${estadoLabels[e]}</option>`
+                      ).join('')}
+                    </select>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      document.getElementById('grabaciones-list').innerHTML =
+        `<p style="color:#c62828;">${err.message}</p>`;
+    }
+  },
+
+  async cambiarEstadoPoliza(polizaId, nuevoEstado) {
+    try {
+      await API.patch('/grabaciones/polizas/' + polizaId + '/estado', { estado: nuevoEstado });
+    } catch (err) {
+      alert('Error: ' + err.message);
     }
   },
 

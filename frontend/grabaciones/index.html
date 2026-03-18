@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grabación de Pólizas - ADESLAS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Open Sans', sans-serif; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+        .campo-cargado { background-color: #f0fdf4 !important; border-color: #86efac !important; }
+        input:not([type="date"]):not([type="radio"]):not([type="checkbox"]), 
+        select, 
+        textarea { text-transform: uppercase; }
+        input::placeholder, textarea::placeholder { text-transform: none; }
+        .campo-valido { border-color: #22c55e !important; background-color: #f0fdf4 !important; }
+        .campo-invalido { border-color: #ef4444 !important; background-color: #fef2f2 !important; }
+        .campo-error { border-color: #ef4444 !important; background-color: #fef2f2 !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3) !important; }
+        .resumen-propuesta { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-100 via-white to-blue-50 min-h-screen">
+    
+    <!-- HEADER -->
+    <div class="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white py-4 px-4 shadow-lg">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold">Grabación Pólizas ADESLAS</h1>
+                    <p class="text-blue-200 text-xs">Sistema integrado con Pipedrive</p>
+                </div>
+            </div>
+            <div id="dealInfo" class="hidden text-right bg-white/10 px-3 py-1.5 rounded-lg">
+                <p class="text-xs text-blue-200">Deal #<span id="dealIdHeader"></span></p>
+                <p class="font-medium text-sm truncate max-w-[200px]" id="dealTitle"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MENSAJES -->
+    <div class="max-w-6xl mx-auto px-4 mt-4">
+        <div id="mensajeError" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+            <span id="mensajeErrorTexto"></span>
+            <button onclick="ocultarError()" class="ml-auto text-xl font-bold">&times;</button>
+        </div>
+        <div id="mensajeExito" class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+            <span id="mensajeExitoTexto"></span>
+        </div>
+    </div>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div id="contenido" class="max-w-6xl mx-auto px-4 py-6">
+        
+        <!-- PASO 0: Cargar Deal -->
+        <div id="paso0" class="bg-white rounded-2xl shadow-xl p-8">
+            <div class="max-w-md mx-auto">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">Cargar Deal de Pipedrive</h2>
+                    <p class="text-gray-600 mt-2">Los datos se cargarán automáticamente</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ID del Deal</label>
+                        <input type="text" id="inputDealId" placeholder="Ej: 131757" 
+                            class="w-full px-4 py-4 text-xl border-2 border-gray-300 rounded-xl text-center font-mono focus:border-blue-500"
+                            onkeypress="if(event.key === 'Enter') cargarDeal()">
+                        <p class="text-sm text-gray-500 mt-2 text-center">
+                            💡 Lo encuentras en la URL: pipedrive.com/deal/<strong>ID</strong>
+                        </p>
+                    </div>
+
+                    <button onclick="cargarDeal()" id="btnCargar"
+                        class="w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span>Cargar Deal</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASOS 1-5: Formulario (oculto inicialmente) -->
+        <div id="formulario" class="hidden">
+            
+            <!-- RESUMEN PROPUESTA (siempre visible arriba) -->
+            <div id="resumenPropuesta" class="hidden resumen-propuesta rounded-2xl shadow-lg p-5 mb-6 border-2 border-yellow-400">
+                <div class="flex flex-wrap gap-6 items-start justify-between">
+                    <div class="flex-1 min-w-[200px]">
+                        <h3 class="font-bold text-lg text-yellow-800 mb-2 flex items-center gap-2">
+                            <span>📋</span> PROPUESTA SELECCIONADA
+                        </h3>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                            <p><strong>Póliza:</strong> <span id="resumenPoliza">-</span></p>
+                            <p><strong>Precio:</strong> <span id="resumenPrecio">-</span></p>
+                            <p><strong>Campaña:</strong> <span id="resumenCampana">-</span></p>
+                            <p><strong>Dental:</strong> <span id="resumenDental">-</span></p>
+                        </div>
+                    </div>
+                    <div class="bg-white/70 rounded-xl p-4 min-w-[280px]">
+                        <h4 class="font-bold text-sm text-yellow-800 mb-2">💰 DESCUENTOS (informativo)</h4>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-600 mb-1">Dto. Compañía</label>
+                                <input type="text" id="dtoCompania" placeholder="Ej: 10%" 
+                                    class="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm bg-white">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-600 mb-1">Dto. Contracomisión</label>
+                                <input type="text" id="dtoContracomision" placeholder="Ej: 5%" 
+                                    class="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm bg-white">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegación de pasos -->
+            <div class="bg-white shadow rounded-xl mb-6 sticky top-0 z-10">
+                <div class="flex justify-between p-3 gap-2">
+                    <button onclick="irAPaso(1)" id="navPaso1" class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-sm bg-blue-600 text-white shadow">
+                        <span>📄</span><span class="hidden sm:inline font-medium">Propuesta</span>
+                    </button>
+                    <button onclick="irAPaso(2)" id="navPaso2" class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-sm bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        <span>👤</span><span class="hidden sm:inline font-medium">Tomador</span>
+                    </button>
+                    <button onclick="irAPaso(3)" id="navPaso3" class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-sm bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        <span>👥</span><span class="hidden sm:inline font-medium">Asegurados</span>
+                    </button>
+                    <button onclick="irAPaso(4)" id="navPaso4" class="flex items-center gap-2 px-3 py-2 rounded-xl transition-all text-sm bg-gray-100 text-gray-600 hover:bg-gray-200">
+                        <span>🏥</span><span class="hidden sm:inline font-medium">Salud</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contenedor de pasos -->
+            <div class="bg-white rounded-2xl shadow-xl p-6">
+                
+                <!-- PASO 1: Seleccionar Propuesta -->
+                <div id="paso1" class="space-y-6">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm">1</span>
+                        Seleccionar Propuesta y Datos Póliza
+                    </h2>
+                    
+                    <!-- Selector de propuesta -->
+                    <div class="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                        <label class="block text-sm font-bold text-blue-800 mb-2">📋 Propuestas encontradas</label>
+                        <select id="selectorPropuesta" onchange="seleccionarPropuesta()" 
+                            class="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-base bg-white">
+                            <option value="">-- Selecciona una propuesta --</option>
+                        </select>
+                        <p id="sinPropuestas" class="hidden mt-2 text-sm text-orange-600">
+                            ⚠️ No se encontraron propuestas. Introduce los datos manualmente.
+                        </p>
+                    </div>
+
+                    <!-- Resumen de propuesta seleccionada -->
+                    <div id="resumenPropuesta" class="hidden p-4 resumen-propuesta border-2 border-yellow-400 rounded-xl">
+                        <p class="text-sm font-bold text-yellow-800 mb-2">✨ Propuesta seleccionada:</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                            <div><span class="text-yellow-700">Tipo:</span> <span id="resumenPoliza" class="font-bold">-</span></div>
+                            <div><span class="text-yellow-700">Precio:</span> <span id="resumenPrecio" class="font-bold">-</span></div>
+                            <div id="resumenPuntosContainer"><span class="text-yellow-700">🎁 Puntos:</span> <span id="resumenPuntos" class="font-bold text-amber-600">-</span></div>
+                            <div id="resumenDentalContainer"><span class="text-yellow-700">Dental:</span> <span id="resumenDental" class="font-bold">-</span></div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mt-2" id="resumenDescuentosRow">
+                            <div id="resumenDtoCompaniaContainer"><span class="text-yellow-700">Dto.Compañía:</span> <span id="resumenDtoCompania" class="font-bold">-</span></div>
+                            <div id="resumenDtoContraContainer"><span class="text-yellow-700">Dto.Contra:</span> <span id="resumenDtoContra" class="font-bold">-</span></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nº Solicitud</label>
+                            <input type="text" id="solicitud" placeholder="Se asigna después" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nº Póliza</label>
+                            <input type="text" id="poliza" placeholder="Se asigna después" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Agente</label>
+                            <input type="text" id="agente" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Efecto <span class="text-red-500">*</span></label>
+                            <input type="date" id="fechaEfecto" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Tipo de póliza - Selector para Salud, Input para otros -->
+                        <div id="tipoPolizaSelectorDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Póliza <span class="text-red-500">*</span></label>
+                            <select id="tipoPoliza" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="">Seleccionar...</option>
+                                <optgroup label="Gama Plena">
+                                    <option value="PLENA VITAL">Plena Vital</option>
+                                    <option value="PLENA">Plena</option>
+                                    <option value="PLENA PLUS">Plena Plus</option>
+                                    <option value="EXTRA 150">Extra 150</option>
+                                    <option value="EXTRA 240">Extra 240</option>
+                                    <option value="EXTRA 1M">Extra 1M</option>
+                                </optgroup>
+                                <optgroup label="Gama Total (Dental incluido)">
+                                    <option value="PLENA TOTAL">Plena Total</option>
+                                    <option value="PLENA VITAL TOTAL">Plena Vital Total</option>
+                                </optgroup>
+                                <optgroup label="Autónomos">
+                                    <option value="AUTONOMOS NIF">Autónomos NIF</option>
+                                    <option value="AUTONOMOS EXTRA">Autónomos EXTRA</option>
+                                </optgroup>
+                                <optgroup label="Adeslas GO">
+                                    <option value="ADESLAS GO">Adeslas GO</option>
+                                </optgroup>
+                                <optgroup label="Senior">
+                                    <option value="SENIORS 55-84">Seniors (55-84)</option>
+                                    <option value="SENIORS TOTAL 63-84">Seniors Total (63-84)</option>
+                                </optgroup>
+                                <optgroup label="Empresas">
+                                    <option value="NEGOCIO CIF 1-4">Negocio CIF 1-4</option>
+                                    <option value="NEGOCIO CIF 1-4 EXTRA 150">Negocio CIF 1-4 EXTRA 150</option>
+                                    <option value="EMPRESA +5">Empresa +5</option>
+                                    <option value="EMPRESA +5 EXTRA 150">Empresa +5 EXTRA 150</option>
+                                    <option value="PYME TOTAL">PYME Total</option>
+                                </optgroup>
+                                <optgroup label="Especiales">
+                                    <option value="FAMILIAR FUNCIONARIOS">Familiar Funcionarios</option>
+                                    <option value="COLECTIVO EXTRANJEROS ANUAL">Colectivo Extranjeros (Anual)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <!-- Tipo de póliza - Input para Mascotas/Dental/Decesos (oculto por defecto) -->
+                        <div id="tipoPolizaInputDiv" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Póliza <span class="text-red-500">*</span></label>
+                            <input type="text" id="tipoPolizaInput" readonly class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 font-bold">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Importe Mensual (€) <span class="text-red-500">*</span></label>
+                            <input type="text" id="importe" placeholder="Ej: 148.00" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="camposSalud">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Frecuencia de Pago <span class="text-red-500">*</span></label>
+                            <select id="frecuenciaPago" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                <option value="MENSUAL">Mensual</option>
+                                <option value="TRIMESTRAL">Trimestral</option>
+                                <option value="SEMESTRAL">Semestral</option>
+                                <option value="ANUAL">Anual</option>
+                            </select>
+                        </div>
+                        <div id="puntosCampanaDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">🎁 Puntos Campaña</label>
+                            <input type="text" id="puntosCampana" placeholder="Ej: 4000" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-amber-50">
+                        </div>
+                        <div id="dentalDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dental</label>
+                            <input type="text" id="dental" placeholder="Ej: Dental Max" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- Descuentos -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="descuentosDiv">
+                        <div id="dtoCompaniaDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dto. Compañía</label>
+                            <input type="text" id="dtoCompania" placeholder="Ej: 10%" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div id="dtoContraDiv">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dto. Contracomisión <span id="maxDtoInfo" class="text-xs text-gray-500"></span></label>
+                            <input type="text" id="dtoContracomision" placeholder="Ej: 5%" class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                                onchange="validarDescuentoContra()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PASO 2: Datos Tomador -->
+                <div id="paso2" class="hidden space-y-6">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <span class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm">2</span>
+                        <span id="paso2Titulo">Datos del Tomador</span>
+                    </h2>
+                    
+                    <!-- AVISO: Tomador NO es asegurado -->
+                    <div id="avisoTomadorNoAsegurado" class="hidden p-4 bg-amber-50 border-2 border-amber-400 rounded-xl">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">👤</span>
+                            <div>
+                                <span class="font-bold text-amber-800">TOMADOR NO ES ASEGURADO</span>
+                                <p class="text-sm text-amber-700">El tomador solo paga la póliza. No se le hará cuestionario de salud.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- DATOS PERSONA FÍSICA (por defecto) -->
+                    <div id="tomadorPersona">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                                <input type="text" id="tomadorNombre" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos <span class="text-red-500">*</span></label>
+                                <input type="text" id="tomadorApellidos" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">DNI/NIE <span class="text-red-500">*</span></label>
+                                <input type="text" id="tomadorNif" class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                                    oninput="this.value = this.value.toUpperCase(); validarDNI(this)">
+                                <p id="tomadorNifValidacion" class="mt-1 text-xs hidden"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha Nacimiento <span class="text-red-500">*</span></label>
+                                <input type="date" id="tomadorFechaNac" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Sexo <span class="text-red-500">*</span></label>
+                                <select id="tomadorSexo" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="H">Hombre</option>
+                                    <option value="M">Mujer</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
+                                <input type="tel" id="tomadorTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" id="tomadorEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Estado Civil</label>
+                                <select id="tomadorEstadoCivil" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="SOLTERO/A">Soltero/a</option>
+                                    <option value="CASADO/A">Casado/a</option>
+                                    <option value="DIVORCIADO/A">Divorciado/a</option>
+                                    <option value="VIUDO/A">Viudo/a</option>
+                                    <option value="PAREJA DE HECHO">Pareja de hecho</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nacionalidad</label>
+                                <input type="text" id="tomadorNacionalidad" value="ESPAÑOLA" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                                <select id="tomadorProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DATOS EMPRESA (oculto por defecto) -->
+                    <div id="tomadorEmpresa" class="hidden">
+                        <div class="p-4 bg-indigo-50 border-2 border-indigo-300 rounded-xl mb-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-2xl">🏢</span>
+                                <span class="font-bold text-indigo-800">Póliza de Empresa - Datos del Tomador (Empresa)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Razón Social <span class="text-red-500">*</span></label>
+                                <input type="text" id="empresaRazonSocial" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Nombre de la empresa">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">CIF <span class="text-red-500">*</span></label>
+                                <input type="text" id="empresaCif" class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                                    oninput="this.value = this.value.toUpperCase()" placeholder="B12345678">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono Empresa <span class="text-red-500">*</span></label>
+                                <input type="tel" id="empresaTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email Empresa</label>
+                                <input type="email" id="empresaEmail" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Persona de Contacto</label>
+                                <input type="text" id="empresaContacto" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Nombre y apellidos">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
+                                <input type="text" id="empresaCargo" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Gerente, RRHH...">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                                <select id="empresaProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">Seleccionar...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Actividad/Sector</label>
+                                <input type="text" id="empresaActividad" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Ej: Comercio, Servicios...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dirección común -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                            <input type="text" id="tomadorDireccion" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">C.P.</label>
+                            <input type="text" id="tomadorCP" maxlength="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Localidad</label>
+                            <input type="text" id="tomadorLocalidad" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- IBAN destacado -->
+                    <div class="p-4 bg-yellow-50 border-2 border-yellow-400 rounded-xl">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-2xl">🏦</span>
+                            <span class="font-bold text-yellow-800">IBAN - Obligatorio para la grabación</span>
+                        </div>
+                        <input type="text" id="tomadorIBAN" placeholder="ES00 0000 0000 0000 0000 0000" 
+                            class="w-full px-3 py-3 border-2 border-yellow-300 rounded-lg text-lg font-mono"
+                            oninput="formatearIBANInput(this)">
+                        <p id="ibanValidacion" class="mt-2 text-sm hidden"></p>
+                    </div>
+                </div>
+
+                <!-- PASO 3: Asegurados / Mascota -->
+                <div id="paso3" class="hidden space-y-6">
+                    <div id="paso3Content">
+                        <!-- Sección Asegurados (para Salud, Dental, Decesos) -->
+                        <div id="seccionAsegurados">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 id="tituloPaso3" class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <span class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm">3</span>
+                                    👥 Asegurados (<span id="numAsegurados">1</span>)
+                                </h2>
+                                <button onclick="añadirAsegurado()" id="btnAnadirAsegurado" class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                    Añadir
+                                </button>
+                            </div>
+                            <div id="listaAsegurados">
+                                <!-- Se genera dinámicamente -->
+                            </div>
+                        </div>
+                        
+                        <!-- Sección Mascota (para Mascotas) - se crea dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- PASO 4: Cuestionario de Salud -->
+                <div id="paso4" class="hidden space-y-6">
+                    <div id="seccionCuestionario">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <span class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm">4</span>
+                                Cuestionario de Salud
+                            </h2>
+                            <span id="contadorErrores" class="hidden px-4 py-2 rounded-lg font-bold text-sm bg-orange-100 text-orange-800"></span>
+                        </div>
+
+                        <div class="bg-amber-50 border border-amber-300 rounded-lg p-4 mt-4">
+                            <p class="text-amber-800 font-medium">⚠️ Todos los campos son obligatorios. Los campos en rojo deben rellenarse antes de continuar.</p>
+                        </div>
+
+                        <div id="listaCuestionarios" class="mt-4">
+                            <!-- Se genera dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navegación inferior -->
+                <div class="flex justify-between mt-8 pt-6 border-t">
+                    <button onclick="pasoAnterior()" id="btnAnterior"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                        <span id="btnAnteriorTexto">Cambiar Deal</span>
+                    </button>
+
+                    <div class="flex gap-3">
+                        <button onclick="mostrarGuion()" id="btnGuion" class="hidden flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 transition shadow-lg font-bold">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                            Ver Guion
+                        </button>
+
+                        <button onclick="pasoSiguiente()" id="btnSiguiente"
+                            class="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition shadow-lg font-medium">
+                            Siguiente
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Guion de Grabación -->
+    <div id="modalGuion" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    Guion de Grabación
+                </h2>
+                <button onclick="cerrarGuion()" class="p-2 hover:bg-white/20 rounded-lg transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-auto p-4 bg-slate-100">
+                <pre id="guionTexto" class="whitespace-pre-wrap font-mono text-sm bg-white p-6 rounded-xl shadow border leading-relaxed"></pre>
+            </div>
+
+            <div class="p-4 bg-white border-t flex justify-between items-center gap-4">
+                <div class="flex gap-2">
+                    <button onclick="copiarGuion()" class="flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                        Copiar
+                    </button>
+                    <button onclick="descargarPDF()" class="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        Descargar PDF
+                    </button>
+                </div>
+
+                <button onclick="guardarEnPipedrive()" id="btnGuardar"
+                    class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Guardar Todo en Pipedrive
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE - IR A GRABACIONES -->
+    <a href="https://segurosdesaludonline.com/GRABACIONES/" 
+       target="_blank"
+       class="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full shadow-lg hover:from-red-600 hover:to-orange-600 transition-all hover:scale-105 group"
+       title="Ir a Grabaciones">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+        <span class="font-bold text-sm">GRABAR</span>
+    </a>
+
+    <!-- JavaScript -->
+    <script src="grabaciones.js"></script>
+</body>
+</html>

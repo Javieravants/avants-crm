@@ -34,4 +34,22 @@ const API = {
   post(path, body) { return this.request('POST', path, body); },
   patch(path, body) { return this.request('PATCH', path, body); },
   delete(path) { return this.request('DELETE', path); },
+
+  // Upload de archivos (FormData)
+  async upload(path, formData) {
+    const headers = {};
+    const token = this.getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`${this.baseURL}${path}`, {
+      method: 'POST', headers, body: formData
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      if (res.status === 401) Auth.logout();
+      throw new Error(data.error || 'Error en la petición');
+    }
+    return data;
+  },
 };

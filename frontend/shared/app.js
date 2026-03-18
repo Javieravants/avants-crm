@@ -88,6 +88,9 @@ const App = {
 
   async loadModule(name) {
     const container = document.getElementById('main-content');
+    // Resetear estilos del iframe cuando se cambia de módulo
+    container.style.padding = '';
+    container.style.overflow = '';
 
     const modules = {
       dashboard: () => this.renderDashboard(),
@@ -97,7 +100,10 @@ const App = {
       settings: () => SettingsModule.render(),
       assistant: () => AssistantModule.render(),
       usuarios: () => this.renderUsuarios(),
-      fichate: () => this.renderPlaceholder('Fichate', 'Módulo de fichajes — próximamente en Fase 2'),
+      fichate: () => this.renderIframe('/fichate/'),
+      llamada: () => LlamadaModule.render(),
+      calculadora: () => this.renderIframe('/calculadora/'),
+      grabaciones: () => this.renderIframe('/grabaciones/'),
       leads: () => this.renderPlaceholder('Leads', 'Módulo de leads/pipeline — próximamente en Fase 4'),
       impagos: () => this.renderPlaceholder('Impagos', 'Módulo de impagos — próximamente en Fase 5'),
     };
@@ -128,6 +134,21 @@ const App = {
       }
     } catch {
       // Silenciar errores de polling
+    }
+    // Grabaciones pendientes
+    try {
+      const gData = await API.get('/grabaciones/pendientes');
+      const gBadge = document.getElementById('badge-grabaciones');
+      if (gBadge) {
+        if (gData.count > 0) {
+          gBadge.textContent = gData.count;
+          gBadge.classList.remove('hidden');
+        } else {
+          gBadge.classList.add('hidden');
+        }
+      }
+    } catch {
+      // Silenciar
     }
   },
 
@@ -179,6 +200,16 @@ const App = {
     } catch {
       container.innerHTML = '';
     }
+  },
+
+  // === Iframe para módulos embebidos (Fichate, Calculadora, Grabaciones) ===
+  renderIframe(src) {
+    const container = document.getElementById('main-content');
+    container.style.padding = '0';
+    container.style.overflow = 'hidden';
+    container.innerHTML = `
+      <iframe src="${src}" style="width:100%;height:calc(100vh - 54px);border:none;display:block;"></iframe>
+    `;
   },
 
   // === Placeholder ===
