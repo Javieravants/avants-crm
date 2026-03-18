@@ -15,6 +15,7 @@ async function seed() {
       ['migration-import.sql', 'Importación'],
       ['migration-pipedrive.sql', 'Pipedrive'],
       ['migration-personas.sql', 'Personas'],
+      ['migration-fichate-ionos.sql', 'Fichate (tablas ft_)'],
     ];
 
     for (const [file, label] of migrations) {
@@ -58,6 +59,30 @@ async function seed() {
       }
     }
     console.log(`Usuarios verificados: ${users.length}`);
+
+    // Sincronizar usuarios CRM → ft_users (para que el mapeo por email funcione)
+    try {
+      const ftCompany = await pool.query('SELECT id FROM ft_companies LIMIT 1');
+      let companyId = ftCompany.rows[0]?.id;
+      if (!companyId) {
+        const ins = await pool.query("INSERT INTO ft_companies (name, email) VALUES ('Avants SL', 'javier@segurosdesaludonline.es') RETURNING id");
+        companyId = ins.rows[0].id;
+        console.log('Fichate: empresa creada con id', companyId);
+      }
+      const crmUsers = await pool.query('SELECT nombre, email, rol FROM users');
+      let synced = 0;
+      for (const u of crmUsers.rows) {
+        const exists = await pool.query('SELECT id FROM ft_users WHERE LOWER(email) = LOWER($1)', [u.email]);
+        if (exists.rows.length === 0) {
+          await pool.query('INSERT INTO ft_users (company_id, name, email, role, is_active) VALUES ($1,$2,$3,$4,1)',
+            [companyId, u.nombre, u.email, u.rol]);
+          synced++;
+        }
+      }
+      if (synced > 0) console.log(`Fichate: ${synced} usuarios sincronizados desde CRM`);
+    } catch (e) {
+      console.warn('Fichate sync warning:', e.message);
+    }
 
     process.exit(0);
   } catch (err) {

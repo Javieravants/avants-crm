@@ -69,6 +69,37 @@ app.use((req, res, next) => {
   }
 });
 
-app.listen(PORT, () => {
+// Auto-migración de tablas Fichate al arrancar
+async function initFichateTables() {
+  try {
+    const fs = require('fs');
+    const migPath = path.join(__dirname, 'config/migration-fichate-ionos.sql');
+    if (fs.existsSync(migPath)) {
+      const sql = fs.readFileSync(migPath, 'utf8');
+      await pool.query(sql);
+      // Sincronizar usuarios CRM → ft_users
+      const ftCo = await pool.query('SELECT id FROM ft_companies LIMIT 1');
+      let coId = ftCo.rows[0]?.id;
+      if (!coId) {
+        const ins = await pool.query("INSERT INTO ft_companies (name, email) VALUES ('Avants SL', 'javier@segurosdesaludonline.es') RETURNING id");
+        coId = ins.rows[0].id;
+      }
+      const crmUsers = await pool.query('SELECT nombre, email, rol FROM users');
+      for (const u of crmUsers.rows) {
+        const ex = await pool.query('SELECT id FROM ft_users WHERE LOWER(email) = LOWER($1)', [u.email]);
+        if (ex.rows.length === 0) {
+          await pool.query('INSERT INTO ft_users (company_id, name, email, role, is_active) VALUES ($1,$2,$3,$4,1)',
+            [coId, u.nombre, u.email, u.rol]);
+        }
+      }
+      console.log('Fichate: tablas y usuarios verificados');
+    }
+  } catch (e) {
+    console.warn('Fichate init warning:', e.message);
+  }
+}
+
+app.listen(PORT, async () => {
   console.log(`Avants CRM corriendo en http://localhost:${PORT}`);
+  await initFichateTables();
 });

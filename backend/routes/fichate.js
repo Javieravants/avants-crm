@@ -22,9 +22,20 @@ async function getFtUser(req) {
   if (ftUser) {
     ftUser.role = crmRol;
   } else {
-    // Fallback: usuario CRM no tiene ft_user — crear uno virtual para no bloquear
-    ftUser = { id: 0, company_id: 1, name: req.user.nombre, email: req.user.email, role: crmRol, is_active: 1 };
-    console.warn('Fichate: CRM user', req.user.email, 'no encontrado en ft_users, usando fallback con rol:', crmRol);
+    // Auto-crear ft_user si no existe (sincronización bajo demanda)
+    try {
+      const coR = await pool.query('SELECT id FROM ft_companies LIMIT 1');
+      const coId = coR.rows[0]?.id || 1;
+      const ins = await pool.query('INSERT INTO ft_users (company_id, name, email, role, is_active) VALUES ($1,$2,$3,$4,1) RETURNING *',
+        [coId, req.user.nombre, req.user.email, crmRol]);
+      ftUser = ins.rows[0];
+      ftUser.role = crmRol;
+      console.log('Fichate: auto-creado ft_user para', req.user.email, 'con id', ftUser.id);
+    } catch (e) {
+      // Fallback si falla la inserción
+      ftUser = { id: 0, company_id: 1, name: req.user.nombre, email: req.user.email, role: crmRol, is_active: 1 };
+      console.warn('Fichate: CRM user', req.user.email, 'no encontrado en ft_users, usando fallback con rol:', crmRol);
+    }
   }
   return ftUser;
 }
