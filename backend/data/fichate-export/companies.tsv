@@ -1,0 +1,3 @@
+id	name	cif	address	phone	email	vacation_days_default	daily_hours	schedule_default	active	created_at	updated_at
+1	Telegestion de Seguros y Soluciones Avants SL		NULL	NULL	NULL	22	7.50	9:00-15:00 / 16:00-18:30	1	2026-02-17 11:54:12	2026-02-17 11:54:12
+2	ANELKY		NULL	NULL	NULL	22	7.50	9:00-15:00 / 16:00-18:30	1	2026-02-17 11:54:12	2026-02-17 11:54:12

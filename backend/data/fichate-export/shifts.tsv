@@ -1,0 +1,3 @@
+id	company_id	name	start_time	end_time	daily_hours	break_time	color	created_at
+4	1	JORNADA COMPLETA	09:30:00	19:00:00	7.5	14:00-16:00	#ff4a6e	2026-02-23 02:18:51
+5	1	MEDIA JORNADA	09:00:00	14:00:00	5.0		#22c55e	2026-02-23 02:19:24

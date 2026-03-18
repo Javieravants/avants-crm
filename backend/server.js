@@ -163,7 +163,112 @@ async function initFichateTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`);
 
-    // Sincronizar usuarios CRM → ft_users
+    // Importar datos IONOS si las tablas están vacías
+    const recCount = await pool.query('SELECT COUNT(*) as c FROM ft_time_records');
+    if (parseInt(recCount.rows[0].c) === 0) {
+      const fs = require('fs');
+      const dataDir = path.join(__dirname, 'data/fichate-export');
+      if (fs.existsSync(path.join(dataDir, 'users.tsv'))) {
+        console.log('Fichate: importando datos históricos de IONOS...');
+        // Limpiar usuarios auto-sincronizados (no tienen registros asociados)
+        await pool.query('DELETE FROM ft_users');
+        await pool.query('DELETE FROM ft_companies');
+
+        // Función para parsear TSV
+        function parseTSV(filename) {
+          const content = fs.readFileSync(path.join(dataDir, filename), 'utf8');
+          const lines = content.trim().split('\n');
+          if (lines.length < 2) return [];
+          const headers = lines[0].replace(/\r/g, '').split('\t');
+          return lines.slice(1).map(line => {
+            const vals = line.replace(/\r/g, '').split('\t');
+            const obj = {};
+            headers.forEach((h, i) => { obj[h] = (vals[i] === 'NULL' || vals[i] === '') ? null : vals[i]; });
+            return obj;
+          });
+        }
+
+        // Función para importar tabla
+        async function importTable(tsvFile, pgTable, columnMap) {
+          const rows = parseTSV(tsvFile);
+          const pgCols = Object.values(columnMap);
+          const tsvCols = Object.keys(columnMap);
+          let imported = 0;
+          for (const row of rows) {
+            const values = tsvCols.map(c => row[c]);
+            const placeholders = values.map((_, i) => `$${i + 1}`).join(',');
+            try {
+              await pool.query(`INSERT INTO ${pgTable} (${pgCols.join(',')}) VALUES (${placeholders}) ON CONFLICT DO NOTHING`, values);
+              imported++;
+            } catch (e) { console.warn(`  Error ${pgTable}:`, e.message); }
+          }
+          console.log(`  ${pgTable}: ${imported}/${rows.length}`);
+        }
+
+        // Importar en orden (con IDs originales de IONOS)
+        await importTable('companies.tsv', 'ft_companies', {
+          id:'id', name:'name', cif:'cif', address:'address', phone:'phone', email:'email',
+          vacation_days_default:'vacation_days_default', daily_hours:'daily_hours',
+          schedule_default:'schedule_default', active:'active', created_at:'created_at', updated_at:'updated_at'
+        });
+        await pool.query("SELECT setval('ft_companies_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_companies))");
+
+        await importTable('users.tsv', 'ft_users', {
+          id:'id', company_id:'company_id', email:'email', password:'password', password_plain:'password_plain',
+          pin:'pin', name:'name', dni:'dni', role:'role', team:'team', phone:'phone', position:'position',
+          department:'department', schedule:'schedule', daily_hours:'daily_hours', vacation_days:'vacation_days',
+          used_vacation_days:'used_vacation_days', start_date:'start_date', avatar_url:'avatar_url',
+          cloudtalk_extension:'cloudtalk_extension', cloudtalk_agent_id:'cloudtalk_agent_id',
+          status:'status', is_active:'is_active', last_login:'last_login', created_at:'created_at', updated_at:'updated_at'
+        });
+        await pool.query("SELECT setval('ft_users_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_users))");
+
+        await importTable('time_records.tsv', 'ft_time_records', {
+          id:'id', user_id:'user_id', company_id:'company_id', date:'date', clock_in:'clock_in',
+          clock_out:'clock_out', type:'type', notes:'notes', ip_address:'ip_address',
+          user_agent:'user_agent', created_at:'created_at', updated_at:'updated_at'
+        });
+        await pool.query("SELECT setval('ft_time_records_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_time_records))");
+
+        await importTable('absence_requests.tsv', 'ft_absence_requests', {
+          id:'id', user_id:'user_id', company_id:'company_id', type:'type', start_date:'start_date',
+          end_date:'end_date', partial:'partial', hours_requested:'hours_requested', time_from:'time_from',
+          time_to:'time_to', status:'status', notes:'notes', attachment_path:'attachment_path',
+          attachment_name:'attachment_name', reject_reason:'reject_reason', reviewed_by:'reviewed_by',
+          reviewed_at:'reviewed_at', created_at:'created_at', updated_at:'updated_at'
+        });
+        await pool.query("SELECT setval('ft_absence_requests_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_absence_requests))");
+
+        await importTable('documents.tsv', 'ft_documents', {
+          id:'id', user_id:'user_id', company_id:'company_id', category:'category', name:'name',
+          description:'description', file_path:'file_path', file_name:'file_name', file_size:'file_size',
+          date:'date', uploaded_by:'uploaded_by', created_at:'created_at'
+        });
+        await pool.query("SELECT setval('ft_documents_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_documents))");
+
+        await importTable('holidays.tsv', 'ft_holidays', {
+          id:'id', company_id:'company_id', date:'date', name:'name', type:'type', year:'year', created_at:'created_at'
+        });
+        await pool.query("SELECT setval('ft_holidays_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_holidays))");
+
+        await importTable('shifts.tsv', 'ft_shifts', {
+          id:'id', company_id:'company_id', name:'name', start_time:'start_time', end_time:'end_time',
+          daily_hours:'daily_hours', break_time:'break_time', color:'color', created_at:'created_at'
+        });
+        await pool.query("SELECT setval('ft_shifts_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_shifts))");
+
+        await importTable('app_credentials.tsv', 'ft_app_credentials', {
+          id:'id', company_id:'company_id', user_id:'user_id', app_name:'app_name', app_url:'app_url',
+          username:'username', password_plain:'password_plain', notes:'notes', created_by:'created_by',
+          created_at:'created_at', updated_at:'updated_at'
+        });
+        await pool.query("SELECT setval('ft_app_credentials_id_seq', (SELECT COALESCE(MAX(id),0) FROM ft_app_credentials))");
+
+        console.log('Fichate: importación IONOS completada');
+      }
+    }
+
+    // Sincronizar usuarios CRM que no existan aún en ft_users
     const ftCo = await pool.query('SELECT id FROM ft_companies LIMIT 1');
     let coId = ftCo.rows[0]?.id;
     if (!coId) {
