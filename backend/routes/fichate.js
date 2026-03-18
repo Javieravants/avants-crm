@@ -12,10 +12,17 @@ const uploadDir = path.join(__dirname, '../uploads/fichate');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({ dest: uploadDir, limits: { fileSize: 10 * 1024 * 1024 } });
 
-// Helper: obtener ft_user_id a partir del email del usuario JWT del CRM
+// Helper: obtener ft_user a partir del email del usuario JWT del CRM
+// El rol SIEMPRE viene del CRM (req.user.rol) — es la fuente de verdad
 async function getFtUser(req) {
-  const r = await pool.query('SELECT * FROM ft_users WHERE email = $1 AND is_active = 1', [req.user.email]);
-  return r.rows[0] || null;
+  const r = await pool.query('SELECT * FROM ft_users WHERE LOWER(email) = LOWER($1) AND is_active = 1', [req.user.email]);
+  const ftUser = r.rows[0] || null;
+  if (ftUser) {
+    // Mapear rol del CRM al ft_user: admin→admin, supervisor→supervisor, agent→agent
+    const crmRol = req.user.rol || 'agent';
+    ftUser.role = crmRol;
+  }
+  return ftUser;
 }
 function isAdm(ftUser) { return ftUser && (ftUser.role === 'admin' || ftUser.role === 'supervisor'); }
 

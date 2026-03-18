@@ -110,9 +110,10 @@ const FichateModule = {
     try {
       const [eR,hR,shR]=await Promise.all([this.api('employees'),this.api('holidays',{params:{year:new Date().getFullYear()}}),this.api('shifts')]);
       this.emps=eR.employees||[];this.hols=hR.holidays||[];this.shifts=shR.shifts||[];
-      // Identificar ft_user del CRM user
+      // Identificar ft_user del CRM user — el rol SIEMPRE viene del CRM
       const crmUser=Auth.getUser();
-      this.ftUser=this.emps.find(e=>e.email===crmUser.email)||null;
+      this.ftUser=this.emps.find(e=>e.email?.toLowerCase()===crmUser.email?.toLowerCase())||null;
+      if(this.ftUser) this.ftUser.role=crmUser.rol||'agent';
       if(this.isA()){try{this.dash=await this.api('dashboard')}catch(e){}}
       // Cargar requests para badge
       try{this.reqs=(await this.api('requests')).requests||[]}catch(e){}
