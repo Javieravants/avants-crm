@@ -102,8 +102,8 @@ const App = {
       usuarios: () => this.renderUsuarios(),
       fichate: () => FichateModule.render(),
       llamada: () => LlamadaModule.render(),
-      calculadora: () => this.renderIframe('/calculadora/'),
-      grabaciones: () => this.renderIframe('/grabaciones/'),
+      calculadora: () => CalculadoraModule.render(),
+      grabaciones: () => this.renderGrabacionesList(),
       leads: () => this.renderPlaceholder('Leads', 'Módulo de leads/pipeline — próximamente en Fase 4'),
       impagos: () => this.renderPlaceholder('Impagos', 'Módulo de impagos — próximamente en Fase 5'),
     };
@@ -202,14 +202,37 @@ const App = {
     }
   },
 
-  // === Iframe para módulos embebidos (Fichate, Calculadora, Grabaciones) ===
-  renderIframe(src) {
+  // === Grabaciones (vista de listado nativa) ===
+  async renderGrabacionesList() {
     const container = document.getElementById('main-content');
-    container.style.padding = '0';
-    container.style.overflow = 'hidden';
     container.innerHTML = `
-      <iframe src="${src}" style="width:100%;height:calc(100vh - 54px);border:none;display:block;"></iframe>
+      <h1 class="page-title">Grabaciones / Pólizas</h1>
+      <div class="card" id="grab-container"><p class="text-light">Cargando...</p></div>
     `;
+    try {
+      const data = await API.get('/grabaciones/polizas?limit=100');
+      const polizas = data.polizas || [];
+      const gc = document.getElementById('grab-container');
+      if (polizas.length === 0) {
+        gc.innerHTML = '<p class="text-light">No hay pólizas grabadas. Graba desde la ficha de un contacto.</p>';
+        return;
+      }
+      const estadoLabels = { grabado:'Grabado', solicitud_enviada:'Solicitud enviada', aceptado:'Aceptado', poliza_emitida:'Emitida', rechazado:'Rechazado', baja:'Baja', impago:'Impago' };
+      const estadoColors = { grabado:'#f59e0b', solicitud_enviada:'#3b82f6', aceptado:'#10b981', poliza_emitida:'#059669', rechazado:'#ef4444', baja:'#6b7280', impago:'#dc2626' };
+      gc.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Cliente</th><th>Producto</th><th>Estado</th><th>Prima</th><th>Nº Póliza</th><th>Agente</th><th>Fecha</th></tr></thead><tbody>
+        ${polizas.map(p => `<tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.persona_id}),200)">
+          <td><strong>${p.persona_nombre||'—'}</strong><br><span class="text-light" style="font-size:11px;">${p.persona_dni||''}</span></td>
+          <td>${p.producto||'—'}<br><span class="text-light" style="font-size:11px;">${p.compania||''}</span></td>
+          <td><span class="badge" style="background:${estadoColors[p.estado]||'#6b7280'};color:#fff;font-size:11px;">${estadoLabels[p.estado]||p.estado}</span></td>
+          <td>${p.prima_mensual?parseFloat(p.prima_mensual).toFixed(2)+' €':'—'}</td>
+          <td>${p.n_poliza||'—'}</td>
+          <td>${p.agente_nombre||'—'}</td>
+          <td>${p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):'—'}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+    } catch (err) {
+      document.getElementById('grab-container').innerHTML = `<p style="color:#c62828;">${err.message}</p>`;
+    }
   },
 
   // === Placeholder ===

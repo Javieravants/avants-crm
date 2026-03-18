@@ -431,13 +431,14 @@ const LlamadaModule = {
 
   // --- Tab Calculadora ---
   _renderTabCalc() {
-    const c = this.contact;
-    const dealId = c.pipedrive_deal_id || c.dealId || '';
-    let params = dealId ? `?deal_id=${dealId}` : '';
-
-    return `
-      <iframe src="/calculadora/${params}" style="width:100%;height:600px;border:none;border-radius:var(--r);"></iframe>
-    `;
+    setTimeout(() => {
+      const container = document.getElementById('ll-sec-calc');
+      if (container && this.contact) {
+        CalculadoraModule.personaId = this.contact.id || null;
+        CalculadoraModule.render(container);
+      }
+    }, 0);
+    return '<div style="padding:8px;">Cargando calculadora...</div>';
   },
 
   // --- Tab Notas ---
