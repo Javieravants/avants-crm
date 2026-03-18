@@ -15,7 +15,13 @@ const FichateModule = {
   NC: [{id:'dashboard',l:'Panel',i:'📊'},{id:'employees',l:'Empleados',i:'👥'},{id:'records',l:'Registros',i:'📋'},{id:'payroll',l:'Nóminas',i:'💰'},{id:'reports',l:'Informes',i:'📈'},{id:'settings',l:'Ajustes',i:'⚙️'}],
 
   // Helpers (portados del original)
-  isA() { return this.ftUser && (this.ftUser.role==='admin'||this.ftUser.role==='supervisor'); },
+  isA() {
+    // Si hay ftUser, usar su role (ya sobreescrito con CRM rol)
+    if (this.ftUser) return this.ftUser.role === 'admin' || this.ftUser.role === 'supervisor';
+    // Fallback: usar el rol del CRM directamente
+    const u = Auth.getUser();
+    return u && (u.rol === 'admin' || u.rol === 'supervisor');
+  },
   fD(d) { return d ? new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; },
   fT(d) { return d ? new Date(d).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'; },
   dH(a,b) { return a&&b ? ((new Date(b)-new Date(a))/36e5) : 0; },
@@ -107,17 +113,26 @@ const FichateModule = {
     }
 
     // Cargar datos iniciales
+    const crmUser=Auth.getUser();
     try {
       const [eR,hR,shR]=await Promise.all([this.api('employees'),this.api('holidays',{params:{year:new Date().getFullYear()}}),this.api('shifts')]);
       this.emps=eR.employees||[];this.hols=hR.holidays||[];this.shifts=shR.shifts||[];
-      // Identificar ft_user del CRM user — el rol SIEMPRE viene del CRM
-      const crmUser=Auth.getUser();
-      this.ftUser=this.emps.find(e=>e.email?.toLowerCase()===crmUser.email?.toLowerCase())||null;
-      if(this.ftUser) this.ftUser.role=crmUser.rol||'agent';
-      if(this.isA()){try{this.dash=await this.api('dashboard')}catch(e){}}
-      // Cargar requests para badge
-      try{this.reqs=(await this.api('requests')).requests||[]}catch(e){}
-    } catch(e){console.error('Error cargando Fichate:',e)}
+    } catch(e){console.error('Error cargando datos Fichate:',e)}
+
+    // Identificar ft_user del CRM user — el rol SIEMPRE viene del CRM
+    this.ftUser=this.emps.find(e=>e.email?.toLowerCase()===crmUser.email?.toLowerCase())||null;
+    if(this.ftUser){
+      this.ftUser.role=crmUser.rol||'agent';
+    } else {
+      // Fallback: crear un ftUser virtual con datos del CRM
+      this.ftUser={id:0,name:crmUser.nombre,email:crmUser.email,role:crmUser.rol||'agent',company_id:1,is_active:1,vacation_days:22,used_vacation_days:0};
+      console.warn('Fichate: usuario CRM no encontrado en ft_users, usando fallback con rol:', crmUser.rol);
+    }
+
+    console.log('Fichate: ftUser =', this.ftUser?.name, 'role =', this.ftUser?.role, 'isA =', this.isA());
+
+    if(this.isA()){try{this.dash=await this.api('dashboard')}catch(e){console.error('Error dashboard:',e)}}
+    try{this.reqs=(await this.api('requests')).requests||[]}catch(e){}
 
     this.renderApp(c);
   },

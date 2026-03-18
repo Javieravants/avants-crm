@@ -16,11 +16,15 @@ const upload = multer({ dest: uploadDir, limits: { fileSize: 10 * 1024 * 1024 } 
 // El rol SIEMPRE viene del CRM (req.user.rol) — es la fuente de verdad
 async function getFtUser(req) {
   const r = await pool.query('SELECT * FROM ft_users WHERE LOWER(email) = LOWER($1) AND is_active = 1', [req.user.email]);
-  const ftUser = r.rows[0] || null;
+  let ftUser = r.rows[0] || null;
+  const crmRol = req.user.rol || 'agent';
+
   if (ftUser) {
-    // Mapear rol del CRM al ft_user: admin→admin, supervisor→supervisor, agent→agent
-    const crmRol = req.user.rol || 'agent';
     ftUser.role = crmRol;
+  } else {
+    // Fallback: usuario CRM no tiene ft_user — crear uno virtual para no bloquear
+    ftUser = { id: 0, company_id: 1, name: req.user.nombre, email: req.user.email, role: crmRol, is_active: 1 };
+    console.warn('Fichate: CRM user', req.user.email, 'no encontrado en ft_users, usando fallback con rol:', crmRol);
   }
   return ftUser;
 }
