@@ -53,8 +53,7 @@ app.use('/api/fichate', fichateRoutes);
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
-    const ft = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE 'ft_%'");
-    res.json({ status: 'ok', db: 'connected', ft_tables: ft.rows.map(r => r.table_name), version: 'v2' });
+    res.json({ status: 'ok', db: 'connected' });
   } catch (err) {
     res.status(500).json({ status: 'error', db: 'disconnected' });
   }

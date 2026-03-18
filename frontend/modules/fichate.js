@@ -22,7 +22,7 @@ const FichateModule = {
     const u = Auth.getUser();
     return u && (u.rol === 'admin' || u.rol === 'supervisor');
   },
-  fD(d) { return d ? new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—'; },
+  fD(d) { if(!d)return '—'; const s=String(d); const dt=s.includes('T')?new Date(s):new Date(s+'T12:00:00'); return dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}); },
   fT(d) { return d ? new Date(d).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '—'; },
   dH(a,b) { return a&&b ? ((new Date(b)-new Date(a))/36e5) : 0; },
   hu(id) { return (id*47)%360; },
@@ -350,8 +350,51 @@ const FichateModule = {
   // VISTA: REGISTROS
   // ══════════════════════════════════════
   recH(){
-    const r=this.recs;const t=r.reduce((s,x)=>s+this.dH(x.clock_in,x.clock_out),0);
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><input type="month" class="ft-inp" style="width:150px" value="${new Date().toISOString().slice(0,7)}" onchange="FichateModule.loadRecs(this.value)"><span style="font-weight:700;font-size:12px;color:#ff4a6e">${r.length} reg · ${t.toFixed(1)}h</span></div><div class="ft-cd" style="padding:0;overflow:hidden">${r.length===0?'<div class="ft-empty">Sin registros</div>':`<table class="ft-tbl"><thead><tr><th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Horas</th><th></th></tr></thead><tbody>${r.map(x=>`<tr><td style="font-weight:600">${x.employee_name||''}</td><td>${this.fD(x.date)}</td><td style="font-size:11.5px">${this.fT(x.clock_in)}</td><td style="font-size:11.5px">${x.clock_out?this.fT(x.clock_out):this.bg('En curso','#10b981','#ecfdf5')}</td><td style="font-weight:600;font-size:11.5px">${x.clock_out?this.dH(x.clock_in,x.clock_out).toFixed(2)+'h':'—'}</td><td><div style="display:flex;gap:3px"><button class="ft-btn ft-bs ft-bo" style="color:#ff4a6e" onclick="FichateModule.editRecM(${x.id})">✏️</button><button class="ft-btn ft-bs ft-bo" style="color:#ef4444" onclick="FichateModule.delRec(${x.id})">✕</button></div></td></tr>`).join('')}</tbody></table>`}</div>`;
+    const r=this.recs;const totalH=r.reduce((s,x)=>s+this.dH(x.clock_in,x.clock_out),0);
+    // Agrupar por fecha+empleado
+    const grouped={};
+    r.forEach(x=>{
+      const dateKey=this.fD(x.date);
+      const empKey=(x.employee_name||'?')+'|'+x.user_id;
+      const k=dateKey+'||'+empKey;
+      if(!grouped[k])grouped[k]={date:x.date,dateF:dateKey,emp:x.employee_name||'?',uid:x.user_id,slots:[],ids:[]};
+      grouped[k].slots.push({ci:x.clock_in,co:x.clock_out,id:x.id});
+      grouped[k].ids.push(x.id);
+    });
+    // Ordenar por fecha desc, luego empleado
+    const rows=Object.values(grouped).sort((a,b)=>new Date(b.date)-new Date(a.date)||(a.emp>b.emp?1:-1));
+    const uniqueDays=new Set(rows.map(x=>x.dateF)).size;
+
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="month" class="ft-inp" style="width:160px" value="${new Date().toISOString().slice(0,7)}" onchange="FichateModule.loadRecs(this.value)">
+        ${this.isA()?`<select class="ft-inp" style="width:auto" onchange="FichateModule.filterRecEmp(this.value)"><option value="all">Todos</option>${this.emps.filter(e=>e.is_active==1).map(e=>`<option value="${e.id}">${this.esc(e.name)}</option>`).join('')}</select>`:''}
+      </div>
+      <span style="font-weight:700;font-size:12px;color:#ff4a6e">${uniqueDays} días · ${r.length} fichajes · ${totalH.toFixed(1)}h</span>
+    </div>
+    <div class="ft-cd" style="padding:0;overflow:hidden">${rows.length===0?'<div class="ft-empty">Sin registros este mes</div>':`<table class="ft-tbl"><thead><tr><th>Fecha</th><th>Empleado</th><th>Entrada M</th><th>Salida M</th><th>Entrada T</th><th>Salida T</th><th style="text-align:right">Total</th>${this.isA()?'<th></th>':''}</tr></thead><tbody>${rows.map(g=>{
+      // slots ordenados por clock_in
+      const sl=g.slots.sort((a,b)=>new Date(a.ci)-new Date(b.ci));
+      const s1=sl[0]||{};const s2=sl[1]||{};
+      const dayTotal=sl.reduce((s,x)=>s+this.dH(x.ci,x.co),0);
+      const hasOpen=sl.some(x=>!x.co);
+      const dtObj=new Date(g.date);
+      const dow=dtObj.toLocaleDateString('es-ES',{weekday:'short'});
+      return`<tr>
+        <td><div style="font-weight:600;font-size:13px">${g.dateF}</div><div style="font-size:10px;color:#9ca3af;text-transform:capitalize">${dow}</div></td>
+        <td><div style="display:flex;align-items:center;gap:6px">${this.av(g.emp,g.uid,26,9)}<span style="font-weight:600;font-size:12.5px">${g.emp.split(' ').slice(0,2).join(' ')}</span></div></td>
+        <td style="font-size:12px;font-weight:600;color:#22c55e">${s1.ci?this.fT(s1.ci):'—'}</td>
+        <td style="font-size:12px;font-weight:600;color:#ef4444">${s1.co?this.fT(s1.co):(s1.ci?this.bg('En curso','#10b981','#ecfdf5'):'—')}</td>
+        <td style="font-size:12px;font-weight:600;color:#22c55e">${s2.ci?this.fT(s2.ci):'—'}</td>
+        <td style="font-size:12px;font-weight:600;color:#ef4444">${s2.co?this.fT(s2.co):(s2.ci?this.bg('En curso','#10b981','#ecfdf5'):'—')}</td>
+        <td style="text-align:right;font-weight:800;font-size:13px;color:${dayTotal>=7?'#22c55e':dayTotal>=4?'#f59e0b':'#ef4444'}">${hasOpen?'⏳':dayTotal.toFixed(1)+'h'}${sl.length>2?` <span style="font-size:10px;color:#9ca3af">(${sl.length} reg)</span>`:''}</td>
+        ${this.isA()?`<td><button class="ft-btn ft-bs ft-bo" style="color:#ff4a6e;font-size:10px" onclick="FichateModule.editRecM(${s1.id||g.ids[0]})">✏️</button></td>`:''}
+      </tr>`}).join('')}</tbody></table>`}</div>`;
+  },
+
+  filterRecEmp(v){
+    const month=document.querySelector('#ft-ct input[type="month"]')?.value||new Date().toISOString().slice(0,7);
+    this.api('records',{params:{month,employee_id:v}}).then(d=>{this.recs=d.records||[];this.renderApp(document.getElementById('main-content'))}).catch(()=>{});
   },
 
   async editRecM(id){
@@ -380,105 +423,128 @@ const FichateModule = {
   reqCalH() {
     const now = this.calMonth || new Date();
     const year = now.getFullYear(), month = now.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDow = (firstDay.getDay() + 6) % 7; // Lunes=0
-    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const MN = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const today = new Date();
 
-    // Filtrar ausencias aprobadas/pendientes del mes
-    const approved = this.reqs.filter(r => r.status === 'approved' || r.status === 'pending');
-    // Agrupar por empleado: { empName: [{start, end, type, status}] }
-    const empMap = {};
-    approved.forEach(r => {
-      const name = r.employee_name || 'Sin nombre';
-      if (!empMap[name]) empMap[name] = { id: r.user_id, absences: [] };
-      empMap[name].absences.push({
-        start: new Date(r.start_date + 'T12:00:00'),
-        end: new Date((r.end_date || r.start_date) + 'T12:00:00'),
-        type: r.type, status: r.status
-      });
-    });
+    // Colores por tipo de ausencia (simplificados para el Gantt)
+    const typeColors = {vacation:'#22c55e',medical_full:'#ef4444',medical_hours:'#f59e0b',personal:'#8b5cf6',maternity:'#14b8a6',training:'#3b82f6',other:'#64748b'};
 
     // Festivos del mes
-    const holSet = new Set(this.hols.filter(h => {
-      const d = new Date(h.date + 'T12:00:00');
-      return d.getFullYear() === year && d.getMonth() === month;
-    }).map(h => new Date(h.date + 'T12:00:00').getDate()));
+    const holDays = new Set();
+    this.hols.forEach(h => {
+      const hd = new Date(String(h.date).includes('T') ? h.date : h.date+'T12:00:00');
+      if (hd.getFullYear()===year && hd.getMonth()===month) holDays.add(hd.getDate());
+    });
 
-    // Cabecera días
-    const dayHeaders = ['L','M','X','J','V','S','D'];
+    // Ausencias aprobadas/pendientes
+    const absences = this.reqs.filter(r => r.status === 'approved' || r.status === 'pending');
 
-    // Construir grid del calendario
-    let calGrid = '';
-    // Fila de cabecera de días
-    calGrid += dayHeaders.map(d => `<div style="text-align:center;font-size:10px;font-weight:700;color:#9ca3af;padding:4px 0">${d}</div>`).join('');
-    // Celdas vacías antes del día 1
-    for (let i = 0; i < startDow; i++) calGrid += '<div></div>';
-    // Días del mes
-    const today = new Date();
-    for (let d = 1; d <= daysInMonth; d++) {
+    // Agrupar por empleado
+    const empMap = {};
+    absences.forEach(r => {
+      const name = r.employee_name || 'Sin nombre';
+      if (!empMap[name]) empMap[name] = {id:r.user_id, items:[]};
+      const sd = String(r.start_date).includes('T') ? new Date(r.start_date) : new Date(r.start_date+'T12:00:00');
+      const ed = String(r.end_date||r.start_date).includes('T') ? new Date(r.end_date||r.start_date) : new Date((r.end_date||r.start_date)+'T12:00:00');
+      empMap[name].items.push({start:sd, end:ed, type:r.type, status:r.status, label:this.AT[r.type]?.l||r.type});
+    });
+    const empNames = Object.keys(empMap).sort();
+
+    // Cabecera: días del mes (solo L-V para limpieza, pero mostramos todos)
+    let dayHeaders = '';
+    for (let d=1; d<=daysInMonth; d++) {
       const dt = new Date(year, month, d);
-      const dow = (dt.getDay() + 6) % 7;
-      const isWe = dow >= 5;
-      const isHol = holSet.has(d);
-      const isToday = dt.toDateString() === today.toDateString();
-      // Contar empleados ausentes este día
-      let absentCount = 0;
-      let absentColors = [];
-      Object.values(empMap).forEach(emp => {
-        emp.absences.forEach(a => {
-          if (dt >= a.start && dt <= a.end) {
-            absentCount++;
-            const tc = this.AT[a.type]?.c || '#64748b';
-            if (!absentColors.includes(tc)) absentColors.push(tc);
-          }
-        });
-      });
-      const bgColor = isToday ? '#fff0f3' : isHol ? '#fef3c7' : isWe ? '#f9fafb' : '#fff';
-      const border = isToday ? '2px solid #ff4a6e' : '1px solid #f0f0f0';
-      calGrid += `<div style="position:relative;text-align:center;padding:6px 2px;border-radius:8px;background:${bgColor};border:${border};min-height:36px;cursor:${absentCount?'pointer':'default'}" ${absentCount?`title="${absentCount} ausencia(s)"`:''}><span style="font-size:12px;font-weight:${isToday?'800':'500'};color:${isHol?'#d97706':isWe?'#9ca3af':'#1a1a2e'}">${d}</span>${absentCount>0?`<div style="display:flex;gap:2px;justify-content:center;margin-top:2px">${absentColors.slice(0,3).map(c=>`<span style="width:6px;height:6px;border-radius:50%;background:${c}"></span>`).join('')}${absentCount>3?`<span style="font-size:8px;color:#9ca3af">+${absentCount-3}</span>`:''}</div>`:''}</div>`;
+      const dow = dt.getDay(); // 0=dom
+      const isWe = dow===0||dow===6;
+      const isHol = holDays.has(d);
+      const isToday = dt.toDateString()===today.toDateString();
+      const dayLetter = ['D','L','M','X','J','V','S'][dow];
+      dayHeaders += `<div style="text-align:center;min-width:28px;padding:2px 0;${isToday?'background:#ff4a6e;color:#fff;border-radius:6px;font-weight:800;':isHol?'color:#d97706;font-weight:700;':isWe?'color:#ccc;':'color:#6b7280;'}">
+        <div style="font-size:9px;font-weight:600;letter-spacing:.3px">${dayLetter}</div>
+        <div style="font-size:11px;font-weight:700">${d}</div>
+      </div>`;
     }
 
-    // Lista de empleados con barras de ausencia (timeline)
-    const empNames = Object.keys(empMap).sort();
-    let timeline = '';
-    if (empNames.length > 0) {
-      timeline = `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ausencias del mes</div>`;
-      empNames.forEach(name => {
-        const emp = empMap[name];
-        let bars = '';
-        emp.absences.forEach(a => {
-          const s = Math.max(1, a.start.getDate());
-          const e = Math.min(daysInMonth, a.end.getDate());
-          if (a.start.getMonth() !== month && a.end.getMonth() !== month) return;
-          const startPct = ((Math.max(s, 1) - 1) / daysInMonth) * 100;
-          const widthPct = ((Math.min(e, daysInMonth) - Math.max(s, 1) + 1) / daysInMonth) * 100;
-          const tc = this.AT[a.type]?.c || '#64748b';
-          const opacity = a.status === 'pending' ? '0.5' : '1';
-          const label = this.AT[a.type]?.l || a.type;
-          bars += `<div style="position:absolute;left:${startPct}%;width:${widthPct}%;height:100%;background:${tc};opacity:${opacity};border-radius:4px" title="${label}: ${s}-${e} ${monthNames[month]} (${a.status==='pending'?'pendiente':'aprobada'})"></div>`;
+    // Filas por empleado — cada celda = día del mes
+    let ganttRows = '';
+    if (empNames.length === 0) {
+      ganttRows = '<div style="padding:20px;text-align:center;color:#9ca3af;font-size:13px;grid-column:1/-1">Sin ausencias este mes</div>';
+    }
+    empNames.forEach(name => {
+      const emp = empMap[name];
+      // Nombre del empleado
+      ganttRows += `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;min-width:140px;flex-shrink:0;border-bottom:1px solid #f5f5f5">
+        ${this.av(name,emp.id,24,9)}
+        <span style="font-size:11.5px;font-weight:600;color:#1a1a2e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${name.split(' ').slice(0,2).join(' ')}</span>
+      </div>`;
+      // Celdas de días
+      let cells = '';
+      for (let d=1; d<=daysInMonth; d++) {
+        const dt = new Date(year, month, d);
+        const dow = dt.getDay();
+        const isWe = dow===0||dow===6;
+        const isHol = holDays.has(d);
+        // Buscar si tiene ausencia este día
+        let cellColor = '';
+        let cellTitle = '';
+        let cellOpacity = '1';
+        emp.items.forEach(a => {
+          if (dt>=a.start && dt<=a.end) {
+            cellColor = typeColors[a.type]||'#64748b';
+            cellTitle = a.label + (a.status==='pending'?' (pendiente)':'');
+            if (a.status==='pending') cellOpacity = '0.55';
+          }
         });
-        timeline += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this.av(name,emp.id,22,8)} <span style="margin-left:4px">${name.split(' ').slice(0,2).join(' ')}</span></div><div style="flex:1;height:18px;background:#f5f5f5;border-radius:4px;position:relative;overflow:hidden">${bars}</div></div>`;
+        const bgStyle = cellColor
+          ? `background:${cellColor};opacity:${cellOpacity}`
+          : isHol ? 'background:#fef3c7' : isWe ? 'background:#f9fafb' : 'background:#fff';
+        cells += `<div style="min-width:28px;height:28px;border-radius:4px;${bgStyle};border:1px solid ${cellColor?cellColor+'33':'#f0f0f0'};transition:transform .1s;cursor:${cellColor?'pointer':'default'}" ${cellTitle?`title="${cellTitle}"`:''} ${cellColor?'onmouseenter="this.style.transform=\'scale(1.15)\'" onmouseleave="this.style.transform=\'scale(1)\'"':''}></div>`;
+      }
+      ganttRows += `<div style="display:flex;gap:2px;align-items:center;border-bottom:1px solid #f5f5f5;padding:4px 0">${cells}</div>`;
+    });
+
+    // Contador de solapamientos por día
+    let overlapRow = '<div style="min-width:140px;flex-shrink:0;padding:4px 0;font-size:10px;font-weight:700;color:#9ca3af">Personas</div>';
+    let overlapCells = '';
+    for (let d=1; d<=daysInMonth; d++) {
+      const dt = new Date(year, month, d);
+      let count = 0;
+      empNames.forEach(name => {
+        emp = empMap[name];
+        emp.items.forEach(a => { if (dt>=a.start && dt<=a.end) count++; });
       });
-      timeline += '</div>';
+      const warn = count>=3 ? '#ef4444' : count>=2 ? '#f59e0b' : count===1 ? '#22c55e' : 'transparent';
+      overlapCells += `<div style="min-width:28px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${count>0?warn:'#e5e7eb'};border-radius:4px;${count>=2?'background:'+warn+'12':''}">${count>0?count:''}</div>`;
     }
 
     // Leyenda
-    const legend = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">${Object.entries(this.AT).map(([k,v])=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#6b7280"><span style="width:8px;height:8px;border-radius:50%;background:${v.c}"></span>${v.l}</div>`).join('')}<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#6b7280"><span style="width:8px;height:8px;border-radius:50%;background:#d97706"></span>Festivo</div></div>`;
+    const legend = Object.entries(this.AT).map(([k,v])=>`<div style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${typeColors[k]||'#64748b'}"></span><span style="font-size:11px;color:#6b7280">${v.l}</span></div>`).join('');
 
-    return `<div class="ft-cd ft-cd-p" style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    return `<div class="ft-cd" style="margin-bottom:16px;overflow:hidden">
+      <div class="ft-cd-h">
         <div style="display:flex;align-items:center;gap:12px">
           <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calNav(-1)">◀</button>
-          <span style="font-weight:800;font-size:16px">${monthNames[month]} ${year}</span>
+          <span style="font-weight:800;font-size:16px">${MN[month]} ${year}</span>
           <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calNav(1)">▶</button>
         </div>
-        <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calMonth=null;FichateModule.renderApp(document.getElementById('main-content'))">Hoy</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calMonth=null;FichateModule.renderApp(document.getElementById('main-content'))">Hoy</button>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${calGrid}</div>
-      ${timeline}
-      ${legend}
+      <div style="overflow-x:auto;padding:12px 16px">
+        <div style="display:grid;grid-template-columns:140px 1fr;gap:0;min-width:fit-content">
+          <div style="min-width:140px"></div>
+          <div style="display:flex;gap:2px;padding-bottom:6px;border-bottom:1px solid #e5e7eb">${dayHeaders}</div>
+          ${ganttRows}
+          ${overlapRow}<div style="display:flex;gap:2px;align-items:center;padding:4px 0;border-top:1px solid #e5e7eb">${overlapCells}</div>
+        </div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid #f3f4f6;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        ${legend}
+        <div style="display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:#fef3c7;border:1px solid #fde68a"></span><span style="font-size:11px;color:#6b7280">Festivo</span></div>
+        <div style="margin-left:auto;font-size:10px;color:#9ca3af">Pendientes = semitransparentes</div>
+      </div>
     </div>`;
   },
 
@@ -527,7 +593,18 @@ const FichateModule = {
   // VISTA: DOCUMENTOS
   // ══════════════════════════════════════
   docH(){
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><select class="ft-inp" style="width:auto" onchange="FichateModule.loadDocsF(this.value)"><option value="all">Todos</option><option value="payroll">Nóminas</option><option value="contract">Contratos</option><option value="certificate">Certificados</option><option value="medical">Médicos</option></select>${this.isA()?'<button class="ft-btn ft-bp" onclick="FichateModule.uploadDocM()">+ Subir</button>':''}</div><div class="ft-cd" style="padding:0;overflow:hidden">${this.docs.length===0?'<div class="ft-empty">Sin documentos</div>':`<table class="ft-tbl"><thead><tr><th>Nombre</th><th>Empleado</th><th>Tipo</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>${this.docs.map(d=>`<tr><td style="font-weight:600">${this.esc(d.name)}</td><td>${d.employee_name||''}</td><td>${this.bg(d.category||'otro','#64748b','#f1f5f9')}</td><td style="font-size:12px;color:#9ca3af">${this.fD(d.date)}</td><td><div style="display:flex;gap:4px"><button class="ft-btn ft-bs ft-bo" style="color:#ff4a6e" onclick="FichateModule.viewDoc(${d.id})">👁</button><button class="ft-btn ft-bs ft-bo" style="color:#22c55e" onclick="FichateModule.dlDoc(${d.id})">⬇</button>${this.isA()?`<button class="ft-btn ft-bs ft-bo" style="color:#ef4444" onclick="FichateModule.delDoc(${d.id})">✕</button>`:''}</div></td></tr>`).join('')}</tbody></table>`}</div>`;
+    const catNames={payroll:'Nómina',contract:'Contrato',certificate:'Certificado',medical:'Médico',other:'Otro'};
+    const isIonos = (d) => d.file_path && (d.file_path.startsWith('uploads/documents/') || d.file_path.startsWith('uploads/fichate_docs/'));
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="ft-inp" style="width:auto" onchange="FichateModule.loadDocsF(this.value)"><option value="all">Todos</option><option value="payroll">Nóminas</option><option value="contract">Contratos</option><option value="certificate">Certificados</option><option value="medical">Médicos</option></select>
+        <span style="font-size:12px;color:#9ca3af;font-weight:600">${this.docs.length} documentos</span>
+      </div>
+      ${this.isA()?'<button class="ft-btn ft-bp" onclick="FichateModule.uploadDocM()">+ Subir</button>':''}
+    </div>
+    <div class="ft-cd" style="padding:0;overflow:hidden">${this.docs.length===0?'<div class="ft-empty">Sin documentos</div>':`<table class="ft-tbl"><thead><tr><th>Nombre</th><th>Empleado</th><th>Tipo</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>${this.docs.map(d=>{
+      const migrated = isIonos(d);
+      return`<tr><td><div style="font-weight:600">${this.esc(d.name)}</div>${migrated?'<div style="font-size:10px;color:#9ca3af;margin-top:2px">Migrado de IONOS</div>':''}</td><td>${d.employee_name||''}</td><td>${this.bg(catNames[d.category]||d.category||'Otro','#64748b','#f1f5f9')}</td><td style="font-size:12px;color:#9ca3af">${this.fD(d.date)}</td><td><div style="display:flex;gap:4px">${migrated?`<span style="font-size:10px;color:#9ca3af;padding:4px 8px">Archivo en IONOS</span>`:`<button class="ft-btn ft-bs ft-bo" style="color:#ff4a6e" onclick="FichateModule.viewDoc(${d.id})">👁</button><button class="ft-btn ft-bs ft-bo" style="color:#22c55e" onclick="FichateModule.dlDoc(${d.id})">⬇</button>`}${this.isA()?`<button class="ft-btn ft-bs ft-bo" style="color:#ef4444" onclick="FichateModule.delDoc(${d.id})">✕</button>`:''}</div></td></tr>`}).join('')}</tbody></table>`}</div>`;
   },
 
   async loadDocsF(cat){try{const p=cat&&cat!=='all'?{category:cat}:{};this.docs=(await this.api('documents',{params:p})).documents||[];this.renderApp(document.getElementById('main-content'))}catch(e){}},
