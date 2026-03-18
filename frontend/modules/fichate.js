@@ -374,10 +374,125 @@ const FichateModule = {
   // ══════════════════════════════════════
   // VISTA: AUSENCIAS
   // ══════════════════════════════════════
+  // Estado del calendario de ausencias
+  calMonth: null,
+
+  reqCalH() {
+    const now = this.calMonth || new Date();
+    const year = now.getFullYear(), month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDow = (firstDay.getDay() + 6) % 7; // Lunes=0
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+    // Filtrar ausencias aprobadas/pendientes del mes
+    const approved = this.reqs.filter(r => r.status === 'approved' || r.status === 'pending');
+    // Agrupar por empleado: { empName: [{start, end, type, status}] }
+    const empMap = {};
+    approved.forEach(r => {
+      const name = r.employee_name || 'Sin nombre';
+      if (!empMap[name]) empMap[name] = { id: r.user_id, absences: [] };
+      empMap[name].absences.push({
+        start: new Date(r.start_date + 'T12:00:00'),
+        end: new Date((r.end_date || r.start_date) + 'T12:00:00'),
+        type: r.type, status: r.status
+      });
+    });
+
+    // Festivos del mes
+    const holSet = new Set(this.hols.filter(h => {
+      const d = new Date(h.date + 'T12:00:00');
+      return d.getFullYear() === year && d.getMonth() === month;
+    }).map(h => new Date(h.date + 'T12:00:00').getDate()));
+
+    // Cabecera días
+    const dayHeaders = ['L','M','X','J','V','S','D'];
+
+    // Construir grid del calendario
+    let calGrid = '';
+    // Fila de cabecera de días
+    calGrid += dayHeaders.map(d => `<div style="text-align:center;font-size:10px;font-weight:700;color:#9ca3af;padding:4px 0">${d}</div>`).join('');
+    // Celdas vacías antes del día 1
+    for (let i = 0; i < startDow; i++) calGrid += '<div></div>';
+    // Días del mes
+    const today = new Date();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month, d);
+      const dow = (dt.getDay() + 6) % 7;
+      const isWe = dow >= 5;
+      const isHol = holSet.has(d);
+      const isToday = dt.toDateString() === today.toDateString();
+      // Contar empleados ausentes este día
+      let absentCount = 0;
+      let absentColors = [];
+      Object.values(empMap).forEach(emp => {
+        emp.absences.forEach(a => {
+          if (dt >= a.start && dt <= a.end) {
+            absentCount++;
+            const tc = this.AT[a.type]?.c || '#64748b';
+            if (!absentColors.includes(tc)) absentColors.push(tc);
+          }
+        });
+      });
+      const bgColor = isToday ? '#fff0f3' : isHol ? '#fef3c7' : isWe ? '#f9fafb' : '#fff';
+      const border = isToday ? '2px solid #ff4a6e' : '1px solid #f0f0f0';
+      calGrid += `<div style="position:relative;text-align:center;padding:6px 2px;border-radius:8px;background:${bgColor};border:${border};min-height:36px;cursor:${absentCount?'pointer':'default'}" ${absentCount?`title="${absentCount} ausencia(s)"`:''}><span style="font-size:12px;font-weight:${isToday?'800':'500'};color:${isHol?'#d97706':isWe?'#9ca3af':'#1a1a2e'}">${d}</span>${absentCount>0?`<div style="display:flex;gap:2px;justify-content:center;margin-top:2px">${absentColors.slice(0,3).map(c=>`<span style="width:6px;height:6px;border-radius:50%;background:${c}"></span>`).join('')}${absentCount>3?`<span style="font-size:8px;color:#9ca3af">+${absentCount-3}</span>`:''}</div>`:''}</div>`;
+    }
+
+    // Lista de empleados con barras de ausencia (timeline)
+    const empNames = Object.keys(empMap).sort();
+    let timeline = '';
+    if (empNames.length > 0) {
+      timeline = `<div style="margin-top:16px"><div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ausencias del mes</div>`;
+      empNames.forEach(name => {
+        const emp = empMap[name];
+        let bars = '';
+        emp.absences.forEach(a => {
+          const s = Math.max(1, a.start.getDate());
+          const e = Math.min(daysInMonth, a.end.getDate());
+          if (a.start.getMonth() !== month && a.end.getMonth() !== month) return;
+          const startPct = ((Math.max(s, 1) - 1) / daysInMonth) * 100;
+          const widthPct = ((Math.min(e, daysInMonth) - Math.max(s, 1) + 1) / daysInMonth) * 100;
+          const tc = this.AT[a.type]?.c || '#64748b';
+          const opacity = a.status === 'pending' ? '0.5' : '1';
+          const label = this.AT[a.type]?.l || a.type;
+          bars += `<div style="position:absolute;left:${startPct}%;width:${widthPct}%;height:100%;background:${tc};opacity:${opacity};border-radius:4px" title="${label}: ${s}-${e} ${monthNames[month]} (${a.status==='pending'?'pendiente':'aprobada'})"></div>`;
+        });
+        timeline += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><div style="width:140px;flex-shrink:0;font-size:12px;font-weight:600;color:#1a1a2e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${this.av(name,emp.id,22,8)} <span style="margin-left:4px">${name.split(' ').slice(0,2).join(' ')}</span></div><div style="flex:1;height:18px;background:#f5f5f5;border-radius:4px;position:relative;overflow:hidden">${bars}</div></div>`;
+      });
+      timeline += '</div>';
+    }
+
+    // Leyenda
+    const legend = `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">${Object.entries(this.AT).map(([k,v])=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#6b7280"><span style="width:8px;height:8px;border-radius:50%;background:${v.c}"></span>${v.l}</div>`).join('')}<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#6b7280"><span style="width:8px;height:8px;border-radius:50%;background:#d97706"></span>Festivo</div></div>`;
+
+    return `<div class="ft-cd ft-cd-p" style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calNav(-1)">◀</button>
+          <span style="font-weight:800;font-size:16px">${monthNames[month]} ${year}</span>
+          <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calNav(1)">▶</button>
+        </div>
+        <button class="ft-btn ft-bo ft-bs" onclick="FichateModule.calMonth=null;FichateModule.renderApp(document.getElementById('main-content'))">Hoy</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${calGrid}</div>
+      ${timeline}
+      ${legend}
+    </div>`;
+  },
+
+  calNav(dir) {
+    const now = this.calMonth || new Date();
+    this.calMonth = new Date(now.getFullYear(), now.getMonth() + dir, 1);
+    this.renderApp(document.getElementById('main-content'));
+  },
+
   reqH(){
+    const calendar = this.isA() ? this.reqCalH() : '';
     const reqList=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><select class="ft-inp" style="width:auto" onchange="FichateModule.loadReqs(this.value)"><option value="all">Todas</option><option value="pending">Pendientes</option><option value="approved">Aprobadas</option><option value="rejected">Rechazadas</option></select><button class="ft-btn ft-bp" onclick="FichateModule.newReqM()">+ Solicitud</button></div><div class="ft-cd" style="padding:0;overflow:hidden">${this.reqs.length===0?'<div class="ft-empty">Sin solicitudes</div>':`<table class="ft-tbl"><thead><tr><th>Empleado</th><th>Tipo</th><th>Fechas</th><th>Estado</th>${this.isA()?'<th>Acciones</th>':''}</tr></thead><tbody>${this.reqs.map(r=>{const t=this.AT[r.type]||{l:r.type,c:'#64748b'};const s=this.SM[r.status]||{};return`<tr><td style="font-weight:600">${r.employee_name||''}</td><td>${this.bg(t.l,t.c)}</td><td style="font-size:12px;color:#6b7280">${r.partial==1?this.fD(r.start_date)+' '+(r.time_from||'')+'→'+(r.time_to||''):this.fD(r.start_date)+(r.end_date&&r.end_date!==r.start_date?' → '+this.fD(r.end_date):'')}</td><td>${this.bg(s.l||r.status,s.c||'#64748b',s.b||'#f1f5f9')}</td>${this.isA()&&r.status==='pending'?`<td><div style="display:flex;gap:3px"><button class="ft-btn ft-bg2 ft-bs" onclick="FichateModule.reviewReq(${r.id},'approved')">Aprobar</button><button class="ft-btn ft-bs ft-bo" style="color:#ef4444" onclick="FichateModule.rejectModal(${r.id})">Rechazar</button></div></td>`:(this.isA()?'<td style="color:#9ca3af">—</td>':'')}</tr>`}).join('')}</tbody></table>`}</div>`;
 
-    return reqList;
+    return calendar + reqList;
   },
 
   async reviewReq(id,st){try{await this.api('request_review',{method:'PUT',params:{id},body:{status:st}});this.loadReqs();if(this.isA())this.render()}catch(e){alert(e.message)}},
