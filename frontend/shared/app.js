@@ -111,7 +111,11 @@ const App = {
       usuarios: () => this.renderUsuarios(),
       fichate: () => FichateModule.render(),
       llamada: () => LlamadaModule.render(),
-      calculadora: () => CalculadoraModule.render(),
+      calculadora: () => {
+        container.style.padding = '0';
+        container.style.overflow = 'hidden';
+        container.innerHTML = '<iframe src="/calculadora/index.html" style="width:100%;height:calc(100vh - 60px);border:none;"></iframe>';
+      },
       grabaciones: () => this.renderGrabacionesList(),
       leads: () => PipelineModule.render(),
       pipeline: () => PipelineModule.render(),

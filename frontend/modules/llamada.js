@@ -433,9 +433,9 @@ const LlamadaModule = {
   _renderTabCalc() {
     setTimeout(() => {
       const container = document.getElementById('ll-sec-calc');
-      if (container && this.contact) {
-        CalculadoraModule.personaId = this.contact.id || null;
-        CalculadoraModule.render(container);
+      if (container) {
+        const dealParam = this.contact?.pipedrive_deal_id ? `?deal_id=${this.contact.pipedrive_deal_id}` : '';
+        container.innerHTML = `<iframe src="/calculadora/index.html${dealParam}" style="width:100%;height:calc(100vh - 200px);border:none;border-radius:12px;"></iframe>`;
       }
     }, 0);
     return '<div style="padding:8px;">Cargando calculadora...</div>';
