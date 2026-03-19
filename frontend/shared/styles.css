@@ -38,14 +38,38 @@ body {
 /* === Sidebar === */
 
 .sidebar {
-  width: 260px;
+  width: 220px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   padding: 24px 0;
   flex-shrink: 0;
+  transition: width 0.2s ease;
+  overflow: hidden;
 }
+.sidebar.collapsed {
+  width: 52px;
+}
+.sidebar.collapsed .sidebar-logo,
+.sidebar.collapsed .sidebar-footer,
+.sidebar.collapsed .notif-badge { display: none; }
+.sidebar.collapsed .sidebar-link { justify-content: center; padding: 12px 8px; }
+.sidebar.collapsed .sidebar-link span:not(.icon) { display: none; }
+.sidebar-toggle {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-light);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+.sidebar-toggle:hover { background: var(--bg); }
+.sidebar-toggle svg { transition: transform 0.2s; }
+.sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
 
 .sidebar-logo {
   padding: 0 24px 24px;

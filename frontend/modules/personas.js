@@ -158,80 +158,141 @@ const PersonasModule = {
     }
   },
 
+  _ini(n) { return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); },
+  _hu(id) { return (id*47)%360; },
+
   renderFicha(p) {
     const container = document.getElementById('main-content');
+    container.style.padding = '0';
+    container.style.overflow = 'hidden';
 
     const polizasActivas = (p.deals || []).filter(d => d.estado === 'poliza_activa');
     const dealsAbiertos = (p.deals || []).filter(d => d.estado === 'en_tramite');
     const otrosDeals = (p.deals || []).filter(d => !['poliza_activa', 'en_tramite'].includes(d.estado));
+    const familiares = p.familiares || [];
+    const notas = p.notas || [];
+    const tickets = p.tickets || [];
+
+    // Pipeline info del deal más reciente
+    const activeDeal = dealsAbiertos[0] || (p.deals||[])[0];
+    const pipelineName = activeDeal?.pipedrive_stage || '';
+    const agenteName = activeDeal?.pipedrive_owner || '';
 
     container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
-        <button class="btn btn-secondary btn-sm" id="btn-back-personas">← Volver</button>
-        <h1 class="page-title" style="margin-bottom:0;flex:1;">${this._esc(p.nombre || 'Sin nombre')}</h1>
-        <button class="btn btn-secondary btn-sm" id="btn-edit-persona">Editar</button>
-        ${p.pipedrive_person_id ? `<a href="https://avantssl.pipedrive.com/person/${p.pipedrive_person_id}" target="_blank" class="btn btn-secondary btn-sm">Abrir en Pipedrive</a>` : ''}
-      </div>
+      <div style="display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;">
 
-      <!-- Datos principales -->
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">DNI/NIF</span>
-            <p style="font-weight:600;">${p.dni || '—'}</p>
+        <!-- CONTACT HEADER -->
+        <div style="background:#fff;border-bottom:1px solid #e8edf2;padding:14px 20px 0;flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+            <button id="btn-back-personas" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+              Contactos
+            </button>
+            <div style="font-size:20px;font-weight:800;flex:1;">${this._esc(p.nombre || 'Sin nombre')}</div>
+            ${p.pipedrive_person_id ? `<a href="https://avantssl.pipedrive.com/person/${p.pipedrive_person_id}" target="_blank" style="padding:5px 10px;border-radius:8px;border:1px solid #e8edf2;font-size:11px;font-weight:600;color:#94a3b8;text-decoration:none">Pipedrive ↗</a>` : ''}
+            <button id="btn-edit-persona" style="padding:5px 10px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:11px;font-weight:600;color:#475569;cursor:pointer">✏️ Editar</button>
+            <button style="padding:7px 16px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700" onclick="App.navigate('grabaciones')">✓ Ganado</button>
+            <button style="padding:7px 16px;border-radius:8px;border:1px solid #ef4444;background:#fff;color:#ef4444;cursor:pointer;font-size:12px;font-weight:700">✕ Perdido</button>
           </div>
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">Teléfono</span>
-            <p style="font-weight:600;">${p.telefono || '—'}</p>
-          </div>
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">Email</span>
-            <p style="font-weight:600;">${p.email || '—'}</p>
-          </div>
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">Fecha nacimiento</span>
-            <p style="font-weight:600;">${p.fecha_nacimiento ? new Date(p.fecha_nacimiento).toLocaleDateString('es-ES') : '—'}</p>
-          </div>
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">Dirección</span>
-            <p style="font-weight:600;">${this._esc(p.direccion || '—')}</p>
-          </div>
-          <div>
-            <span class="text-light" style="font-size:12px;text-transform:uppercase;">Nacionalidad</span>
-            <p style="font-weight:600;">${p.nacionalidad || '—'}</p>
+          ${pipelineName ? `<div style="font-size:10px;color:#94a3b8;margin-bottom:6px">PIPELINE → <strong style="color:var(--accent)">${this._esc(pipelineName)}</strong></div>` : ''}
+
+          <!-- TABS -->
+          <div style="display:flex;gap:2px;border-top:1px solid #e8edf2;" id="persona-tabs">
+            <button class="tab-btn active" data-tab="grabaciones" style="padding:10px 16px;font-size:12px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;">Pólizas</button>
+            <button class="tab-btn" data-tab="deals" style="padding:10px 16px;font-size:12px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;">Oportunidades (${dealsAbiertos.length})</button>
+            <button class="tab-btn" data-tab="tramites" style="padding:10px 16px;font-size:12px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;">Trámites (${tickets.length})</button>
+            <button class="tab-btn" data-tab="familiares" style="padding:10px 16px;font-size:12px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;">Familiares (${familiares.length})</button>
+            <button class="tab-btn" data-tab="notas" style="padding:10px 16px;font-size:12px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;">Notas (${notas.length})</button>
+            <div style="flex:1"></div>
+            <div style="display:flex;gap:6px;align-items:center;padding:4px 0;">
+              <button onclick="window.open('/calculadora/index.html${activeDeal?.pipedrive_deal_id?'?deal_id='+activeDeal.pipedrive_deal_id:''}','_blank')" style="padding:7px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px">🖩 Calculadora</button>
+              <button onclick="App.navigate('grabaciones')" style="padding:7px 14px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px">🎙 Grabar</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Tabs + Acciones -->
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <div class="tabs" id="persona-tabs" style="margin-bottom:0;flex:1;">
-          <button class="tab-btn active" data-tab="grabaciones">Pólizas</button>
-          <button class="tab-btn" data-tab="polizas">Pólizas (legacy) (${polizasActivas.length})</button>
-          <button class="tab-btn" data-tab="deals">Oportunidades (${dealsAbiertos.length})</button>
-          <button class="tab-btn" data-tab="tramites">Trámites (${(p.tickets || []).length})</button>
-          <button class="tab-btn" data-tab="familiares">Familiares (${(p.familiares || []).length})</button>
-          <button class="tab-btn" data-tab="historial">Historial (${otrosDeals.length})</button>
-          <button class="tab-btn" data-tab="notas">Notas (${(p.notas || []).length})</button>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button class="btn btn-primary btn-sm" onclick="window.open('/calculadora/index.html${p.pipedrive_deal_id?'?deal_id='+p.pipedrive_deal_id:''}','_blank')" style="font-size:12px;">🖩 Calculadora</button>
-          <button class="btn btn-sm" onclick="App.navigate('grabaciones')" style="font-size:12px;background:#10b981;color:#fff;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;">🎙 Grabar</button>
+        <!-- BODY: 2 columnas -->
+        <div style="flex:1;display:flex;overflow:hidden;">
+
+          <!-- PANEL IZQUIERDO 280px -->
+          <div style="width:280px;flex-shrink:0;border-right:1px solid #e8edf2;overflow-y:auto;background:#fff;">
+
+            <!-- Datos personales -->
+            <div style="border-bottom:1px solid #e8edf2;padding:14px 16px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px">Datos personales</div>
+              ${[['DNI',p.dni],['Teléfono',p.telefono],['Email',p.email],['F. Nacimiento',p.fecha_nacimiento?new Date(p.fecha_nacimiento).toLocaleDateString('es-ES'):null],['Dirección',p.direccion],['Nacionalidad',p.nacionalidad],['Creado',p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):null]].map(([l,v])=>`<div style="display:flex;gap:8px;margin-bottom:6px"><div style="font-size:10px;font-weight:600;color:#94a3b8;min-width:80px;text-transform:uppercase;letter-spacing:.3px">${l}</div><div style="font-size:12px;color:#0f172a;font-weight:500;flex:1;word-break:break-word">${this._esc(v||'—')}</div></div>`).join('')}
+            </div>
+
+            <!-- Asegurados/Familiares -->
+            <div style="border-bottom:1px solid #e8edf2;padding:14px 16px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px">Asegurados (${familiares.length})</div>
+              ${familiares.length===0?'<div style="font-size:12px;color:#94a3b8">Sin familiares registrados</div>':''}
+              ${familiares.map(f=>`<div style="background:#f4f6f9;border-radius:8px;padding:8px 10px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <div style="width:20px;height:20px;border-radius:50%;background:hsl(${this._hu(f.id)},55%,55%);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff">${this._ini(f.nombre)}</div>
+                  <div style="font-size:11px;font-weight:700;flex:1">${this._esc(f.nombre)}</div>
+                  <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:#e6f5fc;color:var(--accent)">${f.parentesco||'Familiar'}</span>
+                </div>
+                <div style="font-size:10px;color:#94a3b8;display:flex;gap:8px">
+                  ${f.fecha_nacimiento?`<span>${new Date(f.fecha_nacimiento).toLocaleDateString('es-ES')}</span>`:''}
+                  ${f.dni?`<span>${f.dni}</span>`:''}
+                </div>
+              </div>`).join('')}
+            </div>
+
+            <!-- Pólizas activas -->
+            <div style="border-bottom:1px solid #e8edf2;padding:14px 16px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px">Seguros actuales (${polizasActivas.length})</div>
+              ${polizasActivas.length===0?'<div style="font-size:12px;color:#94a3b8">Sin pólizas activas</div>':''}
+              ${polizasActivas.map(d=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #e8edf2">
+                <span style="font-size:14px">🏥</span>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:10px;color:#94a3b8">${d.poliza||'Sin nº póliza'}</div></div>
+                ${d.prima?`<div style="font-size:12px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
+              </div>`).join('')}
+            </div>
+
+            <!-- Oportunidades -->
+            <div style="padding:14px 16px;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px">Oportunidades (${dealsAbiertos.length})</div>
+              ${dealsAbiertos.length===0?'<div style="font-size:12px;color:#94a3b8">Sin oportunidades abiertas</div>':''}
+              ${dealsAbiertos.map(d=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #e8edf2">
+                <span style="font-size:14px">🎯</span>
+                <div style="flex:1"><div style="font-size:11px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:10px;color:#94a3b8">${d.pipedrive_stage||d.estado||''}</div></div>
+                ${d.prima?`<div style="font-size:12px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
+              </div>`).join('')}
+            </div>
+          </div>
+
+          <!-- PANEL CENTRO -->
+          <div style="flex:1;overflow-y:auto;padding:16px 20px;min-width:0;" id="persona-tab-content"></div>
+
         </div>
       </div>
-
-      <div id="persona-tab-content" class="card"></div>
     `;
 
     // Event listeners
-    document.getElementById('btn-back-personas').addEventListener('click', () => this.render());
+    document.getElementById('btn-back-personas').addEventListener('click', () => {
+      container.style.padding = '';
+      container.style.overflow = '';
+      this.render();
+    });
     document.getElementById('btn-edit-persona').addEventListener('click', () => this.showPersonaForm(p));
+
+    // Tab styling
+    const setActiveTab = (btn) => {
+      document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => {
+        b.style.color = '#94a3b8';
+        b.style.borderBottomColor = 'transparent';
+      });
+      btn.style.color = 'var(--accent)';
+      btn.style.borderBottomColor = 'var(--accent)';
+    };
+    setActiveTab(document.querySelector('#persona-tabs .tab-btn'));
 
     document.getElementById('persona-tabs').addEventListener('click', (e) => {
       const btn = e.target.closest('.tab-btn');
       if (!btn) return;
-      document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      setActiveTab(btn);
       this.renderTab(btn.dataset.tab, p);
     });
 
