@@ -292,10 +292,32 @@ const PipelineModule = {
       : prod.toLowerCase().includes('deces') ? 'background:#f5f3ff;color:#8b5cf6'
       : 'background:#eff6ff;color:#3b82f6';
 
-    return `<div class="pl-card" draggable="true" data-deal-id="${d.id}" onclick="PipelineModule.showDealModal(${d.id})" data-agent-id="${d.agente_id||''}">
+    // Indicador de actividad: basado en next_activity_date o updated_at
+    const nextAct = d.next_activity_date ? new Date(d.next_activity_date) : null;
+    const now = new Date();
+    let actColor, actTitle;
+    if (!nextAct) {
+      actColor = '#f59e0b'; actTitle = 'Sin próxima llamada';  // Amarillo triángulo
+    } else {
+      const diffH = (nextAct - now) / 3600000;
+      if (diffH < 0) { actColor = '#ef4444'; actTitle = 'Llamada vencida'; }       // Rojo
+      else if (diffH <= 2) { actColor = '#22c55e'; actTitle = 'Llamada < 2h'; }     // Verde
+      else { actColor = '#94a3b8'; actTitle = 'Llamada > 2h'; }                      // Gris
+    }
+    const actIndicator = !nextAct
+      ? `<div title="${actTitle}" style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #f59e0b;flex-shrink:0"></div>`
+      : `<div title="${actTitle}" style="width:10px;height:10px;border-radius:50%;background:${actColor};flex-shrink:0"></div>`;
+
+    // Click → abrir ficha contacto directamente
+    const onclick = d.persona_id
+      ? `App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),300)`
+      : `PipelineModule.showDealModal(${d.id})`;
+
+    return `<div class="pl-card" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
       <div class="pl-card-contact">
         <div class="pl-card-av" style="background:${color}">${this.ini(name)}</div>
-        <div class="pl-card-name">${this.esc(name)}</div>
+        <div class="pl-card-name" style="flex:1">${this.esc(name)}</div>
+        ${actIndicator}
       </div>
       ${prod ? `<div class="pl-card-prod" style="${prodClass}">${this.esc(prod)}</div>` : ''}
       <div class="pl-card-foot">

@@ -142,6 +142,7 @@ router.get('/:id/board', async (req, res) => {
       SELECT d.id, d.persona_id, d.pipeline_id, d.stage_id, d.agente_id,
         d.producto, d.compania, d.prima, d.pipedrive_status, d.stage_entered_at,
         d.created_at, d.datos_extra,
+        d.datos_extra->>'next_activity_date' as next_activity_date,
         p.nombre as persona_nombre, p.telefono as persona_telefono, p.email as persona_email,
         u.nombre as agente_nombre,
         EXTRACT(DAY FROM NOW() - COALESCE(d.stage_entered_at, d.created_at))::int as days_in_stage

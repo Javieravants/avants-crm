@@ -203,15 +203,21 @@ const PersonasModule = {
         </div>
       </div>
 
-      <!-- Tabs -->
-      <div class="tabs" id="persona-tabs" style="margin-bottom:16px;">
-        <button class="tab-btn active" data-tab="grabaciones">Pólizas</button>
-        <button class="tab-btn" data-tab="polizas">Pólizas (legacy) (${polizasActivas.length})</button>
-        <button class="tab-btn" data-tab="deals">Oportunidades (${dealsAbiertos.length})</button>
-        <button class="tab-btn" data-tab="tramites">Trámites (${(p.tickets || []).length})</button>
-        <button class="tab-btn" data-tab="familiares">Familiares (${(p.familiares || []).length})</button>
-        <button class="tab-btn" data-tab="historial">Historial (${otrosDeals.length})</button>
-        <button class="tab-btn" data-tab="notas">Notas (${(p.notas || []).length})</button>
+      <!-- Tabs + Acciones -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="tabs" id="persona-tabs" style="margin-bottom:0;flex:1;">
+          <button class="tab-btn active" data-tab="grabaciones">Pólizas</button>
+          <button class="tab-btn" data-tab="polizas">Pólizas (legacy) (${polizasActivas.length})</button>
+          <button class="tab-btn" data-tab="deals">Oportunidades (${dealsAbiertos.length})</button>
+          <button class="tab-btn" data-tab="tramites">Trámites (${(p.tickets || []).length})</button>
+          <button class="tab-btn" data-tab="familiares">Familiares (${(p.familiares || []).length})</button>
+          <button class="tab-btn" data-tab="historial">Historial (${otrosDeals.length})</button>
+          <button class="tab-btn" data-tab="notas">Notas (${(p.notas || []).length})</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button class="btn btn-primary btn-sm" onclick="window.open('/calculadora/index.html${p.pipedrive_deal_id?'?deal_id='+p.pipedrive_deal_id:''}','_blank')" style="font-size:12px;">🖩 Calculadora</button>
+          <button class="btn btn-sm" onclick="App.navigate('grabaciones')" style="font-size:12px;background:#10b981;color:#fff;border:none;border-radius:8px;padding:6px 12px;cursor:pointer;">🎙 Grabar</button>
+        </div>
       </div>
 
       <div id="persona-tab-content" class="card"></div>
