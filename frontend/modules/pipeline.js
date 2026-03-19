@@ -125,6 +125,8 @@ const PipelineModule = {
   renderShell(c) {
     const pl = this.currentPipeline;
     const adm = Auth.hasRole('admin', 'supervisor');
+    const selAgent = this.agentFilter ? this.agents.find(a=>a.id===this.agentFilter) : null;
+    const agentBtnLabel = selAgent ? `<div class="pl-chip-av" style="background:hsl(${this.hu(selAgent.id)},55%,55%)">${this.ini(selAgent.nombre)}</div> ${selAgent.nombre.split(' ')[0]}` : 'Todos los agentes';
 
     c.innerHTML = `<div class="pl-wrap">
       <div class="pl-toolbar" id="pl-toolbar">
@@ -142,30 +144,70 @@ const PipelineModule = {
               <span style="font-size:11px;color:#94a3b8">${p.deal_count||0}</span>
               ${p.id===pl?.id?'<span style="color:#009DDD">✓</span>':''}
             </div>`).join('')}
+            ${adm?'<div style="height:1px;background:#e8edf2;margin:4px 0"></div><div class="pl-dd-item" onclick="PipelineModule.newPipelinePrompt()" style="color:#009DDD;font-weight:700">+ Nuevo embudo</div>':''}
           </div>
         </div>
         ${adm?'<button class="pl-edit-btn" onclick="PipelineModule.toggleEdit()" title="Editar pipeline">✏️</button>':''}
         <div class="pl-sep"></div>
-        <div class="pl-agents" id="pl-agents">
-          <div class="pl-chip on" onclick="PipelineModule.filterAgent(null,this)">Todos</div>
-          ${this.agents.slice(0,10).map(a=>`<div class="pl-chip" onclick="PipelineModule.filterAgent(${a.id},this)">
-            <div class="pl-chip-av" style="background:hsl(${this.hu(a.id)},55%,55%)">${this.ini(a.nombre)}</div>
-            ${a.nombre.split(' ')[0]}
-          </div>`).join('')}
+        <div style="flex:1"></div>
+        <div class="pl-emb-wrap" id="pl-ag-wrap">
+          <button class="pl-emb-btn" onclick="PipelineModule.toggleAgDD()" style="font-weight:500;font-size:12px">
+            ${agentBtnLabel}
+            <span style="font-size:10px;color:#94a3b8">▼</span>
+          </button>
+          <div class="pl-emb-dd" id="pl-ag-dd" style="right:0;left:auto">
+            <div class="pl-dd-item ${!this.agentFilter?'active':''}" onclick="PipelineModule.filterAgent(null)">
+              <span style="flex:1">Todos los agentes</span>
+              ${!this.agentFilter?'<span style="color:#009DDD">✓</span>':''}
+            </div>
+            <div style="height:1px;background:#e8edf2;margin:4px 0"></div>
+            ${this.agents.map(a=>`<div class="pl-dd-item ${this.agentFilter===a.id?'active':''}" onclick="PipelineModule.filterAgent(${a.id})">
+              <div class="pl-chip-av" style="background:hsl(${this.hu(a.id)},55%,55%)">${this.ini(a.nombre)}</div>
+              <span style="flex:1">${this.esc(a.nombre)}</span>
+              ${this.agentFilter===a.id?'<span style="color:#009DDD">✓</span>':''}
+            </div>`).join('')}
+          </div>
         </div>
-        <button class="pl-btn-new" onclick="PipelineModule.showNewDeal()">+ Nuevo</button>
       </div>
+      ${this.editMode?`<div class="pl-edit-hd" id="pl-edit-hd">
+        <span style="font-size:12px;font-weight:600;color:#94a3b8">Editando:</span>
+        <input class="pl-edit-input" id="pl-edit-name" value="${this.esc(pl?.name||'')}" onchange="PipelineModule.renamePipeline(this.value)">
+        <div style="flex:1"></div>
+        <button class="pl-emb-btn" style="font-size:12px" onclick="PipelineModule.toggleEdit()">Cancelar</button>
+        <button style="padding:8px 16px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit" onclick="PipelineModule.toggleEdit()">Listo</button>
+      </div>`:''}
       <div class="pl-stats" id="pl-stats"></div>
       <div class="pl-board" id="pl-board"><div class="pl-empty">Cargando pipeline...</div></div>
     </div>`;
 
-    // Cerrar dropdown al hacer click fuera
+    // Cerrar dropdowns al hacer click fuera
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('#pl-emb-wrap')) {
-        const dd = document.getElementById('pl-emb-dd');
-        if (dd) dd.classList.remove('open');
-      }
+      if (!e.target.closest('#pl-emb-wrap')) document.getElementById('pl-emb-dd')?.classList.remove('open');
+      if (!e.target.closest('#pl-ag-wrap')) document.getElementById('pl-ag-dd')?.classList.remove('open');
     });
+  },
+
+  toggleAgDD() {
+    document.getElementById('pl-ag-dd')?.classList.toggle('open');
+    document.getElementById('pl-emb-dd')?.classList.remove('open');
+  },
+
+  async newPipelinePrompt() {
+    document.getElementById('pl-emb-dd')?.classList.remove('open');
+    const name = prompt('Nombre del nuevo embudo:');
+    if (!name) return;
+    try {
+      const r = await API.post('/pipeline', { name });
+      await this.render();
+    } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  async renamePipeline(name) {
+    if (!name || !this.currentPipeline) return;
+    try {
+      await API.patch(`/pipeline/${this.currentPipeline.id}`, { name });
+      this.currentPipeline.name = name;
+    } catch(e) { alert('Error: ' + e.message); }
   },
 
   toggleDD() {
@@ -203,11 +245,7 @@ const PipelineModule = {
   renderStats(stats) {
     const el = document.getElementById('pl-stats');
     if (!el) return;
-    el.innerHTML = `
-      <div>Pipeline: <span class="pl-stat-val">${stats.total} deals</span></div>
-      ${(stats.by_stage||[]).slice(0,6).map(s=>`<div>${s.name}: <span class="pl-stat-val">${s.c}</span></div>`).join('')}
-      ${stats.stale>0?`<div>⚠️ Sin mover +7d: <span class="pl-stat-val" style="color:#ef4444">${stats.stale}</span></div>`:''}
-    `;
+    el.innerHTML = `<div><span class="pl-stat-val">${stats.total}</span> contactos en este embudo</div>`;
   },
 
   renderBoard() {
@@ -223,11 +261,16 @@ const PipelineModule = {
 
     board.innerHTML = this.stages.map((s,i) => `
       <div class="pl-col" data-stage-id="${s.id}">
-        <div class="pl-col-hd">
+        ${this.editMode ? `<div style="padding:10px;background:#fff;border-bottom:1px solid #e8edf2">
+          <input class="pl-edit-input" value="${this.esc(s.name)}" style="width:100%;margin-bottom:6px" onchange="PipelineModule.renameStage(${s.id},this.value)">
+          <div style="display:flex;gap:4px">
+            <button style="flex:1;padding:4px;border-radius:6px;border:1px solid #ef4444;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:10px;font-weight:600;font-family:inherit" onclick="PipelineModule.deleteStage(${s.id})">Eliminar</button>
+          </div>
+        </div>` : `<div class="pl-col-hd">
           <div class="pl-col-dot" style="background:${s.color||colColors[i%colColors.length]}"></div>
           <div class="pl-col-name">${this.esc(s.name)}</div>
           <div class="pl-col-count">${s.deals.length}</div>
-        </div>
+        </div>`}
         <div class="pl-col-cards" data-stage-id="${s.id}">
           ${s.deals.map(d => this.renderCard(d)).join('')}
         </div>
@@ -320,21 +363,12 @@ const PipelineModule = {
   // ══════════════════════════════════════
   // FILTRO POR AGENTE
   // ══════════════════════════════════════
-  filterAgent(id, el) {
+  filterAgent(id) {
     this.agentFilter = id;
-    document.querySelectorAll('.pl-chip').forEach(c => c.classList.remove('on'));
-    if (el) el.classList.add('on');
-    // Filtro client-side para no refetchar
-    document.querySelectorAll('.pl-card').forEach(card => {
-      const agId = card.dataset.agentId;
-      card.style.display = (!id || agId == id) ? '' : 'none';
-    });
-    // Actualizar contadores
-    document.querySelectorAll('.pl-col').forEach(c => {
-      const cnt = c.querySelector('.pl-col-count');
-      const cards = c.querySelector('.pl-col-cards');
-      if (cnt && cards) cnt.textContent = cards.querySelectorAll('.pl-card:not([style*="display: none"])').length;
-    });
+    document.getElementById('pl-ag-dd')?.classList.remove('open');
+    // Re-render shell para actualizar botón del agente, luego recargar board
+    this.renderShell(document.getElementById('main-content'));
+    if (this.currentPipeline) this.loadBoard();
   },
 
   // ══════════════════════════════════════
@@ -447,7 +481,9 @@ const PipelineModule = {
   // ══════════════════════════════════════
   toggleEdit() {
     this.editMode = !this.editMode;
-    this.renderBoard();
+    // Re-render completo para mostrar/ocultar toolbar de edición
+    this.renderShell(document.getElementById('main-content'));
+    if (this.currentPipeline) this.loadBoard();
   },
 
   addStagePrompt() {
@@ -461,5 +497,20 @@ const PipelineModule = {
       await API.post(`/pipeline/${this.currentPipeline.id}/stages`, { name });
       this.loadBoard();
     } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  async renameStage(stageId, name) {
+    if (!name) return;
+    try {
+      await API.patch(`/pipeline/stages/${stageId}`, { name });
+    } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  async deleteStage(stageId) {
+    if (!confirm('¿Eliminar esta etapa? Los deals deben estar vacíos.')) return;
+    try {
+      await API.delete(`/pipeline/stages/${stageId}`);
+      this.loadBoard();
+    } catch(e) { alert(e.message); }
   },
 };
