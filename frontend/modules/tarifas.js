@@ -144,36 +144,198 @@ const MASCOTAS_PRECIOS = {
     completa: 24.74
 };
 
-// Productos con dental incluido (Totales)
-const PRODUCTOS_DENTAL_INCLUIDO = ['PLENA TOTAL', 'PLENA VITAL TOTAL', 'SENIORS TOTAL'];
+// Tarifas empresa (formato: {edadMinima: precio} por zona)
+const TARIFAS_EMPRESA = {
+    "NEGOCIO CIF 1-4": {
+        SIN_DENTAL: {
+            1: {0: 51, 45: 59, 55: 79, 60: 97, 68: 160},
+            2: {0: 52, 45: 61.5, 55: 81, 60: 105, 68: 169},
+            3: {0: 53, 45: 62, 55: 82, 60: 105.5, 68: 170},
+            4: {0: 54, 45: 63.5, 55: 85.5, 60: 109, 68: 179},
+            5: {0: 55, 45: 65.5, 55: 90, 60: 112, 68: 185},
+            6: {0: 56, 45: 66.5, 55: 91, 60: 113, 68: 186}
+        },
+        CON_DENTAL: {
+            1: {0: 55, 45: 63.5, 55: 80.5, 60: 101.5, 68: 164.5},
+            2: {0: 56.5, 45: 66, 55: 85.5, 60: 109.5, 68: 173.5},
+            3: {0: 57.5, 45: 66.5, 55: 86.5, 60: 110, 68: 174.5},
+            4: {0: 58.5, 45: 68, 55: 90, 60: 113.5, 68: 183.5},
+            5: {0: 59.5, 45: 70, 55: 94.5, 60: 116.5, 68: 189.5},
+            6: {0: 60.5, 45: 71, 55: 95.5, 60: 117.5, 68: 190.5}
+        }
+    },
+    "NEGOCIO CIF 1-4 EXTRA": {
+        SIN_DENTAL: {
+            1: {0: 74.5, 45: 76.5, 55: 111, 60: 133, 68: 205},
+            2: {0: 76.5, 45: 79.5, 55: 115, 60: 137, 68: 210},
+            3: {0: 77.5, 45: 80, 55: 116, 60: 141, 68: 215},
+            4: {0: 80, 45: 82, 55: 119, 60: 143, 68: 219},
+            5: {0: 81, 45: 84, 55: 122, 60: 147, 68: 230},
+            6: {0: 82, 45: 86, 55: 125, 60: 149, 68: 231}
+        },
+        CON_DENTAL: {
+            1: {0: 79, 45: 81, 55: 115.5, 60: 137.5, 68: 209.5},
+            2: {0: 81, 45: 84, 55: 119.5, 60: 141.5, 68: 214.5},
+            3: {0: 82, 45: 84.5, 55: 120.5, 60: 145.5, 68: 219.5},
+            4: {0: 84.5, 45: 86.5, 55: 123.5, 60: 147.5, 68: 223.5},
+            5: {0: 85.5, 45: 88.5, 55: 126.5, 60: 151.5, 68: 234.5},
+            6: {0: 86.5, 45: 90.5, 55: 129.5, 60: 153.5, 68: 235.5}
+        }
+    },
+    "EMPRESA +5": {
+        SIN_DENTAL: {
+            1: {0: 56, 66: 89, 68: 168},
+            2: {0: 58.5, 66: 92, 68: 175},
+            3: {0: 59, 66: 100, 68: 193},
+            4: {0: 60, 66: 101, 68: 199},
+            5: {0: 61.5, 66: 102, 68: 200},
+            6: {0: 62.5, 66: 103, 68: 201}
+        },
+        CON_DENTAL: {
+            1: {0: 60.5, 66: 93.5, 68: 172.5},
+            2: {0: 63, 66: 96.5, 68: 179.5},
+            3: {0: 63.5, 66: 104.5, 68: 197.5},
+            4: {0: 64.5, 66: 105.5, 68: 203.5},
+            5: {0: 66, 66: 106.5, 68: 204.5},
+            6: {0: 67, 66: 107.5, 68: 205.5}
+        }
+    },
+    "EMPRESA +5 EXTRA": {
+        SIN_DENTAL: {
+            1: {0: 79, 66: 106, 68: 199},
+            2: {0: 81.5, 66: 115, 68: 219},
+            3: {0: 82.5, 66: 120, 68: 225},
+            4: {0: 85, 66: 120.5, 68: 225.5},
+            5: {0: 87, 66: 121, 68: 226},
+            6: {0: 88.5, 66: 121.5, 68: 227}
+        },
+        CON_DENTAL: {
+            1: {0: 83.5, 66: 110.5, 68: 203.5},
+            2: {0: 86, 66: 119.5, 68: 223.5},
+            3: {0: 87, 66: 124.5, 68: 229.5},
+            4: {0: 89.5, 66: 125, 68: 230},
+            5: {0: 91.5, 66: 125.5, 68: 230.5},
+            6: {0: 93, 66: 126, 68: 231.5}
+        }
+    },
+    "PYME TOTAL": {
+        SIN_DENTAL: {
+            1: {0: 60, 45: 72, 55: 89, 60: 125, 68: 189},
+            2: {0: 62, 45: 73, 55: 95, 60: 129, 68: 199},
+            3: {0: 63, 45: 75, 55: 98, 60: 135, 68: 205},
+            4: {0: 65, 45: 76, 55: 99, 60: 139, 68: 209},
+            5: {0: 66, 45: 79, 55: 105, 60: 139, 68: 219},
+            6: {0: 67, 45: 80, 55: 110, 60: 145, 68: 225}
+        },
+        CON_DENTAL: {
+            1: {0: 60, 45: 72, 55: 89, 60: 125, 68: 189},
+            2: {0: 62, 45: 73, 55: 95, 60: 129, 68: 199},
+            3: {0: 63, 45: 75, 55: 98, 60: 135, 68: 205},
+            4: {0: 65, 45: 76, 55: 99, 60: 139, 68: 209},
+            5: {0: 66, 45: 79, 55: 105, 60: 139, 68: 219},
+            6: {0: 67, 45: 80, 55: 110, 60: 145, 68: 225}
+        }
+    }
+};
 
-// Productos empresa (sin puntos, sin descuentos especiales excepto PYME)
+// Productos con dental incluido (Totales)
+const PRODUCTOS_DENTAL_INCLUIDO = ['PLENA TOTAL', 'PLENA VITAL TOTAL', 'SENIORS TOTAL', 'PYME TOTAL'];
+
+// Productos empresa
 const PRODUCTOS_EMPRESA = ['NEGOCIO CIF 1-4', 'NEGOCIO CIF 1-4 EXTRA', 'EMPRESA +5', 'EMPRESA +5 EXTRA', 'PYME TOTAL'];
+
+// Productos sin descuentos
+const PRODUCTOS_SIN_DESCUENTOS = ['FAMILIAR FUNCIONARIOS', 'COLECTIVO EXTRANJEROS'];
+
+// Productos solo anual
+const PRODUCTOS_SOLO_ANUAL = ['COLECTIVO EXTRANJEROS'];
 
 // Productos Go (para puntos)
 const PRODUCTOS_GO = ['ADESLAS GO'];
 
-// Productos Asistencia Sanitaria (resto de particulares)
-const PRODUCTOS_ASISTENCIA_SANITARIA = ['PLENA VITAL', 'PLENA', 'PLENA PLUS', 'EXTRA 150', 'EXTRA 240', 'EXTRA 1M', 
+// Productos Asistencia Sanitaria (particulares)
+const PRODUCTOS_ASISTENCIA_SANITARIA = ['PLENA VITAL', 'PLENA', 'PLENA PLUS', 'EXTRA 150', 'EXTRA 240', 'EXTRA 1M',
     'PLENA TOTAL', 'PLENA VITAL TOTAL', 'SENIORS', 'SENIORS TOTAL', 'AUTONOMOS NIF', 'AUTONOMOS EXTRA'];
 
-// Reglas de edad
+// Reglas de edad (copiadas exactas del original IONOS)
 const REGLAS_EDAD = {
-    'PLENA VITAL': { min: 0, max: 69 },
-    'PLENA': { min: 0, max: 69 },
-    'PLENA PLUS': { min: 0, max: 69 },
-    'EXTRA 150': { min: 0, max: 69 },
-    'EXTRA 240': { min: 0, max: 69 },
-    'EXTRA 1M': { min: 0, max: 69 },
-    'ADESLAS GO': { min: 0, max: 69 },
-    'AUTONOMOS NIF': { min: 0, max: 69 },
-    'PLENA TOTAL': { min: 0, max: 62 },
-    'PLENA VITAL TOTAL': { min: 0, max: 62 },
-    'SENIORS': { min: 55, max: 84 },
-    'SENIORS TOTAL': { min: 63, max: 84 }
+    'PLENA VITAL': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'PLENA': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'PLENA PLUS': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'EXTRA 150': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'EXTRA 240': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'EXTRA 1M': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'ADESLAS GO': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'AUTONOMOS NIF': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'AUTONOMOS EXTRA': { min: 0, max: 69, excedeMax: 69, requiereMenores: true },
+    'PLENA TOTAL': { min: 0, max: 62, excedeMax: 62, requiereMenores: true },
+    'PLENA VITAL TOTAL': { min: 0, max: 62, excedeMax: 62, requiereMenores: true },
+    'SENIORS': { min: 55, max: 84, excedeMax: null, requiereMenores: false },
+    'SENIORS TOTAL': { min: 63, max: 84, excedeMax: null, requiereMenores: false },
+    'NEGOCIO CIF 1-4': { min: 0, max: 67, excedeMax: 67, requiereMenores: true },
+    'NEGOCIO CIF 1-4 EXTRA': { min: 0, max: 67, excedeMax: 67, requiereMenores: true },
+    'PYME TOTAL': { min: 0, max: 67, excedeMax: 67, requiereMenores: true },
+    'EMPRESA +5': { min: 0, max: 67, excedeMax: 67, requiereMenores: true },
+    'EMPRESA +5 EXTRA': { min: 0, max: 67, excedeMax: 67, requiereMenores: true },
+    'FAMILIAR FUNCIONARIOS': { min: 0, max: 64, excedeMax: 64, requiereMenores: true },
+    'COLECTIVO EXTRANJEROS': { min: 0, max: 70, excedeMax: 70, requiereMenores: true }
 };
 
-// Función para obtener precio por edad
+// Configuración de descuentos (copiada exacta del original IONOS)
+const CONFIG_DESCUENTOS = {
+    'PLENA VITAL': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'PLENA': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'PLENA PLUS': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'EXTRA 150': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'EXTRA 240': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'EXTRA 1M': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'PLENA TOTAL': { tipoCompania: 'total', maxOpcional: 10, reparto: 0.5 },
+    'PLENA VITAL TOTAL': { tipoCompania: 'total', maxOpcional: 10, reparto: 0.5 },
+    'ADESLAS GO': { tipoCompania: 'go', maxOpcional: 0, reparto: 0 },
+    'AUTONOMOS NIF': { tipoCompania: 'ninguno', maxOpcional: 10, reparto: 0.5 },
+    'AUTONOMOS EXTRA': { tipoCompania: 'autonomoExtra', maxOpcional: 10, reparto: 0.5 },
+    'SENIORS': { tipoCompania: 'plena', maxOpcional: 10, reparto: 0.5 },
+    'SENIORS TOTAL': { tipoCompania: 'total', maxOpcional: 10, reparto: 0.5 },
+    'NEGOCIO CIF 1-4': { tipoCompania: 'campana10', maxOpcional: 7, reparto: 1 },
+    'NEGOCIO CIF 1-4 EXTRA': { tipoCompania: 'campana10', maxOpcional: 7, reparto: 1 },
+    'PYME TOTAL': { tipoCompania: 'pymeTotalDto', maxOpcional: 5, reparto: 0 },
+    'EMPRESA +5': { tipoCompania: 'campana10', maxOpcional: 12, reparto: 0.3333 },
+    'EMPRESA +5 EXTRA': { tipoCompania: 'campana10', maxOpcional: 12, reparto: 0.3333 },
+    'FAMILIAR FUNCIONARIOS': { tipoCompania: 'ninguno', maxOpcional: 0, reparto: 0 },
+    'COLECTIVO EXTRANJEROS': { tipoCompania: 'ninguno', maxOpcional: 0, reparto: 0 }
+};
+
+// Comisiones base por producto (copiadas exactas del original IONOS)
+const COMISIONES_BASE = {
+    'PLENA VITAL': 0.25, 'PLENA': 0.25, 'PLENA PLUS': 0.25,
+    'EXTRA 150': 0.25, 'EXTRA 240': 0.25, 'EXTRA 1M': 0.25,
+    'PLENA TOTAL': 0.25, 'PLENA VITAL TOTAL': 0.25,
+    'ADESLAS GO': 0.25,
+    'AUTONOMOS NIF': 0.25, 'AUTONOMOS EXTRA': 0.25,
+    'SENIORS': 0.25, 'SENIORS TOTAL': 0.25,
+    'NEGOCIO CIF 1-4': 0.16, 'NEGOCIO CIF 1-4 EXTRA': 0.16,
+    'PYME TOTAL': 0.16, 'EMPRESA +5': 0.16, 'EMPRESA +5 EXTRA': 0.16,
+    'FAMILIAR FUNCIONARIOS': 0.07, 'COLECTIVO EXTRANJEROS': 0.07
+};
+
+// Campana meses gratis (copiada exacta del original IONOS)
+const PRODUCTOS_PLURIANUALES = ['PLENA TOTAL', 'PLENA VITAL TOTAL', 'SENIORS TOTAL'];
+const PRODUCTOS_ANUALES_CAMPANA = ['PLENA VITAL', 'PLENA', 'PLENA PLUS', 'EXTRA 150', 'EXTRA 240', 'EXTRA 1M', 'SENIORS', 'AUTONOMOS NIF', 'AUTONOMOS EXTRA'];
+const PRODUCTOS_SIN_CAMPANA = ['EMPRESA +5', 'EMPRESA +5 EXTRA', 'PYME TOTAL', 'NEGOCIO CIF 1-4', 'NEGOCIO CIF 1-4 EXTRA', 'ADESLAS GO', 'FAMILIAR FUNCIONARIOS', 'COLECTIVO EXTRANJEROS'];
+
+// Dental MAX precios: 10€ los 2 primeros, 5€ el resto
+const DENTAL_MAX_PRECIOS_DETALLE = { primeros2: 10, resto: 5 };
+
+// URLs APIs externas Decesos (Google Apps Script)
+const DECESOS_API_URL = "https://script.google.com/macros/s/AKfycbzQ2IpHWOMoc3xDSGyfReVvRb0lVhLVp7FS5qetGvgbMDezarZjuLnWO50kx8QFVhUR/exec";
+const DECESOS_API_PLUS_URL = "https://script.google.com/macros/s/AKfycbwzeNnmK6R_TK1pKoEgXQPX3Ablo3y_czYHvJI0VdFhZyJMRFGSDPk6-UzQ6ocSa9rG/exec";
+const DECESOS_API_COMPLETO_URL = "https://script.google.com/macros/s/AKfycbx8LvVN46xldghYmAfHP0OrDcEbchHDNjedMoDthCyyrTIlx0Ud06aDNONFvinZED2X/exec";
+
+// ============================================
+// FUNCIONES DE CÁLCULO
+// ============================================
+
+// Obtener precio por edad (productos particulares con tramos [min,max,precio])
 function obtenerPrecioEdad(producto, zona, edad) {
     if (!TARIFAS[producto] || !TARIFAS[producto][zona]) return null;
     const tramos = TARIFAS[producto][zona];
@@ -185,7 +347,142 @@ function obtenerPrecioEdad(producto, zona, edad) {
     return null;
 }
 
-// Función para obtener zona desde provincia
+// Obtener precio empresa (formato {edadMinima: precio})
+function obtenerPrecioEmpresa(producto, zona, edad, conDental) {
+    if (!TARIFAS_EMPRESA[producto]) return null;
+    const tipo = conDental ? 'CON_DENTAL' : 'SIN_DENTAL';
+    const tarifas = TARIFAS_EMPRESA[producto][tipo];
+    if (!tarifas || !tarifas[zona]) return null;
+    const edades = Object.keys(tarifas[zona]).map(Number).sort((a, b) => a - b);
+    for (let i = edades.length - 1; i >= 0; i--) {
+        if (edad >= edades[i]) return tarifas[zona][edades[i]];
+    }
+    return tarifas[zona][edades[0]];
+}
+
+// Obtener precio unificado (particulares o empresa)
+function obtenerPrecio(producto, zona, edad, conDental) {
+    if (TARIFAS_EMPRESA[producto]) {
+        return obtenerPrecioEmpresa(producto, zona, edad, conDental || false);
+    }
+    return obtenerPrecioEdad(producto, zona, edad);
+}
+
+// Obtener zona desde provincia
 function obtenerZonaDesdeProvincia(provincia) {
     return PROVINCIA_A_ZONA[provincia] || 4;
+}
+
+// Descuento de compania (automatico por nº asegurados)
+function calcularDescuentoCompania(producto, numAseg) {
+    const config = CONFIG_DESCUENTOS[producto];
+    if (!config) return { pct: 0, texto: '' };
+    switch (config.tipoCompania) {
+        case 'plena': return numAseg >= 4 ? { pct: 10, texto: '10% (4+ asegurados)' } : { pct: 0, texto: '-' };
+        case 'total':
+            if (numAseg >= 5) return { pct: 15, texto: '15% (5+ asegurados)' };
+            if (numAseg === 4) return { pct: 10, texto: '10% (4 asegurados)' };
+            if (numAseg === 3) return { pct: 5, texto: '5% (3 asegurados)' };
+            return { pct: 0, texto: '-' };
+        case 'go': return numAseg >= 2 ? { pct: 10, texto: '10% (2+ asegurados)' } : { pct: 0, texto: '-' };
+        case 'autonomoExtra': return numAseg >= 3 ? { pct: 10, texto: '10% (3+ asegurados)' } : { pct: 0, texto: '-' };
+        case 'campana10': return { pct: 10, texto: '10% Campaña' };
+        case 'pymeTotalDto': return { pct: 10, texto: '10% Campaña' };
+        default: return { pct: 0, texto: '-' };
+    }
+}
+
+// Comision del agente
+function calcularComision(producto, primaAnual, dtoOpcional, dtoDentalMax) {
+    const comisionBase = COMISIONES_BASE[producto] || 0.15;
+    const config = CONFIG_DESCUENTOS[producto];
+    const reparto = config ? config.reparto : 0;
+    let comision = primaAnual * comisionBase;
+    if (dtoOpcional > 0 && reparto > 0) {
+        comision -= primaAnual * (dtoOpcional / 100) * reparto;
+    }
+    if (dtoDentalMax > 0) {
+        comision -= primaAnual * (dtoDentalMax / 100);
+    }
+    return Math.max(0, comision);
+}
+
+// Meses gratis de campana
+function calcularMesesGratis(producto, numAsegurados, dental) {
+    if (numAsegurados === 0 || PRODUCTOS_SIN_CAMPANA.includes(producto)) {
+        return { meses: 0, mesesIngreso: [], mesesTexto: '', tieneBonus: false };
+    }
+    let meses = 0, mesesIngreso = [], tieneBonus = false;
+    if (PRODUCTOS_PLURIANUALES.includes(producto)) {
+        if (numAsegurados >= 2) { meses = 3; mesesIngreso = [6, 9, 15]; }
+        else { meses = 2; mesesIngreso = [6, 9]; }
+    } else if (PRODUCTOS_ANUALES_CAMPANA.includes(producto)) {
+        if (numAsegurados >= 2) { meses = 2; mesesIngreso = [6, 15]; }
+        else { meses = 1; mesesIngreso = [6]; }
+        if (dental === 'FAMILIA' || dental === 'MAX') {
+            meses += 1; mesesIngreso.push(9); mesesIngreso.sort((a, b) => a - b); tieneBonus = true;
+        }
+    }
+    return { meses, mesesIngreso, mesesTexto: mesesIngreso.length > 0 ? `meses ${mesesIngreso.join(', ')}` : '', tieneBonus };
+}
+
+// Precio Dental MAX (10€ los 2 primeros, 5€ el resto)
+function precioDentalMax(numAsegurados) {
+    if (numAsegurados <= 0) return 0;
+    if (numAsegurados === 1) return 10;
+    if (numAsegurados === 2) return 20;
+    return 20 + (numAsegurados - 2) * 5;
+}
+
+// Validar edades contra reglas del producto
+function validarEdades(producto, edades) {
+    if (!producto || edades.length === 0) return { valido: true };
+    const regla = REGLAS_EDAD[producto];
+    if (!regla) return { valido: true };
+    const menoresDe60 = edades.filter(e => e < 60).length;
+    const fueraDeRango = edades.filter(e => e < regla.min || e > regla.max);
+    const excedenMax = regla.excedeMax !== null ? edades.filter(e => e > regla.excedeMax) : [];
+    if (fueraDeRango.length > 0) return { valido: false };
+    if (regla.requiereMenores && excedenMax.length > 0 && menoresDe60 < 3) return { valido: false };
+    return { valido: true };
+}
+
+// Validar DNI español
+function validarDNI(dni) {
+    if (!dni) return true;
+    const dniRegex = /^[0-9]{8}[A-Za-z]$/;
+    if (!dniRegex.test(dni)) return false;
+    const letras = 'TRWAGMYFPDXBNJZSQVHLCKE';
+    return letras[parseInt(dni.substring(0, 8), 10) % 23] === dni.charAt(8).toUpperCase();
+}
+
+// Validar NIE español
+function validarNIE(nie) {
+    if (!nie) return true;
+    if (!/^[XYZ][0-9]{7}[A-Za-z]$/i.test(nie)) return false;
+    let n = nie.toUpperCase().replace('X', '0').replace('Y', '1').replace('Z', '2');
+    const letras = 'TRWAGMYFPDXBNJZSQVHLCKE';
+    return letras[parseInt(n.substring(0, 8), 10) % 23] === nie.charAt(8).toUpperCase();
+}
+
+// Validar DNI o NIE
+function validarDocumento(doc) {
+    if (!doc) return { valido: true, mensaje: '' };
+    doc = doc.trim().toUpperCase();
+    if (/^[0-9]/.test(doc)) return validarDNI(doc) ? { valido: true, mensaje: '' } : { valido: false, mensaje: 'DNI incorrecto' };
+    if (/^[XYZ]/i.test(doc)) return validarNIE(doc) ? { valido: true, mensaje: '' } : { valido: false, mensaje: 'NIE incorrecto' };
+    return { valido: false, mensaje: 'Formato no válido' };
+}
+
+// Validar IBAN español
+function validarIBAN(iban) {
+    if (!iban) return { valido: true, mensaje: '' };
+    iban = iban.replace(/\s/g, '').toUpperCase();
+    if (!/^ES[0-9]{22}$/.test(iban)) return { valido: false, mensaje: 'IBAN: ES + 22 dígitos' };
+    const reord = iban.substring(4) + iban.substring(0, 4);
+    let num = '';
+    for (let ch of reord) num += (ch >= 'A' && ch <= 'Z') ? (ch.charCodeAt(0) - 55).toString() : ch;
+    let resto = 0;
+    for (let i = 0; i < num.length; i++) resto = (resto * 10 + parseInt(num[i])) % 97;
+    return resto === 1 ? { valido: true, mensaje: '' } : { valido: false, mensaje: 'IBAN incorrecto' };
 }
