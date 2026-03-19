@@ -1,0 +1,465 @@
+// === Pipeline Kanban — Módulo nativo CRM ===
+
+const PipelineModule = {
+  pipelines: [],
+  currentPipeline: null,
+  stages: [],
+  agents: [],
+  agentFilter: null,
+  editMode: false,
+  ddOpen: false,
+  dragged: null,
+
+  // Helpers
+  ini(n) { return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); },
+  hu(id) { return (id*47)%360; },
+  esc(s) { const d=document.createElement('div');d.textContent=s||'';return d.innerHTML; },
+  ago(days) {
+    if (days===null||days===undefined) return '';
+    if (days<=0) return 'Hoy';
+    if (days===1) return 'Ayer';
+    if (days<=7) return days+'d';
+    if (days<=30) return Math.ceil(days/7)+'sem';
+    return Math.floor(days/30)+'m';
+  },
+
+  async render() {
+    const c = document.getElementById('main-content');
+    c.style.padding = '0';
+    c.style.overflow = 'hidden';
+
+    // Inyectar CSS
+    if (!document.getElementById('pl-css')) {
+      const st = document.createElement('style'); st.id = 'pl-css';
+      st.textContent = `
+        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9}
+        .pl-toolbar{background:#fff;border-bottom:1px solid #e8edf2;padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;flex-shrink:0}
+        .pl-emb-wrap{position:relative}
+        .pl-emb-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#0f172a;font-family:inherit}
+        .pl-emb-btn:hover{border-color:#d1d9e0}
+        .pl-emb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .pl-emb-count{font-size:11px;color:#94a3b8;font-weight:400}
+        .pl-emb-dd{position:absolute;top:calc(100% + 6px);left:0;background:#fff;border:1px solid #e8edf2;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);width:280px;z-index:500;display:none;overflow:hidden}
+        .pl-emb-dd.open{display:block}
+        .pl-dd-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;color:#475569}
+        .pl-dd-item:hover{background:#f4f6f9}
+        .pl-dd-item.active{color:#ff4a6e;font-weight:600}
+        .pl-sep{width:1px;height:22px;background:#e8edf2}
+        .pl-agents{display:flex;gap:5px;overflow-x:auto;flex-shrink:1}
+        .pl-chip{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:#475569;white-space:nowrap;font-family:inherit}
+        .pl-chip:hover{border-color:#d1d9e0}
+        .pl-chip.on{border-color:#ff4a6e;background:#fff0f3;color:#ff4a6e}
+        .pl-chip-av{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff}
+        .pl-btn-new{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:none;background:#ff4a6e;color:#fff;cursor:pointer;font-size:12px;font-weight:700;margin-left:auto;font-family:inherit}
+        .pl-btn-new:hover{background:#e0334f}
+        .pl-edit-btn{width:30px;height:30px;border-radius:7px;border:1px solid #e8edf2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:#475569}
+        .pl-edit-btn:hover{background:#f4f6f9}
+        .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
+        .pl-stat-val{font-weight:700;color:#0f172a}
+        .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px;display:flex;gap:12px}
+        .pl-col{width:220px;flex-shrink:0;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
+        .pl-col-hd{padding:10px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #e8edf2}
+        .pl-col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .pl-col-name{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .pl-col-count{font-size:10px;font-weight:700;color:#94a3b8;background:#f4f6f9;padding:2px 6px;border-radius:10px;flex-shrink:0}
+        .pl-col-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
+        .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #ff4a6e;border-radius:0 0 12px 12px}
+        .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
+        .pl-col-add:hover{border-color:#ff4a6e;color:#ff4a6e}
+        .pl-card{background:#fff;border:1px solid #e8edf2;border-radius:9px;padding:10px;cursor:grab;transition:all .13s;box-shadow:0 1px 3px rgba(0,0,0,.07);user-select:none}
+        .pl-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#d1d9e0;transform:translateY(-1px)}
+        .pl-card.dragging{opacity:.4;transform:rotate(2deg)}
+        .pl-card-contact{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+        .pl-card-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+        .pl-card-name{font-size:12px;font-weight:700;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .pl-card-prod{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:8px}
+        .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid #e8edf2}
+        .pl-card-agent{display:flex;align-items:center;gap:5px}
+        .pl-card-ag-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff;flex-shrink:0}
+        .pl-card-ag-name{font-size:10px;color:#94a3b8}
+        .pl-card-time{font-size:10px;color:#94a3b8}
+        .pl-card-time.urgent{color:#f59e0b;font-weight:700}
+        .pl-card-time.overdue{color:#ef4444;font-weight:700}
+        .pl-modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:400}
+        .pl-modal{background:#fff;border-radius:14px;width:460px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:90vh;overflow-y:auto}
+        .pl-modal-hd{padding:18px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;gap:12px}
+        .pl-modal-av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0}
+        .pl-modal-name{font-size:16px;font-weight:800;flex:1}
+        .pl-modal-close{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px;padding:4px}
+        .pl-modal-body{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .pl-mf{display:flex;flex-direction:column;gap:2px}
+        .pl-mf-l{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#94a3b8}
+        .pl-mf-v{font-size:13px;font-weight:500}
+        .pl-modal-ft{padding:14px 20px;border-top:1px solid #e8edf2;display:flex;gap:8px}
+        .pl-modal-ft button{padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit}
+        .pl-btn-ver{flex:1;border:none;background:#ff4a6e;color:#fff}
+        .pl-btn-mover{border:1px solid #e8edf2;background:#fff;color:#475569}
+        .pl-col-new{width:160px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:2px dashed #d1d9e0;border-radius:12px;cursor:pointer;font-size:12px;font-weight:600;color:#94a3b8;gap:6px;font-family:inherit}
+        .pl-col-new:hover{border-color:#ff4a6e;color:#ff4a6e}
+        .pl-edit-hd{background:#fff;border-bottom:2px solid #ff4a6e;padding:0 20px;display:flex;align-items:center;gap:12px;height:50px;flex-shrink:0}
+        .pl-edit-input{padding:6px 12px;border:1px solid #e8edf2;border-radius:8px;font-size:14px;font-weight:700;color:#0f172a;outline:none;width:180px;font-family:inherit}
+        .pl-edit-input:focus{border-color:#ff4a6e}
+        .pl-empty{text-align:center;padding:40px;color:#94a3b8;font-size:14px}
+      `;
+      document.head.appendChild(st);
+    }
+
+    // Cargar datos iniciales
+    try {
+      const [plR, agR] = await Promise.all([
+        API.get('/pipeline'),
+        API.get('/pipeline/agents/list')
+      ]);
+      this.pipelines = plR.pipelines || [];
+      this.agents = agR.agents || [];
+    } catch(e) { console.error('Error cargando pipelines:', e); }
+
+    if (!this.currentPipeline && this.pipelines.length > 0) {
+      this.currentPipeline = this.pipelines[0];
+    }
+
+    this.renderShell(c);
+    if (this.currentPipeline) this.loadBoard();
+  },
+
+  renderShell(c) {
+    const pl = this.currentPipeline;
+    const adm = Auth.hasRole('admin', 'supervisor');
+
+    c.innerHTML = `<div class="pl-wrap">
+      <div class="pl-toolbar" id="pl-toolbar">
+        <div class="pl-emb-wrap" id="pl-emb-wrap">
+          <button class="pl-emb-btn" onclick="PipelineModule.toggleDD()">
+            <div class="pl-emb-dot" style="background:${pl?.color||'#ff4a6e'}"></div>
+            <span id="pl-emb-name">${pl?.name||'Seleccionar'}</span>
+            <span class="pl-emb-count" id="pl-emb-count">· ${pl?.deal_count||0} deals</span>
+            <span style="font-size:10px;color:#94a3b8">▼</span>
+          </button>
+          <div class="pl-emb-dd" id="pl-emb-dd">
+            ${this.pipelines.map(p=>`<div class="pl-dd-item ${p.id===pl?.id?'active':''}" onclick="PipelineModule.selectPipeline(${p.id})">
+              <div class="pl-emb-dot" style="background:${p.color}"></div>
+              <span style="flex:1">${this.esc(p.name)}</span>
+              <span style="font-size:11px;color:#94a3b8">${p.deal_count||0}</span>
+              ${p.id===pl?.id?'<span style="color:#ff4a6e">✓</span>':''}
+            </div>`).join('')}
+          </div>
+        </div>
+        ${adm?'<button class="pl-edit-btn" onclick="PipelineModule.toggleEdit()" title="Editar pipeline">✏️</button>':''}
+        <div class="pl-sep"></div>
+        <div class="pl-agents" id="pl-agents">
+          <div class="pl-chip on" onclick="PipelineModule.filterAgent(null,this)">Todos</div>
+          ${this.agents.slice(0,10).map(a=>`<div class="pl-chip" onclick="PipelineModule.filterAgent(${a.id},this)">
+            <div class="pl-chip-av" style="background:hsl(${this.hu(a.id)},55%,55%)">${this.ini(a.nombre)}</div>
+            ${a.nombre.split(' ')[0]}
+          </div>`).join('')}
+        </div>
+        <button class="pl-btn-new" onclick="PipelineModule.showNewDeal()">+ Nuevo</button>
+      </div>
+      <div class="pl-stats" id="pl-stats"></div>
+      <div class="pl-board" id="pl-board"><div class="pl-empty">Cargando pipeline...</div></div>
+    </div>`;
+
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#pl-emb-wrap')) {
+        const dd = document.getElementById('pl-emb-dd');
+        if (dd) dd.classList.remove('open');
+      }
+    });
+  },
+
+  toggleDD() {
+    document.getElementById('pl-emb-dd')?.classList.toggle('open');
+  },
+
+  async selectPipeline(id) {
+    this.currentPipeline = this.pipelines.find(p=>p.id===id);
+    document.getElementById('pl-emb-dd')?.classList.remove('open');
+    document.getElementById('pl-emb-name').textContent = this.currentPipeline?.name||'';
+    document.getElementById('pl-emb-count').textContent = '· ' + (this.currentPipeline?.deal_count||0) + ' deals';
+    this.agentFilter = null;
+    this.loadBoard();
+  },
+
+  async loadBoard() {
+    const board = document.getElementById('pl-board');
+    if (!board || !this.currentPipeline) return;
+    board.innerHTML = '<div class="pl-empty">Cargando...</div>';
+
+    try {
+      const params = this.agentFilter ? `?agente_id=${this.agentFilter}` : '';
+      const [data, stats] = await Promise.all([
+        API.get(`/pipeline/${this.currentPipeline.id}/board${params}`),
+        API.get(`/pipeline/${this.currentPipeline.id}/stats`)
+      ]);
+      this.stages = data.stages || [];
+      this.renderStats(stats);
+      this.renderBoard();
+    } catch(e) {
+      board.innerHTML = `<div class="pl-empty">Error: ${e.message}</div>`;
+    }
+  },
+
+  renderStats(stats) {
+    const el = document.getElementById('pl-stats');
+    if (!el) return;
+    el.innerHTML = `
+      <div>Pipeline: <span class="pl-stat-val">${stats.total} deals</span></div>
+      ${(stats.by_stage||[]).slice(0,6).map(s=>`<div>${s.name}: <span class="pl-stat-val">${s.c}</span></div>`).join('')}
+      ${stats.stale>0?`<div>⚠️ Sin mover +7d: <span class="pl-stat-val" style="color:#ef4444">${stats.stale}</span></div>`:''}
+    `;
+  },
+
+  renderBoard() {
+    const board = document.getElementById('pl-board');
+    if (!board) return;
+
+    if (this.stages.length === 0) {
+      board.innerHTML = '<div class="pl-empty">Este pipeline no tiene etapas. Usa el botón ✏️ para añadir etapas.</div>';
+      return;
+    }
+
+    const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#ff4a6e','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
+
+    board.innerHTML = this.stages.map((s,i) => `
+      <div class="pl-col" data-stage-id="${s.id}">
+        <div class="pl-col-hd">
+          <div class="pl-col-dot" style="background:${s.color||colColors[i%colColors.length]}"></div>
+          <div class="pl-col-name">${this.esc(s.name)}</div>
+          <div class="pl-col-count">${s.deals.length}</div>
+        </div>
+        <div class="pl-col-cards" data-stage-id="${s.id}">
+          ${s.deals.map(d => this.renderCard(d)).join('')}
+        </div>
+        <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
+      </div>
+    `).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
+
+    this.initDragDrop();
+  },
+
+  renderCard(d) {
+    const name = d.persona_nombre || 'Sin contacto';
+    const color = `hsl(${this.hu(d.persona_id||d.id)},55%,55%)`;
+    const days = d.days_in_stage;
+    const timeClass = days >= 7 ? 'overdue' : days >= 5 ? 'urgent' : '';
+    const prod = d.producto || d.compania || '';
+    const prodClass = prod.toLowerCase().includes('dental') ? 'background:#fffbeb;color:#f59e0b'
+      : prod.toLowerCase().includes('mascot') ? 'background:#ecfdf5;color:#10b981'
+      : prod.toLowerCase().includes('deces') ? 'background:#f5f3ff;color:#8b5cf6'
+      : 'background:#eff6ff;color:#3b82f6';
+
+    return `<div class="pl-card" draggable="true" data-deal-id="${d.id}" onclick="PipelineModule.showDealModal(${d.id})" data-agent-id="${d.agente_id||''}">
+      <div class="pl-card-contact">
+        <div class="pl-card-av" style="background:${color}">${this.ini(name)}</div>
+        <div class="pl-card-name">${this.esc(name)}</div>
+      </div>
+      ${prod ? `<div class="pl-card-prod" style="${prodClass}">${this.esc(prod)}</div>` : ''}
+      <div class="pl-card-foot">
+        <div class="pl-card-agent">
+          ${d.agente_nombre ? `<div class="pl-card-ag-av" style="background:hsl(${this.hu(d.agente_id||0)},55%,55%)">${this.ini(d.agente_nombre)}</div><span class="pl-card-ag-name">${d.agente_nombre.split(' ')[0]}</span>` : '<span class="pl-card-ag-name" style="color:#e8edf2">Sin agente</span>'}
+        </div>
+        <div class="pl-card-time ${timeClass}">${this.ago(days)}</div>
+      </div>
+    </div>`;
+  },
+
+  // ══════════════════════════════════════
+  // DRAG & DROP
+  // ══════════════════════════════════════
+  initDragDrop() {
+    const cards = document.querySelectorAll('.pl-card');
+    const cols = document.querySelectorAll('.pl-col-cards');
+
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        this.dragged = card;
+        setTimeout(() => card.classList.add('dragging'), 0);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        cols.forEach(c => c.classList.remove('drag-over'));
+      });
+    });
+
+    cols.forEach(col => {
+      col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+      col.addEventListener('dragleave', () => { col.classList.remove('drag-over'); });
+      col.addEventListener('drop', (e) => {
+        e.preventDefault();
+        col.classList.remove('drag-over');
+        if (!this.dragged) return;
+        const dealId = this.dragged.dataset.dealId;
+        const newStageId = col.dataset.stageId;
+        // Mover visualmente
+        col.appendChild(this.dragged);
+        // Actualizar contadores
+        document.querySelectorAll('.pl-col').forEach(c => {
+          const cnt = c.querySelector('.pl-col-count');
+          const cards = c.querySelector('.pl-col-cards');
+          if (cnt && cards) cnt.textContent = cards.querySelectorAll('.pl-card').length;
+        });
+        // API call
+        this.moveDeal(dealId, newStageId);
+        this.dragged = null;
+      });
+    });
+  },
+
+  async moveDeal(dealId, stageId) {
+    try {
+      await API.patch(`/pipeline/deals/${dealId}/move`, { stage_id: parseInt(stageId) });
+    } catch(e) {
+      alert('Error moviendo deal: ' + e.message);
+      this.loadBoard(); // Revert
+    }
+  },
+
+  // ══════════════════════════════════════
+  // FILTRO POR AGENTE
+  // ══════════════════════════════════════
+  filterAgent(id, el) {
+    this.agentFilter = id;
+    document.querySelectorAll('.pl-chip').forEach(c => c.classList.remove('on'));
+    if (el) el.classList.add('on');
+    // Filtro client-side para no refetchar
+    document.querySelectorAll('.pl-card').forEach(card => {
+      const agId = card.dataset.agentId;
+      card.style.display = (!id || agId == id) ? '' : 'none';
+    });
+    // Actualizar contadores
+    document.querySelectorAll('.pl-col').forEach(c => {
+      const cnt = c.querySelector('.pl-col-count');
+      const cards = c.querySelector('.pl-col-cards');
+      if (cnt && cards) cnt.textContent = cards.querySelectorAll('.pl-card:not([style*="display: none"])').length;
+    });
+  },
+
+  // ══════════════════════════════════════
+  // MODAL DEAL
+  // ══════════════════════════════════════
+  async showDealModal(dealId) {
+    try {
+      const d = await API.get(`/pipeline/deals/${dealId}`);
+      const name = d.persona_nombre || 'Sin contacto';
+      const color = `hsl(${this.hu(d.persona_id||d.id)},55%,55%)`;
+      const modal = document.createElement('div');
+      modal.className = 'pl-modal-ov';
+      modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+      modal.innerHTML = `<div class="pl-modal">
+        <div class="pl-modal-hd">
+          <div class="pl-modal-av" style="background:${color}">${this.ini(name)}</div>
+          <div style="flex:1">
+            <div class="pl-modal-name">${this.esc(name)}</div>
+            ${d.producto?`<div style="display:inline-flex;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-top:3px;background:#eff6ff;color:#3b82f6">${this.esc(d.producto)}</div>`:''}
+          </div>
+          <button class="pl-modal-close" onclick="this.closest('.pl-modal-ov').remove()">✕</button>
+        </div>
+        <div class="pl-modal-body">
+          <div class="pl-mf"><div class="pl-mf-l">Teléfono</div><div class="pl-mf-v">${d.persona_telefono||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Email</div><div class="pl-mf-v">${d.persona_email||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Agente</div><div class="pl-mf-v">${d.agente_nombre||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Etapa</div><div class="pl-mf-v">${d.stage_name||d.pipedrive_stage||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Pipeline</div><div class="pl-mf-v">${d.pipeline_name||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Compañía</div><div class="pl-mf-v">${d.compania||'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Prima</div><div class="pl-mf-v">${d.prima?d.prima+'€':'—'}</div></div>
+          <div class="pl-mf"><div class="pl-mf-l">Estado</div><div class="pl-mf-v">${d.pipedrive_status||d.estado||'—'}</div></div>
+        </div>
+        <div class="pl-modal-ft">
+          <button class="pl-btn-mover" onclick="this.closest('.pl-modal-ov').remove()">Cerrar</button>
+          ${d.persona_id?`<button class="pl-btn-ver" onclick="this.closest('.pl-modal-ov').remove();App.navigate('personas');setTimeout(()=>PersonasModule.viewPersona(${d.persona_id}),200)">👤 Ver ficha completa →</button>`:''}
+        </div>
+      </div>`;
+      document.body.appendChild(modal);
+    } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  // ══════════════════════════════════════
+  // NUEVO DEAL
+  // ══════════════════════════════════════
+  showNewDeal(stageId) {
+    const stages = this.stages;
+    const modal = document.createElement('div');
+    modal.className = 'pl-modal-ov';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    modal.innerHTML = `<div class="pl-modal">
+      <div class="pl-modal-hd">
+        <div class="pl-modal-av" style="background:#ff4a6e">+</div>
+        <div class="pl-modal-name">Nuevo Deal</div>
+        <button class="pl-modal-close" onclick="this.closest('.pl-modal-ov').remove()">✕</button>
+      </div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px">
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Etapa</label>
+          <select id="pl-nd-stage" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit">
+            ${stages.map(s=>`<option value="${s.id}" ${s.id==stageId?'selected':''}>${this.esc(s.name)}</option>`).join('')}
+          </select></div>
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Buscar contacto</label>
+          <input id="pl-nd-search" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit" placeholder="Nombre, DNI o teléfono..." oninput="PipelineModule.searchPersona(this.value)"></div>
+        <div id="pl-nd-results" style="max-height:150px;overflow-y:auto"></div>
+        <input type="hidden" id="pl-nd-persona">
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Producto</label>
+          <input id="pl-nd-prod" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit" placeholder="Ej: Plena Plus"></div>
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Compañía</label>
+          <input id="pl-nd-comp" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit" value="${this.currentPipeline?.name||''}"></div>
+        <button style="padding:10px;border-radius:8px;border:none;background:#ff4a6e;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="PipelineModule.createDeal()">Crear Deal</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  },
+
+  async searchPersona(q) {
+    const el = document.getElementById('pl-nd-results');
+    if (!el || q.length < 2) { if(el) el.innerHTML = ''; return; }
+    try {
+      const data = await API.get(`/personas?q=${encodeURIComponent(q)}&limit=5`);
+      const items = data.personas || data.items || [];
+      el.innerHTML = items.map(p => `<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f4f6f9" onclick="document.getElementById('pl-nd-persona').value='${p.id}';document.getElementById('pl-nd-search').value='${this.esc(p.nombre)}';document.getElementById('pl-nd-results').innerHTML=''">
+        <div style="width:24px;height:24px;border-radius:50%;background:hsl(${this.hu(p.id)},55%,55%);color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center">${this.ini(p.nombre)}</div>
+        <span style="font-weight:600">${this.esc(p.nombre)}</span>
+        <span style="color:#94a3b8;font-size:10px">${p.telefono||p.email||''}</span>
+      </div>`).join('') || '<div style="padding:8px;color:#94a3b8;font-size:12px">Sin resultados</div>';
+    } catch(e) { el.innerHTML = ''; }
+  },
+
+  async createDeal() {
+    const stageId = document.getElementById('pl-nd-stage')?.value;
+    const personaId = document.getElementById('pl-nd-persona')?.value;
+    const producto = document.getElementById('pl-nd-prod')?.value;
+    const compania = document.getElementById('pl-nd-comp')?.value;
+    if (!stageId) return alert('Selecciona una etapa');
+    try {
+      await API.post('/pipeline/deals', {
+        pipeline_id: this.currentPipeline.id,
+        stage_id: parseInt(stageId),
+        persona_id: personaId ? parseInt(personaId) : null,
+        producto: producto || null,
+        compania: compania || null
+      });
+      document.querySelector('.pl-modal-ov')?.remove();
+      this.loadBoard();
+    } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  // ══════════════════════════════════════
+  // EDIT MODE
+  // ══════════════════════════════════════
+  toggleEdit() {
+    this.editMode = !this.editMode;
+    this.renderBoard();
+  },
+
+  addStagePrompt() {
+    const name = prompt('Nombre de la nueva etapa:');
+    if (!name) return;
+    this.addStage(name);
+  },
+
+  async addStage(name) {
+    try {
+      await API.post(`/pipeline/${this.currentPipeline.id}/stages`, { name });
+      this.loadBoard();
+    } catch(e) { alert('Error: ' + e.message); }
+  },
+};

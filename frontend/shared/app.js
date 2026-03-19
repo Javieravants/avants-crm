@@ -104,7 +104,8 @@ const App = {
       llamada: () => LlamadaModule.render(),
       calculadora: () => CalculadoraModule.render(),
       grabaciones: () => this.renderGrabacionesList(),
-      leads: () => this.renderPlaceholder('Leads', 'Módulo de leads/pipeline — próximamente en Fase 4'),
+      leads: () => PipelineModule.render(),
+      pipeline: () => PipelineModule.render(),
       impagos: () => this.renderPlaceholder('Impagos', 'Módulo de impagos — próximamente en Fase 5'),
     };
 

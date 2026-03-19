@@ -16,6 +16,7 @@ async function seed() {
       ['migration-pipedrive.sql', 'Pipedrive'],
       ['migration-personas.sql', 'Personas'],
       ['migration-fichate-ionos.sql', 'Fichate (tablas ft_)'],
+      ['migration-pipeline.sql', 'Pipeline Kanban'],
     ];
 
     for (const [file, label] of migrations) {

@@ -25,6 +25,7 @@ const personasRoutes = require('./routes/personas');
 const calculadoraRoutes = require('./routes/calculadora');
 const grabacionesRoutes = require('./routes/grabaciones');
 const fichateRoutes = require('./routes/fichate');
+const pipelineRoutes = require('./routes/pipeline');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +49,7 @@ app.use('/api/personas', personasRoutes);
 app.use('/api/calculadora', calculadoraRoutes);
 app.use('/api/grabaciones', grabacionesRoutes);
 app.use('/api/fichate', fichateRoutes);
+app.use('/api/pipeline', pipelineRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -288,7 +290,23 @@ async function initFichateTables() {
   }
 }
 
+// Auto-migración Pipeline al arrancar
+async function initPipelineTables() {
+  try {
+    const fs = require('fs');
+    const migPath = path.join(__dirname, 'config/migration-pipeline.sql');
+    if (fs.existsSync(migPath)) {
+      const sql = fs.readFileSync(migPath, 'utf8');
+      await pool.query(sql);
+      console.log('Pipeline: tablas verificadas');
+    }
+  } catch (e) {
+    console.warn('Pipeline init warning:', e.message);
+  }
+}
+
 app.listen(PORT, async () => {
   console.log(`Avants CRM corriendo en http://localhost:${PORT}`);
   await initFichateTables();
+  await initPipelineTables();
 });
