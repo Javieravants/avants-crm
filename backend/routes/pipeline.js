@@ -269,4 +269,110 @@ router.get('/agents/list', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ══════════════════════════════════════════════
+// SYNC PIPEDRIVE → CRM (stages + deals mapping)
+// ══════════════════════════════════════════════
+router.post('/sync-pipedrive', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Solo admin' });
+    const apiKey = process.env.PIPEDRIVE_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'PIPEDRIVE_API_KEY no configurada' });
+
+    const baseUrl = 'https://api.pipedrive.com/v1';
+
+    // 1. Obtener todas las stages de Pipedrive por pipeline
+    console.log('Pipeline sync: obteniendo stages de Pipedrive...');
+    const stagesRes = await fetch(`${baseUrl}/stages?api_token=${apiKey}`);
+    const stagesData = await stagesRes.json();
+    if (!stagesData.success) throw new Error('Error obteniendo stages de Pipedrive');
+
+    const pdStages = stagesData.data || [];
+    console.log(`Pipeline sync: ${pdStages.length} stages encontradas`);
+
+    // 2. Crear stages en nuestra BD (si no existen)
+    let stagesCreated = 0;
+    for (const s of pdStages) {
+      // Verificar que el pipeline existe
+      const plR = await pool.query('SELECT id FROM pipelines WHERE pipedrive_id = $1', [s.pipeline_id]);
+      if (!plR.rows[0]) continue; // Pipeline no mapeado, ignorar
+      const plId = plR.rows[0].id;
+
+      const existing = await pool.query('SELECT id FROM pipeline_stages WHERE pipeline_id = $1 AND name = $2', [plId, s.name]);
+      if (existing.rows.length === 0) {
+        await pool.query(
+          'INSERT INTO pipeline_stages (pipeline_id, name, orden, pipedrive_id) VALUES ($1, $2, $3, $4)',
+          [plId, s.name, s.order_nr || 0, s.id]);
+        stagesCreated++;
+      } else {
+        // Actualizar pipedrive_id y orden
+        await pool.query('UPDATE pipeline_stages SET pipedrive_id = $1, orden = $2 WHERE id = $3',
+          [s.id, s.order_nr || 0, existing.rows[0].id]);
+      }
+    }
+    console.log(`Pipeline sync: ${stagesCreated} stages nuevas creadas`);
+
+    // 3. Obtener todos los deals abiertos de Pipedrive (paginado)
+    let start = 0;
+    const limit = 500;
+    let totalDeals = 0;
+    let updatedDeals = 0;
+    let errors = 0;
+    const pipelineStats = {};
+
+    while (true) {
+      console.log(`Pipeline sync: fetching deals offset ${start}...`);
+      const dealsRes = await fetch(`${baseUrl}/deals?status=open&start=${start}&limit=${limit}&api_token=${apiKey}`);
+      const dealsData = await dealsRes.json();
+      if (!dealsData.success || !dealsData.data) break;
+
+      const deals = dealsData.data;
+      totalDeals += deals.length;
+
+      for (const d of deals) {
+        try {
+          // Buscar pipeline en nuestra BD por pipedrive_id
+          const plR = await pool.query('SELECT id, name FROM pipelines WHERE pipedrive_id = $1', [d.pipeline_id]);
+          if (!plR.rows[0]) continue;
+          const plId = plR.rows[0].id;
+          const plName = plR.rows[0].name;
+
+          // Buscar stage en nuestra BD por pipedrive_id
+          const stR = await pool.query('SELECT id FROM pipeline_stages WHERE pipedrive_id = $1', [d.stage_id]);
+          if (!stR.rows[0]) continue;
+          const stId = stR.rows[0].id;
+
+          // Actualizar deal en nuestra BD por pipedrive_id
+          const upd = await pool.query(
+            `UPDATE deals SET pipeline_id = $1, stage_id = $2, stage_entered_at = COALESCE($3, created_at)
+             WHERE pipedrive_id = $4 AND (pipeline_id IS NULL OR pipeline_id != $1 OR stage_id != $2)`,
+            [plId, stId, d.stage_change_time || null, d.id]);
+
+          if (upd.rowCount > 0) {
+            updatedDeals++;
+            pipelineStats[plName] = (pipelineStats[plName] || 0) + 1;
+          }
+        } catch (e) {
+          errors++;
+        }
+      }
+
+      if (!dealsData.additional_data?.pagination?.more_items_in_collection) break;
+      start = dealsData.additional_data.pagination.next_start;
+    }
+
+    const result = {
+      total_pipedrive_deals: totalDeals,
+      deals_updated: updatedDeals,
+      stages_created: stagesCreated,
+      errors,
+      by_pipeline: pipelineStats
+    };
+    console.log('Pipeline sync completado:', JSON.stringify(result));
+    res.json(result);
+  } catch (e) {
+    console.error('Pipeline sync error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
