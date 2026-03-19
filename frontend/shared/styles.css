@@ -1,8 +1,8 @@
 /* === Avants Suite — Design System (heredado de Fichate) === */
 
 :root {
-  --accent:        #ff4a6e;
-  --accent-hover:  #e63d5e;
+  --accent:        #009DDD;
+  --accent-hover:  #0088c2;
   --sidebar-bg:    #ffffff;
   --bg:            #f5f6fa;
   --text:          #1a1a2e;
@@ -90,6 +90,13 @@ body {
   font-size: 18px;
   width: 24px;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-link .icon svg {
+  display: block;
 }
 
 .sidebar-footer {
@@ -516,7 +523,7 @@ th {
 .drop-zone:hover,
 .drop-zone-active {
   border-color: var(--accent);
-  background: #fff0f3;
+  background: #e6f5fc;
 }
 
 .progress-bar-bg {
@@ -614,7 +621,7 @@ th {
 
 /* Tokens adicionales del módulo llamada */
 :root {
-  --ll-accent-l: #fff0f3;
+  --ll-accent-l: #e6f5fc;
   --ll-green: #10b981;
   --ll-green-bg: #ecfdf5;
   --ll-amber: #f59e0b;

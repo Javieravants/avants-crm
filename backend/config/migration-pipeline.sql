@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS pipelines (
   id SERIAL PRIMARY KEY,
   name VARCHAR(200) NOT NULL,
-  color VARCHAR(20) DEFAULT '#ff4a6e',
+  color VARCHAR(20) DEFAULT '#009DDD',
   orden INTEGER DEFAULT 0,
   active BOOLEAN DEFAULT true,
   pipedrive_id INTEGER UNIQUE,
@@ -49,7 +49,7 @@ CREATE INDEX IF NOT EXISTS idx_deals_pipeline_stage ON deals(pipeline_id, stage_
 
 -- Seed pipelines desde Pipedrive (16 pipelines reales)
 INSERT INTO pipelines (name, color, orden, pipedrive_id) VALUES
-  ('ADESLAS', '#ff4a6e', 0, 1),
+  ('ADESLAS', '#009DDD', 0, 1),
   ('DKV', '#3b82f6', 1, 2),
   ('SALUD', '#10b981', 2, 10),
   ('DENTAL', '#f59e0b', 3, 11),

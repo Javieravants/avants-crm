@@ -36,6 +36,15 @@ const App = {
       document.getElementById('nav-assistant').classList.add('hidden');
     }
 
+    // Inyectar iconos SVG en sidebar
+    if (typeof Icons !== 'undefined') {
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',impagos:'impagos',importar:'importar',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      Object.entries(icoMap).forEach(([id, fn]) => {
+        const el = document.getElementById('ico-' + id);
+        if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
+      });
+    }
+
     this.setupNavigation();
     this.navigate('dashboard');
     this.startNotificationPolling();

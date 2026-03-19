@@ -43,14 +43,14 @@ const PipelineModule = {
         .pl-emb-dd.open{display:block}
         .pl-dd-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;color:#475569}
         .pl-dd-item:hover{background:#f4f6f9}
-        .pl-dd-item.active{color:#ff4a6e;font-weight:600}
+        .pl-dd-item.active{color:#009DDD;font-weight:600}
         .pl-sep{width:1px;height:22px;background:#e8edf2}
         .pl-agents{display:flex;gap:5px;overflow-x:auto;flex-shrink:1}
         .pl-chip{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:#475569;white-space:nowrap;font-family:inherit}
         .pl-chip:hover{border-color:#d1d9e0}
-        .pl-chip.on{border-color:#ff4a6e;background:#fff0f3;color:#ff4a6e}
+        .pl-chip.on{border-color:#009DDD;background:#e6f5fc;color:#009DDD}
         .pl-chip-av{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff}
-        .pl-btn-new{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:none;background:#ff4a6e;color:#fff;cursor:pointer;font-size:12px;font-weight:700;margin-left:auto;font-family:inherit}
+        .pl-btn-new{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:700;margin-left:auto;font-family:inherit}
         .pl-btn-new:hover{background:#e0334f}
         .pl-edit-btn{width:30px;height:30px;border-radius:7px;border:1px solid #e8edf2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:#475569}
         .pl-edit-btn:hover{background:#f4f6f9}
@@ -63,9 +63,9 @@ const PipelineModule = {
         .pl-col-name{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .pl-col-count{font-size:10px;font-weight:700;color:#94a3b8;background:#f4f6f9;padding:2px 6px;border-radius:10px;flex-shrink:0}
         .pl-col-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
-        .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #ff4a6e;border-radius:0 0 12px 12px}
+        .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
-        .pl-col-add:hover{border-color:#ff4a6e;color:#ff4a6e}
+        .pl-col-add:hover{border-color:#009DDD;color:#009DDD}
         .pl-card{background:#fff;border:1px solid #e8edf2;border-radius:9px;padding:10px;cursor:grab;transition:all .13s;box-shadow:0 1px 3px rgba(0,0,0,.07);user-select:none}
         .pl-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#d1d9e0;transform:translateY(-1px)}
         .pl-card.dragging{opacity:.4;transform:rotate(2deg)}
@@ -92,13 +92,13 @@ const PipelineModule = {
         .pl-mf-v{font-size:13px;font-weight:500}
         .pl-modal-ft{padding:14px 20px;border-top:1px solid #e8edf2;display:flex;gap:8px}
         .pl-modal-ft button{padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit}
-        .pl-btn-ver{flex:1;border:none;background:#ff4a6e;color:#fff}
+        .pl-btn-ver{flex:1;border:none;background:#009DDD;color:#fff}
         .pl-btn-mover{border:1px solid #e8edf2;background:#fff;color:#475569}
         .pl-col-new{width:160px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:2px dashed #d1d9e0;border-radius:12px;cursor:pointer;font-size:12px;font-weight:600;color:#94a3b8;gap:6px;font-family:inherit}
-        .pl-col-new:hover{border-color:#ff4a6e;color:#ff4a6e}
-        .pl-edit-hd{background:#fff;border-bottom:2px solid #ff4a6e;padding:0 20px;display:flex;align-items:center;gap:12px;height:50px;flex-shrink:0}
+        .pl-col-new:hover{border-color:#009DDD;color:#009DDD}
+        .pl-edit-hd{background:#fff;border-bottom:2px solid #009DDD;padding:0 20px;display:flex;align-items:center;gap:12px;height:50px;flex-shrink:0}
         .pl-edit-input{padding:6px 12px;border:1px solid #e8edf2;border-radius:8px;font-size:14px;font-weight:700;color:#0f172a;outline:none;width:180px;font-family:inherit}
-        .pl-edit-input:focus{border-color:#ff4a6e}
+        .pl-edit-input:focus{border-color:#009DDD}
         .pl-empty{text-align:center;padding:40px;color:#94a3b8;font-size:14px}
       `;
       document.head.appendChild(st);
@@ -130,7 +130,7 @@ const PipelineModule = {
       <div class="pl-toolbar" id="pl-toolbar">
         <div class="pl-emb-wrap" id="pl-emb-wrap">
           <button class="pl-emb-btn" onclick="PipelineModule.toggleDD()">
-            <div class="pl-emb-dot" style="background:${pl?.color||'#ff4a6e'}"></div>
+            <div class="pl-emb-dot" style="background:${pl?.color||'#009DDD'}"></div>
             <span id="pl-emb-name">${pl?.name||'Seleccionar'}</span>
             <span class="pl-emb-count" id="pl-emb-count">· ${pl?.deal_count||0} deals</span>
             <span style="font-size:10px;color:#94a3b8">▼</span>
@@ -140,7 +140,7 @@ const PipelineModule = {
               <div class="pl-emb-dot" style="background:${p.color}"></div>
               <span style="flex:1">${this.esc(p.name)}</span>
               <span style="font-size:11px;color:#94a3b8">${p.deal_count||0}</span>
-              ${p.id===pl?.id?'<span style="color:#ff4a6e">✓</span>':''}
+              ${p.id===pl?.id?'<span style="color:#009DDD">✓</span>':''}
             </div>`).join('')}
           </div>
         </div>
@@ -219,7 +219,7 @@ const PipelineModule = {
       return;
     }
 
-    const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#ff4a6e','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
+    const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#009DDD','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
 
     board.innerHTML = this.stages.map((s,i) => `
       <div class="pl-col" data-stage-id="${s.id}">
@@ -386,7 +386,7 @@ const PipelineModule = {
     modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
     modal.innerHTML = `<div class="pl-modal">
       <div class="pl-modal-hd">
-        <div class="pl-modal-av" style="background:#ff4a6e">+</div>
+        <div class="pl-modal-av" style="background:#009DDD">+</div>
         <div class="pl-modal-name">Nuevo Deal</div>
         <button class="pl-modal-close" onclick="this.closest('.pl-modal-ov').remove()">✕</button>
       </div>
@@ -403,7 +403,7 @@ const PipelineModule = {
           <input id="pl-nd-prod" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit" placeholder="Ej: Plena Plus"></div>
         <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Compañía</label>
           <input id="pl-nd-comp" style="width:100%;padding:8px;border:1px solid #e8edf2;border-radius:8px;font-family:inherit" value="${this.currentPipeline?.name||''}"></div>
-        <button style="padding:10px;border-radius:8px;border:none;background:#ff4a6e;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="PipelineModule.createDeal()">Crear Deal</button>
+        <button style="padding:10px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="PipelineModule.createDeal()">Crear Deal</button>
       </div>
     </div>`;
     document.body.appendChild(modal);
