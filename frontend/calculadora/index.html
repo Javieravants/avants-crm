@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora ADESLAS - Campaña MásProtección</title>
+    <title>Calculadora ADESLAS - Avants Suite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a5276 0%, #2e86ab 100%); min-height: 100vh; padding: 15px; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f4f6f9; min-height: 100vh; padding: 15px; }
         
         .container { max-width: 1400px; margin: 0 auto; }
         
-        .header { background: white; border-radius: 12px; padding: 15px 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .header h1 { color: #1a5276; font-size: 20px; }
+        .header { background: white; border-radius: 16px; padding: 15px 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .header h1 { color: #009DDD; font-size: 20px; }
         .header-badge { background: linear-gradient(135deg, #f39c12, #e74c3c); color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 12px; }
         
         .checkboxes-row { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
@@ -23,9 +24,9 @@
         
         .main-grid { display: grid; grid-template-columns: 1fr 400px; gap: 15px; }
         
-        .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .panel { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
         
-        .section-title { font-size: 14px; font-weight: 700; color: #1a5276; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #3498db; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 14px; font-weight: 700; color: #009DDD; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #009DDD; display: flex; justify-content: space-between; align-items: center; }
         
         /* Checkboxes de productos */
         .productos-section { margin-bottom: 20px; }
@@ -50,22 +51,22 @@
         .asegurado-card { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 10px; position: relative; }
         .asegurado-card.titular { background: #e3f2fd; border-left: 4px solid #2196f3; }
         .asegurado-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .asegurado-title { font-weight: 600; font-size: 13px; color: #1a5276; }
+        .asegurado-title { font-weight: 600; font-size: 13px; color: #009DDD; }
         .btn-remove { background: #e74c3c; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; }
         
         .asegurado-grid { display: grid; grid-template-columns: 1.5fr 110px 70px 1fr 1fr 60px; gap: 8px; align-items: end; }
         .form-group { display: flex; flex-direction: column; gap: 3px; }
         .form-group label { font-size: 10px; color: #666; font-weight: 500; }
         .form-group input, .form-group select { padding: 7px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; }
-        .form-group input:focus, .form-group select:focus { border-color: #3498db; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: #009DDD; outline: none; }
         
-        .zona-badge { background: #3498db; color: white; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; text-align: center; }
+        .zona-badge { background: #009DDD; color: white; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; text-align: center; }
         
         .btn-add { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
         .btn-add:hover { background: #219a52; }
         
         /* Secciones de productos */
-        .producto-config { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px; display: none; border-left: 4px solid #3498db; }
+        .producto-config { background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px; display: none; border-left: 4px solid #009DDD; }
         .producto-config.visible { display: block; }
         .producto-config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .producto-config-title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
@@ -89,7 +90,7 @@
         
         .resumen-primas { margin-bottom: 20px; }
         .resumen-linea { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 13px; }
-        .resumen-linea.total { border-top: 2px solid #1a5276; border-bottom: none; font-weight: bold; font-size: 15px; color: #1a5276; padding-top: 12px; margin-top: 5px; }
+        .resumen-linea.total { border-top: 2px solid #009DDD; border-bottom: none; font-weight: bold; font-size: 15px; color: #009DDD; padding-top: 12px; margin-top: 5px; }
         
         .resumen-puntos { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
         .puntos-titulo { font-size: 12px; opacity: 0.9; margin-bottom: 8px; }
@@ -104,7 +105,7 @@
         .regalo-item.no-disponible { opacity: 0.4; border-left: 3px solid #ccc; }
         .regalo-puntos { font-weight: bold; color: #7b1fa2; }
         
-        .btn-guardar { width: 100%; background: linear-gradient(135deg, #1a5276 0%, #2e86ab 100%); color: white; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
+        .btn-guardar { width: 100%; background: #009DDD; color: white; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 8px; font-family: 'Inter', system-ui, sans-serif; }
         .btn-guardar:hover { opacity: 0.9; }
         
         .btn-pdf { width: 100%; background: #e74c3c; color: white; border: none; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
@@ -119,12 +120,12 @@
         .modal.visible { display: flex; }
         .modal-content { background: white; border-radius: 12px; padding: 25px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .modal-header h3 { color: #1a5276; }
+        .modal-header h3 { color: #009DDD; }
         .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
         .modal-body pre { background: #f5f5f5; padding: 15px; border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; font-family: monospace; }
         .modal-footer { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; }
         .modal-footer button { padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-copiar { background: #3498db; color: white; border: none; }
+        .btn-copiar { background: #009DDD; color: white; border: none; }
         .btn-cerrar { background: #eee; color: #333; border: none; }
         
         @media (max-width: 1200px) {
@@ -459,8 +460,9 @@
                     <div class="regalos-title">🎁 Regalos disponibles</div>
                     <div id="regalosList"></div>
                 </div>
-                <button class="btn-guardar" onclick="mostrarNota()">👁️ Ver Nota Pipedrive</button>
+                <button class="btn-guardar" onclick="mostrarNota()">👁️ Ver Nota</button>
                 <button class="btn-guardar" onclick="guardarEnPipedrive()">💾 Guardar en Pipedrive</button>
+                <button class="btn-guardar" style="background:#10b981" onclick="guardarEnCRM()">💾 Guardar en CRM</button>
                 <button class="btn-pdf" onclick="generarPDF()">📄 Generar PDF</button>
                 <div class="status-message" id="statusMessage"></div>
             </div>
@@ -3126,20 +3128,20 @@ function generarPDF() {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; padding: 30px; max-width: 800px; margin: 0 auto; }
   
-  .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #1a5276; }
-  .pdf-header h1 { color: #1a5276; font-size: 22px; }
+  .pdf-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #009DDD; }
+  .pdf-header h1 { color: #009DDD; font-size: 22px; }
   .pdf-header .badge { background: linear-gradient(135deg, #e74c3c, #f39c12); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; text-align: center; }
   .pdf-fecha { font-size: 12px; color: #666; margin-top: 4px; }
 
   .pdf-section { margin-bottom: 20px; }
-  .pdf-section-title { font-size: 13px; font-weight: 700; color: #1a5276; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #ddd; }
+  .pdf-section-title { font-size: 13px; font-weight: 700; color: #009DDD; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #ddd; }
 
   .pdf-aseg { font-size: 13px; padding: 4px 0; color: #333; }
   ${clienteYaAsegurado ? '.pdf-cliente-badge { background:#fff3e0;border:1px solid #ff9800;color:#e65100;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:15px;}' : ''}
 
   .pdf-productos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
   .pdf-producto { border-radius: 8px; padding: 14px; border: 1px solid #ddd; }
-  .pdf-producto.salud { border-left: 4px solid #1a5276; background: #f0f7ff; }
+  .pdf-producto.salud { border-left: 4px solid #009DDD; background: #f0f7ff; }
   .pdf-producto.dental { border-left: 4px solid #1976d2; background: #e3f2fd; }
   .pdf-producto.decesos { border-left: 4px solid #6a1b9a; background: #f3e5f5; }
   .pdf-producto.mascotas { border-left: 4px solid #ef6c00; background: #fff3e0; }
@@ -3147,10 +3149,10 @@ function generarPDF() {
   
   .pdf-prod-header { font-weight: 700; font-size: 13px; color: #1a1a1a; margin-bottom: 8px; }
   .pdf-prod-row { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; color: #555; }
-  .pdf-prod-row.precio { font-weight: 600; color: #1a5276; font-size: 13px; margin-top: 4px; }
+  .pdf-prod-row.precio { font-weight: 600; color: #009DDD; font-size: 13px; margin-top: 4px; }
   .pdf-prod-puntos { margin-top: 8px; background: rgba(123,31,162,0.1); color: #6a1b9a; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
 
-  .pdf-total { background: linear-gradient(135deg, #1a5276, #2e86ab); color: white; border-radius: 10px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .pdf-total { background: linear-gradient(135deg, #009DDD, #0088c2); color: white; border-radius: 10px; padding: 18px 22px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
   .pdf-total-label { font-size: 14px; opacity: 0.9; }
   .pdf-total-valor { font-size: 28px; font-weight: 700; }
   .pdf-total-anual { font-size: 13px; opacity: 0.8; margin-top: 3px; }
@@ -3177,7 +3179,7 @@ function generarPDF() {
 <body>
 
 <div style="text-align:center;margin-bottom:20px">
-  <button class="btn-imprimir" onclick="window.print()" style="background:#1a5276;color:white;border:none;padding:10px 25px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">🖨️ Imprimir / Guardar PDF</button>
+  <button class="btn-imprimir" onclick="window.print()" style="background:#009DDD;color:white;border:none;padding:10px 25px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">🖨️ Imprimir / Guardar PDF</button>
 </div>
 
 <div class="pdf-header">
@@ -3239,6 +3241,74 @@ function showStatus(msg, type) {
     el.textContent = msg;
     el.className = 'status-message ' + type;
     setTimeout(() => el.className = 'status-message', 5000);
+}
+
+// === GUARDAR EN CRM (BD del CRM) ===
+async function guardarEnCRM() {
+    const nota = document.getElementById('notaContenido');
+    if (!nota || !nota.value.trim()) {
+        mostrarNota(); // Generar la nota primero
+    }
+    const notaTexto = document.getElementById('notaContenido')?.value || '';
+    if (!notaTexto.trim()) {
+        showStatusMsg('⚠️ Genera la nota primero', 'error');
+        return;
+    }
+
+    // Recoger asegurados
+    const asegurados = [];
+    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card, i) => {
+        const nombre = card.querySelector('.asegurado-nombre')?.value || '';
+        const fecha = card.querySelector('.asegurado-fecha')?.value || '';
+        const sexo = card.querySelector('.asegurado-sexo')?.value || '';
+        if (nombre || fecha) asegurados.push({ nombre, fechaNac: fecha, sexo, edad: fecha ? calcularEdad(fecha) : null });
+    });
+
+    // Recoger producto salud si está activo
+    const saludProducto = document.getElementById('saludProducto')?.value || '';
+    const zona = document.querySelector('.zona-badge')?.textContent?.replace('Z','') || '';
+
+    // Obtener token del CRM (si está en iframe dentro del CRM)
+    let token = null;
+    try {
+        token = window.parent?.localStorage?.getItem('token') || localStorage.getItem('token');
+    } catch(e) {
+        token = localStorage.getItem('token');
+    }
+
+    if (!token) {
+        showStatusMsg('⚠️ No estás logueado en el CRM. Abre la calculadora desde el CRM.', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/calculadora/propuestas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({
+                persona_id: null,
+                deal_id: dealId ? parseInt(dealId) : null,
+                compania: 'ADESLAS',
+                producto: saludProducto || 'Presupuesto',
+                zona: zona ? parseInt(zona) : null,
+                num_asegurados: asegurados.length,
+                prima_mensual: parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0,
+                prima_anual: parseFloat(document.getElementById('resumenTotalAnual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0,
+                forma_pago: 'mensual',
+                asegurados_data: asegurados,
+                nota_contenido: notaTexto,
+                pipedrive_deal_id: dealId ? parseInt(dealId) : null
+            })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showStatusMsg('✅ Guardado en CRM (ID: ' + data.id + ')', 'success');
+        } else {
+            showStatusMsg('❌ Error CRM: ' + (data.error || 'desconocido'), 'error');
+        }
+    } catch(e) {
+        showStatusMsg('❌ Error conexión CRM: ' + e.message, 'error');
+    }
 }
 
 </script>
