@@ -32,8 +32,18 @@ router.post('/pipedrive', async (req, res) => {
   // Responder rápido a Pipedrive (evitar timeout)
   res.status(200).json({ ok: true });
 
-  const { event, current, previous } = req.body;
-  if (!event || !current) return;
+  const body = req.body;
+  const event = body.event;
+  // Soportar v1 ({ current, previous }) y v2 ({ data: { current, previous } } o { data: {...} })
+  const current = body.current || body.data?.current || body.data;
+  const previous = body.previous || body.data?.previous || null;
+
+  if (!event || !current) {
+    console.warn('[Webhook] Payload sin event o current:', JSON.stringify(body).substring(0, 300));
+    return;
+  }
+
+  console.log(`[Webhook] Recibido: ${event} — id: ${current.id || 'N/A'}`);
 
   try {
     const [action, entity] = event.split('.');
@@ -46,7 +56,7 @@ router.post('/pipedrive', async (req, res) => {
       await handlePerson(normalizedAction, current);
     }
   } catch (err) {
-    console.error('Error procesando webhook Pipedrive:', err.message);
+    console.error('[Webhook] Error procesando:', err.message, err.stack);
   }
 });
 
@@ -74,8 +84,17 @@ async function handleDeal(action, data, previous) {
     if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900) efecto = efectoRaw;
   }
 
-  // Stage name
+  // Stage name y pipeline_id / stage_id
   let stageName = '';
+  let pipelineIdPipedrive = data.pipeline_id || null;
+  let stageIdPipedrive = data.stage_id || null;
+  // Mapear pipeline_id de Pipedrive → pipeline_id local
+  let localPipelineId = null;
+  let localStageId = stageIdPipedrive; // stage_id se usa directo
+  if (pipelineIdPipedrive) {
+    const pipeRes = await pool.query('SELECT id FROM pipelines WHERE pipedrive_id = $1', [pipelineIdPipedrive]);
+    if (pipeRes.rows.length > 0) localPipelineId = pipeRes.rows[0].id;
+  }
   if (data.stage_id) {
     try {
       const stageRes = await fetch(
@@ -125,14 +144,16 @@ async function handleDeal(action, data, previous) {
 
     await pool.query(
       `INSERT INTO deals (pipedrive_id, persona_id, poliza, producto, prima, fecha_efecto,
-       estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+       estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra,
+       pipeline_id, stage_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
       [pipedriveId, personaId, poliza, producto, prima,
        efecto ? new Date(efecto) : null,
-       estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra)]
+       estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra),
+       localPipelineId, localStageId]
     );
 
-    console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado}`);
+    console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado} (pipeline: ${localPipelineId})`);
 
   } else if (action === 'updated') {
     const existing = await pool.query('SELECT id, estado FROM deals WHERE pipedrive_id = $1', [pipedriveId]);
@@ -141,20 +162,23 @@ async function handleDeal(action, data, previous) {
       // No existía, crear
       await pool.query(
         `INSERT INTO deals (pipedrive_id, persona_id, poliza, producto, prima, fecha_efecto,
-         estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra,
+         pipeline_id, stage_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [pipedriveId, personaId, poliza, producto, prima,
          efecto ? new Date(efecto) : null,
-         estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra)]
+         estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra),
+         localPipelineId, localStageId]
       );
     } else {
       await pool.query(
         `UPDATE deals SET persona_id = COALESCE($1, persona_id), poliza = COALESCE($2, poliza),
          producto = $3, prima = $4, estado = $5, pipedrive_stage = $6, pipedrive_status = $7,
-         pipedrive_owner = $8, datos_extra = $9, updated_at = CURRENT_TIMESTAMP
-         WHERE pipedrive_id = $10`,
+         pipedrive_owner = $8, datos_extra = $9, pipeline_id = COALESCE($10, pipeline_id),
+         stage_id = COALESCE($11, stage_id), updated_at = CURRENT_TIMESTAMP
+         WHERE pipedrive_id = $12`,
         [personaId, poliza, producto, prima, estado, stageName, status, ownerName,
-         JSON.stringify(datosExtra), pipedriveId]
+         JSON.stringify(datosExtra), localPipelineId, localStageId, pipedriveId]
       );
 
       // Si cambió a "won" → notificar admins
