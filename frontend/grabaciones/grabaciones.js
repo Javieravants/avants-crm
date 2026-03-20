@@ -4262,6 +4262,8 @@ async function guardarEnCRM() {
             btn.innerHTML = '✅ Guardado en CRM';
             btn.classList.remove('bg-[#10b981]');
             btn.classList.add('bg-gray-400');
+            // Generar PDF automáticamente si está disponible
+            generarPDFGrabacion();
         } else {
             mostrarError('Error CRM: ' + (data.error || 'desconocido'));
             btn.innerHTML = btnOriginal; btn.disabled = false;
@@ -4269,5 +4271,70 @@ async function guardarEnCRM() {
     } catch(e) {
         mostrarError('Error conexión CRM: ' + e.message);
         btn.innerHTML = btnOriginal; btn.disabled = false;
+    }
+}
+
+// === GENERAR PDF DE GRABACIÓN CON PLANTILLA PROFESIONAL ===
+async function generarPDFGrabacion() {
+    if (typeof PDFPropuesta === 'undefined') return; // Solo si está cargado desde CRM
+
+    const tipoPolizaVal = tipoProducto === 'SALUD'
+        ? document.getElementById('tipoPoliza')?.value
+        : document.getElementById('tipoPolizaInput')?.value;
+
+    const nombreTomador = esPolizaEmpresa
+        ? document.getElementById('empresaRazonSocial')?.value || ''
+        : `${document.getElementById('tomadorNombre')?.value||''} ${document.getElementById('tomadorApellidos')?.value||''}`.trim();
+
+    const aseguradosList = asegurados.map((a, i) => {
+        if (a.esTomador && !esPolizaEmpresa) {
+            return {
+                nombre: nombreTomador,
+                edad: a.fechaNac ? calcularEdad(a.fechaNac) : null,
+                sexo: document.getElementById('tomadorSexo')?.value || '',
+                precio: ''
+            };
+        }
+        return {
+            nombre: `${a.nombre||''} ${a.apellidos||''}`.trim(),
+            edad: a.fechaNacimiento ? calcularEdad(a.fechaNacimiento) : null,
+            sexo: a.sexo || '',
+            precio: ''
+        };
+    });
+
+    const importe = document.getElementById('importe')?.value || '0';
+    const frecuencia = document.getElementById('frecuenciaPago')?.value || 'MENSUAL';
+    const multiplicador = frecuencia==='MENSUAL'?12:frecuencia==='TRIMESTRAL'?4:frecuencia==='SEMESTRAL'?2:1;
+
+    try {
+        await PDFPropuesta.download({
+            referencia: `GRB-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`,
+            fecha: new Date().toLocaleDateString('es-ES'),
+            clienteNombre: nombreTomador,
+            clienteDNI: document.getElementById('tomadorNif')?.value || document.getElementById('empresaCif')?.value || '',
+            clienteTelefono: document.getElementById('tomadorTelefono')?.value || document.getElementById('empresaTelefono')?.value || '',
+            clienteEmail: document.getElementById('tomadorEmail')?.value || document.getElementById('empresaEmail')?.value || '',
+            clienteDireccion: `${document.getElementById('tomadorDireccion')?.value||''}, ${document.getElementById('tomadorCP')?.value||''} ${document.getElementById('tomadorLocalidad')?.value||''}`.trim(),
+            agente: document.getElementById('agente')?.value || '',
+            asegurados: aseguradosList,
+            productos: [{
+                nombre: tipoPolizaVal || tipoProducto,
+                precioMensual: parseFloat(importe).toFixed(2).replace('.',','),
+                detalle: [
+                    document.getElementById('dental')?.value || '',
+                    document.getElementById('dtoCompania')?.value ? `Dto: ${document.getElementById('dtoCompania').value}` : ''
+                ].filter(Boolean).join(' · ')
+            }],
+            totalMensual: parseFloat(importe).toFixed(2).replace('.',','),
+            totalAnual: (parseFloat(importe) * multiplicador).toFixed(2).replace('.',','),
+            descuentos: {
+                compania: document.getElementById('dtoCompania')?.value || '',
+                opcional: document.getElementById('dtoContracomision')?.value || ''
+            },
+            puntos: parseInt(document.getElementById('puntosCampana')?.value || propuestaSeleccionada?.puntos || 0) || 0
+        });
+    } catch(e) {
+        console.warn('Error generando PDF grabación:', e);
     }
 }

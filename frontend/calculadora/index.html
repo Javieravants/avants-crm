@@ -463,7 +463,7 @@
                 <button class="btn-guardar" onclick="mostrarNota()">👁️ Ver Nota</button>
                 <button class="btn-guardar" onclick="guardarEnPipedrive()">💾 Guardar en Pipedrive</button>
                 <button class="btn-guardar" style="background:#10b981" onclick="guardarEnCRM()">💾 Guardar en CRM</button>
-                <button class="btn-pdf" onclick="generarPDF()">📄 Generar PDF</button>
+                <button class="btn-pdf" onclick="generarPDFPropuesta()">📄 Generar PDF Propuesta</button>
                 <div class="status-message" id="statusMessage"></div>
             </div>
         </div>
@@ -3311,7 +3311,96 @@ async function guardarEnCRM() {
     }
 }
 
+// === GENERAR PDF CON PLANTILLA PROFESIONAL ===
+async function generarPDFPropuesta() {
+    if (typeof PDFPropuesta === 'undefined') {
+        showStatusMsg('Error: Carga la calculadora desde el CRM para generar PDF', 'error');
+        // Fallback al PDF antiguo
+        generarPDF();
+        return;
+    }
+
+    const resumenEl = document.getElementById('resumenProductos');
+    if (!resumenEl || !resumenEl.innerHTML.trim()) {
+        showStatusMsg('Selecciona productos y calcula antes de generar PDF', 'error');
+        return;
+    }
+
+    // Recoger asegurados
+    const aseguradosList = [];
+    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card, i) => {
+        const nombre = card.querySelector('.asegurado-nombre')?.value || '';
+        const fecha = card.querySelector('.asegurado-fecha')?.value || '';
+        const sexo = card.querySelector('.asegurado-sexo')?.value || '';
+        const provincia = document.getElementById('zona')?.value || '';
+        const precioEl = card.querySelector('.precio-individual');
+        const precio = precioEl ? precioEl.textContent.replace('€','').trim() : '';
+        if (nombre || fecha) {
+            aseguradosList.push({
+                nombre: nombre,
+                edad: fecha ? calcularEdad(fecha) : null,
+                sexo: sexo,
+                zona: provincia ? PROVINCIA_A_ZONA[provincia] || 4 : null,
+                precio: precio
+            });
+        }
+    });
+
+    // Recoger productos del presupuesto
+    const productosList = presupuesto.map(item => ({
+        nombre: item.producto || item.tipo || 'Producto',
+        precioMensual: (item.primaMensual || '').replace('/mes','').trim(),
+        detalle: [
+            item.zona ? `Zona ${item.zona}` : '',
+            item.dental || '',
+            item.dtoCompania && item.dtoCompania !== '-' ? `Dto: ${item.dtoCompania}` : ''
+        ].filter(Boolean).join(' · ')
+    }));
+
+    // Calcular totales
+    let totalMensual = 0;
+    presupuesto.forEach(item => {
+        const pm = parseFloat((item.primaMensual||'').replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+        totalMensual += pm;
+    });
+
+    // Puntos y regalo
+    const totalPuntosBase = presupuesto.reduce((s,p)=>s+(p.puntos||0),0);
+    const tipos = new Set(presupuesto.map(p=>p.tipo||'salud'));
+    const totalPuntos = tipos.size >= 2 ? totalPuntosBase * 2 : totalPuntosBase;
+
+    let regalo = '';
+    if (totalPuntos >= 6000) regalo = 'Aspirador Dyson V8';
+    else if (totalPuntos >= 4000) regalo = 'Apple Watch SE';
+    else if (totalPuntos >= 3000) regalo = 'AirPods Pro';
+    else if (totalPuntos >= 2000) regalo = 'Tarjeta Amazon 50€';
+    else if (totalPuntos >= 1000) regalo = 'Tarjeta Amazon 25€';
+
+    // Nombre del cliente (del primer asegurado o del deal)
+    const clienteNombre = aseguradosList[0]?.nombre || document.getElementById('dealInfo')?.textContent || 'Cliente';
+
+    try {
+        showStatusMsg('Generando PDF...', 'info');
+        await PDFPropuesta.download({
+            fecha: new Date().toLocaleDateString('es-ES'),
+            clienteNombre: clienteNombre,
+            agente: document.getElementById('dealInfo')?.dataset?.agente || '',
+            asegurados: aseguradosList,
+            productos: productosList,
+            totalMensual: totalMensual.toFixed(2).replace('.',','),
+            totalAnual: (totalMensual * 12).toFixed(2).replace('.',','),
+            puntos: totalPuntos,
+            regalo: regalo
+        });
+        showStatusMsg('PDF descargado', 'success');
+    } catch(e) {
+        showStatusMsg('Error generando PDF: ' + e.message, 'error');
+    }
+}
+
 </script>
-    </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="/shared/pdf-propuesta.js"></script>
 </body>
 </html>
