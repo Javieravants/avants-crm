@@ -1,40 +1,54 @@
 <!DOCTYPE html>
 <html><head>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 <script src="frontend/shared/pdf-propuesta.js"></script>
-</head><body>
-<h2>Generando PDF de prueba...</h2>
+</head><body style="font-family:Inter,sans-serif;padding:40px;background:#f4f6f9">
+<div style="max-width:500px;margin:0 auto;text-align:center">
+  <h2 style="color:#0f172a">Generando PDF de prueba...</h2>
+  <p style="color:#788291">Se descargará automáticamente</p>
+  <div id="status" style="margin-top:20px;padding:16px;border-radius:12px;background:#ecfdf5;color:#059669;font-weight:700;display:none"></div>
+</div>
 <script>
-window.onload = function() {
-  PDFPropuesta.download({
-    referencia: 'PRE-2026-00147',
-    fecha: '20/03/2026',
-    clienteNombre: 'María Belén Hernán Hernández',
-    clienteDNI: '12345678Z',
-    clienteTelefono: '+34 661 502 656',
-    clienteEmail: 'belen.hernan.hernandez@gmail.com',
-    clienteDireccion: 'C/ Alcalá 45, 3ºB, 28001 Madrid',
-    agente: 'Beatriz Sánchez Parras',
-    asegurados: [
-      { nombre: 'María Belén Hernán Hernández', edad: 48, sexo: 'M', zona: 1, precio: '77,00' },
-      { nombre: 'Carlos Hernán López', edad: 52, sexo: 'H', zona: 1, precio: '92,00' }
-    ],
-    productos: [
-      { nombre: 'Salud - Plena Plus', precioMensual: '154,00', detalle: 'Zona 1 Madrid - 2 asegurados' },
-      { nombre: 'Dental Familia', precioMensual: '8,93', detalle: 'Complemento dental' },
-      { nombre: 'Decesos Plus', precioMensual: '6,28', detalle: 'Capital 4.500 EUR - Servicio Plus' }
-    ],
-    totalMensual: '169,21',
-    totalAnual: '1.692,10',
-    descuentos: {
-      compania: '10% (4+ asegurados)',
-      opcional: '5% contracomisión',
-      campana: '2 meses gratis (meses 6 y 15)'
-    },
-    puntos: 4000,
-    regalo: 'Apple Watch SE'
-  });
-  document.body.innerHTML = '<h2 style="font-family:Inter,sans-serif;color:#10b981">PDF descargado. Revisa tu carpeta de descargas.</h2><p>Archivo: PRE-2026-00147_Maria_Belen_Hernan_Hernandez.pdf</p>';
+window.onload = async function() {
+  try {
+    await PDFPropuesta.download({
+      referencia: 'PRE-2026-00147',
+      fecha: '20/03/2026',
+      clienteNombre: 'María Belén Hernán Hernández',
+      clienteDNI: '12345678Z',
+      clienteTelefono: '+34 661 502 656',
+      clienteEmail: 'belen.hernan.hernandez@gmail.com',
+      clienteDireccion: 'C/ Alcalá 45, 3ºB, 28001 Madrid',
+      agente: 'Beatriz Sánchez Parras',
+      asegurados: [
+        { nombre: 'María Belén Hernán Hernández', edad: 48, sexo: 'M', zona: 1, precio: '77,00' },
+        { nombre: 'Carlos Hernán López', edad: 52, sexo: 'H', zona: 1, precio: '92,00' }
+      ],
+      productos: [
+        { nombre: 'Salud · Plena Plus', precioMensual: '154,00', detalle: 'Zona 1 Madrid · 2 asegurados' },
+        { nombre: 'Dental Familia', precioMensual: '8,93', detalle: 'Complemento dental para todos los asegurados' },
+        { nombre: 'Decesos Plus', precioMensual: '6,28', detalle: 'Capital 4.500€ · Servicio Plus incluido' }
+      ],
+      totalMensual: '169,21',
+      totalAnual: '1.692,10',
+      descuentos: {
+        compania: '10% (4+ asegurados)',
+        opcional: '5% contracomisión',
+        campana: '2 meses gratis (meses 6 y 15)'
+      },
+      puntos: 4000,
+      regalo: 'Apple Watch SE'
+    });
+    document.getElementById('status').style.display = 'block';
+    document.getElementById('status').textContent = '✓ PDF descargado: PRE-2026-00147_María_Belén_Hernán_Hernández.pdf';
+  } catch(e) {
+    document.getElementById('status').style.display = 'block';
+    document.getElementById('status').style.background = '#fef2f2';
+    document.getElementById('status').style.color = '#ef4444';
+    document.getElementById('status').textContent = 'Error: ' + e.message;
+  }
 };
 </script>
 </body></html>

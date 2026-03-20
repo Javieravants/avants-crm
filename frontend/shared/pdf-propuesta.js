@@ -1,312 +1,236 @@
 // === Avants Suite — PDF Propuesta ADESLAS ===
-// Diseño corporativo minimalista: blanco, gris, #009DDD solo para acentos
+// Usa html2canvas + jsPDF para renderizar UTF-8 perfecto
 
 const PDFPropuesta = {
 
-  // jsPDF con helvetica no soporta UTF-8 completo.
-  // Reemplazamos caracteres problemáticos por equivalentes ASCII seguros.
-  _safe(text) {
-    if (!text) return '';
-    return String(text)
-      .replace(/€/g, 'EUR')
-      .replace(/·/g, '-')
-      .replace(/ñ/g, 'n').replace(/Ñ/g, 'N')
-      .replace(/á/g, 'a').replace(/Á/g, 'A')
-      .replace(/é/g, 'e').replace(/É/g, 'E')
-      .replace(/í/g, 'i').replace(/Í/g, 'I')
-      .replace(/ó/g, 'o').replace(/Ó/g, 'O')
-      .replace(/ú/g, 'u').replace(/Ú/g, 'U')
-      .replace(/ü/g, 'u').replace(/Ü/g, 'U')
-      .replace(/¡/g, '!').replace(/¿/g, '?')
-      .replace(/º/g, 'o').replace(/ª/g, 'a');
+  _buildHTML(data) {
+    const ref = data.referencia || `PRE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+    const fecha = data.fecha || new Date().toLocaleDateString('es-ES');
+
+    const asegRows = (data.asegurados || []).map((a, i) =>
+      `<tr style="${i%2===0?'':'background:#f8f9fb'}">
+        <td style="padding:5px 8px;font-size:9px;color:#788291">${i+1}</td>
+        <td style="padding:5px 8px;font-size:9px;font-weight:600">${a.nombre||'-'}</td>
+        <td style="padding:5px 8px;font-size:9px">${a.edad!==undefined?a.edad+' años':'-'}</td>
+        <td style="padding:5px 8px;font-size:9px">${a.sexo||'-'}</td>
+        <td style="padding:5px 8px;font-size:9px">${a.zona?'Z'+a.zona:'-'}</td>
+        <td style="padding:5px 8px;font-size:9px;text-align:right;font-weight:600">${a.precio?a.precio+' €':''}</td>
+      </tr>`
+    ).join('');
+
+    const prodRows = (data.productos || []).map(p =>
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:1px dotted #dce1e8">
+        <div>
+          <span style="font-size:10px">${p.nombre||'Producto'}</span>
+          ${p.detalle?`<div style="font-size:7.5px;color:#788291;margin-top:1px;padding-left:3px">${p.detalle}</div>`:''}
+        </div>
+        <span style="font-size:10px;font-weight:700;white-space:nowrap;margin-left:12px">${p.precioMensual||'0,00'} €/mes</span>
+      </div>`
+    ).join('');
+
+    const descLine = [
+      data.descuentos?.compania ? `Dto. compañía: ${data.descuentos.compania}` : '',
+      data.descuentos?.opcional ? `Dto. opcional: ${data.descuentos.opcional}` : '',
+      data.descuentos?.campana || ''
+    ].filter(Boolean).join('  ·  ');
+
+    let regalo = '';
+    if (data.puntos >= 6000) regalo = 'Aspirador Dyson V8';
+    else if (data.puntos >= 4000) regalo = 'Apple Watch SE';
+    else if (data.puntos >= 3000) regalo = 'AirPods Pro';
+    else if (data.puntos >= 2000) regalo = 'Tarjeta Amazon 50€';
+    else if (data.puntos >= 1000) regalo = 'Tarjeta Amazon 25€';
+    if (data.regalo) regalo = data.regalo;
+
+    return `
+    <div id="pdf-root" style="width:794px;padding:0;margin:0;font-family:'Inter','Helvetica Neue',Arial,sans-serif;color:#0f172a;background:#fff;line-height:1.4">
+
+      <!-- Accent bar -->
+      <div style="height:6px;background:#009DDD"></div>
+
+      <!-- Header -->
+      <div style="padding:20px 32px 16px;display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">Avants Suite</div>
+          <div style="font-size:9px;color:#788291">Correduría de Seguros</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:800;color:#009DDD">PRESUPUESTO ADESLAS</div>
+          <div style="font-size:8.5px;color:#788291">Ref: ${ref}  ·  ${fecha}</div>
+        </div>
+      </div>
+
+      <div style="height:1px;background:#dce1e8;margin:0 32px"></div>
+
+      <!-- Cliente -->
+      <div style="padding:14px 32px">
+        <div style="font-size:8px;font-weight:700;color:#788291;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Datos del solicitante</div>
+        <div style="font-size:12px;font-weight:700">${data.clienteNombre||'Sin nombre'}</div>
+        <div style="font-size:9px;color:#788291;margin-top:2px">${[data.clienteDNI,data.clienteTelefono,data.clienteEmail].filter(Boolean).join('  ·  ')}</div>
+        ${data.clienteDireccion?`<div style="font-size:9px;color:#788291">${data.clienteDireccion}</div>`:''}
+        ${data.agente?`<div style="font-size:9px;color:#009DDD;font-weight:600;margin-top:3px">Agente: ${data.agente}</div>`:''}
+      </div>
+
+      <div style="height:1px;background:#dce1e8;margin:0 32px"></div>
+
+      <!-- Asegurados -->
+      ${(data.asegurados&&data.asegurados.length>0)?`
+      <div style="padding:14px 32px">
+        <div style="font-size:8px;font-weight:700;color:#788291;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">Asegurados (${data.asegurados.length})</div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid #dce1e8">
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:left">#</th>
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:left">NOMBRE</th>
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:left">EDAD</th>
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:left">SEXO</th>
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:left">ZONA</th>
+              <th style="padding:5px 8px;font-size:7.5px;font-weight:700;color:#788291;text-align:right">PRECIO</th>
+            </tr>
+          </thead>
+          <tbody>${asegRows}</tbody>
+        </table>
+      </div>
+      <div style="height:1px;background:#dce1e8;margin:0 32px"></div>
+      `:''}
+
+      <!-- Productos -->
+      <div style="padding:14px 32px">
+        <div style="font-size:8px;font-weight:700;color:#788291;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Productos</div>
+        ${prodRows}
+      </div>
+
+      <!-- Total -->
+      <div style="margin:4px 32px;padding:12px 16px;background:#0f172a;border-radius:6px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#fff">TOTAL MENSUAL</div>
+          <div style="font-size:8px;color:#94a3b8">Total anual: ${data.totalAnual||'0,00'} €</div>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:#009DDD">${data.totalMensual||'0,00'} €</div>
+      </div>
+
+      ${descLine?`<div style="padding:6px 32px;font-size:7.5px;color:#788291">${descLine}</div>`:''}
+
+      <div style="height:1px;background:#dce1e8;margin:8px 32px"></div>
+
+      <!-- Campaña -->
+      ${data.puntos>0?`
+      <div style="padding:14px 32px;display:flex;gap:12px">
+        <div style="flex:1;padding:10px 14px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:6px;color:#fff">
+          <div style="font-size:7.5px;opacity:0.85;text-transform:uppercase;letter-spacing:0.5px">Campaña MásProtección 2026</div>
+          <div style="font-size:20px;font-weight:800;margin-top:4px">${data.puntos.toLocaleString('es-ES')} pts</div>
+        </div>
+        ${regalo?`
+        <div style="flex:1;padding:10px 14px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px">
+          <div style="font-size:7.5px;color:#059669;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Premio disponible</div>
+          <div style="font-size:14px;font-weight:800;color:#059669;margin-top:4px">${regalo}</div>
+        </div>`:''}
+      </div>
+      <div style="height:1px;background:#dce1e8;margin:0 32px"></div>
+      `:''}
+
+      <!-- Coberturas + Carencias -->
+      <div style="padding:14px 32px;display:flex;gap:24px">
+        <div style="flex:1">
+          <div style="font-size:8px;font-weight:700;color:#788291;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Coberturas</div>
+          <div style="font-size:8px;color:#94a3b8;line-height:1.5">Información de coberturas pendiente de completar. Consulte las condiciones generales del producto contratado en adeslas.es</div>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:8px;font-weight:700;color:#788291;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">Carencias</div>
+          <div style="font-size:8px;color:#94a3b8;line-height:1.5">Las carencias varían según el producto. Consulte las condiciones particulares de su póliza.</div>
+        </div>
+      </div>
+
+      <div style="height:1px;background:#dce1e8;margin:0 32px"></div>
+
+      <!-- Footer -->
+      <div style="padding:12px 32px;display:flex;justify-content:space-between">
+        <div style="font-size:7px;color:#94a3b8;line-height:1.6">
+          Telegestion de Seguros y Soluciones Avants SL  ·  CIF: B88350875  ·  Tel: 911 989 456<br>
+          Mediador de seguros inscrito en la DGSFP  ·  www.segurosdesaludonline.es
+        </div>
+        <div style="text-align:right;font-size:7px;color:#94a3b8;line-height:1.6">
+          <span style="color:#009DDD;font-weight:700">Ref: ${ref}</span><br>
+          Generado: ${new Date().toLocaleDateString('es-ES')}
+        </div>
+      </div>
+
+    </div>`;
   },
 
-  generate(data) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const W = 210, ML = 18, MR = 18, CW = W - ML - MR;
-    let y = 0;
-    const s = this._safe.bind(this); // Shorthand
+  async generate(data) {
+    // Crear contenedor temporal oculto
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1';
+    container.innerHTML = this._buildHTML(data);
+    document.body.appendChild(container);
 
-    const accent = [0, 157, 221];
-    const black = [15, 23, 42];
-    const gray = [120, 130, 145];
-    const lightGray = [200, 205, 212];
-    const lineColor = [220, 225, 232];
+    const root = container.querySelector('#pdf-root');
 
-    // Helpers
-    const line = (yy) => { doc.setDrawColor(...lineColor); doc.setLineWidth(0.3); doc.line(ML, yy, ML + CW, yy); };
-    const label = (text, x, yy) => { doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(...gray); doc.text(s(text).toUpperCase(), x, yy); };
-    const val = (text, x, yy, bold) => { doc.setFontSize(10); doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setTextColor(...black); doc.text(s(text) || '-', x, yy); };
-    const sectionTitle = (text, yy) => { doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...gray); doc.text(s(text).toUpperCase(), ML, yy); return yy + 5; };
-
-    // ═══ HEADER ═══
-    // Línea fina accent arriba
-    doc.setFillColor(...accent);
-    doc.rect(0, 0, W, 2, 'F');
-
-    y = 14;
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...black);
-    doc.text('Avants Suite', ML, y);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    doc.text('Correduria de Seguros', ML, y + 5); // ASCII safe - no tildes
-
-    // Derecha: título + ref + fecha
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...accent);
-    doc.text('PRESUPUESTO ADESLAS', ML + CW, y, { align: 'right' });
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    const ref = data.referencia || `PRE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
-    doc.text(s(`Ref: ${ref}  -  ${data.fecha || new Date().toLocaleDateString('es-ES')}`), ML + CW, y + 5, { align: 'right' });
-
-    y = 28;
-    line(y);
-    y += 7;
-
-    // ═══ DATOS DEL SOLICITANTE ═══
-    y = sectionTitle('Datos del solicitante', y);
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...black);
-    doc.text(s(data.clienteNombre || 'Sin nombre'), ML, y);
-    y += 5;
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    const datos = [
-      data.clienteDNI,
-      data.clienteTelefono,
-      data.clienteEmail
-    ].filter(Boolean).join('  -  ');
-    if (datos) { doc.text(s(datos), ML, y); y += 4; }
-    if (data.clienteDireccion) { doc.text(s(data.clienteDireccion), ML, y); y += 4; }
-    if (data.agente) {
-      doc.text(s(`Agente: ${data.agente}`), ML, y);
-      y += 4;
-    }
-
-    y += 3;
-    line(y);
-    y += 7;
-
-    // ═══ ASEGURADOS ═══
-    if (data.asegurados && data.asegurados.length > 0) {
-      y = sectionTitle(`Asegurados (${data.asegurados.length})`, y);
-
-      // Cabecera tabla
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...gray);
-      doc.text('#', ML, y);
-      doc.text('NOMBRE', ML + 8, y);
-      doc.text('EDAD', ML + 90, y);
-      doc.text('SEXO', ML + 108, y);
-      doc.text('ZONA', ML + 125, y);
-      doc.text('PRECIO', ML + CW, y, { align: 'right' });
-      y += 2;
-      line(y);
-      y += 4;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...black);
-      data.asegurados.forEach((a, i) => {
-        doc.setFontSize(8.5);
-        doc.text(`${i + 1}`, ML, y);
-        doc.text(s((a.nombre || '-').substring(0, 35)), ML + 8, y);
-        doc.text(a.edad !== undefined ? `${a.edad} a.` : '-', ML + 90, y);
-        doc.text(a.sexo || '-', ML + 108, y);
-        doc.text(a.zona ? `Z${a.zona}` : '-', ML + 125, y);
-        if (a.precio) {
-          doc.setTextColor(...black);
-          doc.text(s(`${a.precio} EUR`), ML + CW, y, { align: 'right' });
-        }
-        doc.setTextColor(...black);
-        y += 5;
-      });
-
-      y += 2;
-      line(y);
-      y += 7;
-    }
-
-    // ═══ PRODUCTOS ═══
-    y = sectionTitle('Productos', y);
-
-    (data.productos || []).forEach(p => {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...black);
-      doc.text(s(p.nombre || 'Producto'), ML, y);
-
-      // Linea punteada hasta el precio
-      const nameWidth = doc.getTextWidth(s(p.nombre || 'Producto'));
-      const priceStr = `${p.precioMensual || '0,00'} EUR/mes`;
-      const priceWidth = doc.getTextWidth(priceStr);
-      const dotsStart = ML + nameWidth + 3;
-      const dotsEnd = ML + CW - priceWidth - 3;
-      doc.setTextColor(...lightGray);
-      doc.setFontSize(9);
-      let dotX = dotsStart;
-      while (dotX < dotsEnd) { doc.text('.', dotX, y); dotX += 1.5; }
-
-      doc.setTextColor(...black);
-      doc.setFont('helvetica', 'bold');
-      doc.text(priceStr, ML + CW, y, { align: 'right' });
-
-      if (p.detalle) {
-        y += 4;
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(...gray);
-        doc.text(s(p.detalle), ML + 3, y);
-      }
-
-      y += 6;
+    // Renderizar con html2canvas
+    const canvas = await html2canvas(root, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: 794,
+      windowWidth: 794
     });
 
-    // Línea separadora antes del total
-    y += 1;
-    doc.setDrawColor(...accent);
-    doc.setLineWidth(0.5);
-    doc.line(ML, y, ML + CW, y);
-    y += 6;
+    document.body.removeChild(container);
 
-    // TOTAL
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...black);
-    doc.text('TOTAL MENSUAL', ML, y);
+    // Convertir a PDF con jsPDF
+    const { jsPDF } = window.jspdf;
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgW = 210; // A4 width mm
+    const imgH = (canvas.height * imgW) / canvas.width;
 
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...accent);
-    doc.text(`${data.totalMensual || '0,00'} EUR`, ML + CW, y, { align: 'right' });
-    y += 6;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    let yOffset = 0;
+    const pageH = 297;
 
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    doc.text('TOTAL ANUAL', ML, y);
-    doc.setTextColor(...black);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${data.totalAnual || '0,00'} EUR`, ML + CW, y, { align: 'right' });
-
-    y += 4;
-    if (data.descuentos) {
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...gray);
-      const descLine = [
-        data.descuentos.compania ? `Dto. compania: ${data.descuentos.compania}` : '',
-        data.descuentos.opcional ? `Dto. opcional: ${data.descuentos.opcional}` : '',
-        data.descuentos.campana || ''
-      ].filter(Boolean).join('  -  ');
-      if (descLine) { doc.text(s(descLine), ML, y); y += 4; }
-    }
-
-    y += 3;
-    line(y);
-    y += 7;
-
-    // ═══ CAMPANA MASPROTECCION ═══
-    if (data.puntos > 0) {
-      y = sectionTitle('Campana MasProteccion 2026', y);
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...black);
-      doc.text(s(`Puntos acumulados: ${data.puntos.toLocaleString('es-ES')} pts`), ML, y);
-      y += 5;
-
-      if (data.regalo) {
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...accent);
-        doc.text(s(`Premio disponible: ${data.regalo}`), ML, y);
-        y += 5;
+    // Si cabe en 1 página
+    if (imgH <= pageH) {
+      doc.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+    } else {
+      // Multi-página
+      let remainH = imgH;
+      let page = 0;
+      while (remainH > 0) {
+        if (page > 0) doc.addPage();
+        // Crop del canvas para esta página
+        const srcY = (page * pageH / imgH) * canvas.height;
+        const srcH = Math.min((pageH / imgH) * canvas.height, canvas.height - srcY);
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = canvas.width;
+        cropCanvas.height = srcH;
+        cropCanvas.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, srcH, 0, 0, canvas.width, srcH);
+        const cropData = cropCanvas.toDataURL('image/jpeg', 0.95);
+        const cropH = (srcH * imgW) / canvas.width;
+        doc.addImage(cropData, 'JPEG', 0, 0, imgW, cropH);
+        remainH -= pageH;
+        page++;
       }
-
-      y += 2;
-      line(y);
-      y += 7;
-    }
-
-    // ═══ COBERTURAS + CARENCIAS (2 columnas) ═══
-    const halfW = CW / 2 - 3;
-
-    y = sectionTitle('Coberturas', y);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    doc.text('Informacion de coberturas pendiente', ML, y);
-    doc.text('de completar. Consulte las condiciones', ML, y + 4);
-    doc.text('generales en adeslas.es', ML, y + 8);
-
-    // Carencias a la derecha
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...gray);
-    doc.text('CARENCIAS', ML + halfW + 6, y - 5);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Las carencias varian segun el producto.', ML + halfW + 6, y);
-    doc.text('Consulte las condiciones particulares', ML + halfW + 6, y + 4);
-    doc.text('de su poliza.', ML + halfW + 6, y + 8);
-
-    y += 16;
-    line(y);
-
-    // ═══ FOOTER ═══
-    const footerY = 280;
-    doc.setDrawColor(...lineColor);
-    doc.setLineWidth(0.2);
-    doc.line(ML, footerY, ML + CW, footerY);
-
-    doc.setFontSize(7);
-    doc.setTextColor(...gray);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Telegestion de Seguros y Soluciones Avants SL  -  CIF: B88350875  -  Tel: 911 989 456', ML, footerY + 4);
-    doc.text('Mediador de seguros inscrito en la DGSFP  -  www.segurosdesaludonline.es', ML, footerY + 8);
-
-    doc.setTextColor(...accent);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text(`Ref: ${ref}`, ML + CW, footerY + 4, { align: 'right' });
-    doc.setTextColor(...gray);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')}`, ML + CW, footerY + 8, { align: 'right' });
-
-    // Numero de pagina si hay mas de 1
-    const totalPages = doc.internal.getNumberOfPages();
-    if (totalPages > 1) {
+      // Números de página
+      const totalPages = doc.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFontSize(7);
-        doc.setTextColor(...gray);
-        doc.text(`Pagina ${i} de ${totalPages}`, W / 2, 290, { align: 'center' });
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Pagina ${i} de ${totalPages}`, 105, 292, { align: 'center' });
       }
     }
 
     return doc;
   },
 
-  download(data, filename) {
-    const doc = this.generate(data);
+  async download(data, filename) {
+    const doc = await this.generate(data);
     const ref = data.referencia || `PRE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
     doc.save(filename || `${ref}_${(data.clienteNombre||'').replace(/\s/g,'_')}.pdf`);
   },
 
-  preview(data) {
-    const doc = this.generate(data);
+  async preview(data) {
+    const doc = await this.generate(data);
     window.open(URL.createObjectURL(doc.output('blob')), '_blank');
   }
 };
