@@ -308,7 +308,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);

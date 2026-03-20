@@ -338,6 +338,7 @@ const SettingsModule = {
               <th>Contraseña</th>
               <th>Telefono</th>
               <th>Rol</th>
+              <th>Empresa</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -371,7 +372,7 @@ const SettingsModule = {
   _renderUsersTable(users) {
     const tbody = document.getElementById('users-settings-tbody');
     if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-light">No hay usuarios</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-light">No hay usuarios</td></tr>';
       return;
     }
 
@@ -382,6 +383,7 @@ const SettingsModule = {
         <td>${u.password_visible ? `<code class="password-cell">${this._esc(u.password_visible)}</code>` : '<span class="text-light">—</span>'}</td>
         <td>${u.telefono ? this._esc(u.telefono) : '<span class="text-light">—</span>'}</td>
         <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
+        <td>${u.empresa ? `<span class="badge" style="background:${u.empresa === 'DKV' ? '#00835e20' : '#009DDD20'};color:${u.empresa === 'DKV' ? '#00835e' : '#009DDD'};">${u.empresa}</span>` : '<span class="text-light">—</span>'}</td>
         <td>
           <button class="btn-toggle-status ${u.activo ? 'active' : 'inactive'}" data-toggle-id="${u.id}" data-activo="${u.activo}" title="${u.activo ? 'Desactivar' : 'Activar'}">
             ${u.activo ? 'Activo' : 'Inactivo'}
@@ -485,15 +487,23 @@ const SettingsModule = {
                 <option value="admin" ${isEdit && existing.rol === 'admin' ? 'selected' : ''}>Admin</option>
               </select>
             </div>
-            ${isEdit ? `
             <div class="form-group">
-              <label>Estado</label>
-              <select class="form-control" name="activo">
-                <option value="true" ${existing.activo ? 'selected' : ''}>Activo</option>
-                <option value="false" ${!existing.activo ? 'selected' : ''}>Inactivo</option>
+              <label>Empresa</label>
+              <select class="form-control" name="empresa">
+                <option value="ADESLAS" ${isEdit && existing.empresa === 'ADESLAS' ? 'selected' : ''}>ADESLAS</option>
+                <option value="DKV" ${isEdit && existing.empresa === 'DKV' ? 'selected' : ''}>DKV</option>
+                <option value="" ${isEdit && !existing.empresa ? 'selected' : ''}>Sin empresa (admin)</option>
               </select>
-            </div>` : '<div></div>'}
+            </div>
           </div>
+          ${isEdit ? `
+          <div class="form-group">
+            <label>Estado</label>
+            <select class="form-control" name="activo">
+              <option value="true" ${existing.activo ? 'selected' : ''}>Activo</option>
+              <option value="false" ${!existing.activo ? 'selected' : ''}>Inactivo</option>
+            </select>
+          </div>` : ''}
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
             <button type="submit" class="btn btn-primary">${isEdit ? 'Guardar cambios' : 'Crear usuario'}</button>
@@ -515,6 +525,7 @@ const SettingsModule = {
         email: form.email.value.trim(),
         rol: form.rol.value,
         telefono: form.telefono.value.trim() || null,
+        empresa: form.empresa.value || null,
       };
 
       if (isEdit) {

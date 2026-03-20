@@ -61,11 +61,12 @@ const TicketsModule = {
             <option value="">Todos los tipos</option>
             ${typeOpts}
           </select>
+          ${Auth.hasRole('admin') ? `
           <select class="form-control tramites-filter" id="filter-compania">
-            <option value="">Todas las compañías</option>
+            <option value="">Todas las empresas</option>
             <option value="ADESLAS">ADESLAS</option>
             <option value="DKV">DKV</option>
-          </select>
+          </select>` : '<span id="filter-compania"></span>'}
           <button class="btn btn-primary" id="btn-new-tramite">+ Nuevo trámite</button>
         </div>
       </div>
@@ -96,7 +97,7 @@ const TicketsModule = {
       });
     });
 
-    document.getElementById('btn-new-tramite').addEventListener('click', () => this.showNewModal());
+    document.getElementById('btn-new-tramite').addEventListener('click', () => this.openNewPanel());
   },
 
   async loadKanban() {
@@ -534,9 +535,9 @@ const TicketsModule = {
     `;
   },
 
-  // === Modal nuevo trámite ===
-  showNewModal() {
-    const prev = document.getElementById('modal-ticket');
+  // === Panel lateral nuevo trámite ===
+  openNewPanel() {
+    const prev = document.querySelector('.tramite-panel-overlay');
     if (prev) prev.remove();
 
     const typeOpts = this.types.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
@@ -559,74 +560,84 @@ const TicketsModule = {
     }
 
     const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.id = 'modal-ticket';
+    overlay.className = 'tramite-panel-overlay';
     overlay.innerHTML = `
-      <div class="modal" style="max-width:560px;">
-        <h2 class="modal-title">Nuevo trámite</h2>
-        <div id="ticket-modal-error" class="login-error"></div>
-        <form id="form-new-ticket">
-          <div class="form-group">
-            <label>Tipo de trámite</label>
-            <select class="form-control" name="tipo_id" required>${typeOpts}</select>
+      <div class="tramite-panel-backdrop"></div>
+      <div class="tramite-panel">
+        <div class="panel-header">
+          <div>
+            <span class="kanban-card-type">Nuevo</span>
+            <h2 class="panel-title">Nuevo trámite</h2>
           </div>
-          <div class="form-group">
-            <label>Bandeja</label>
-            <select class="form-control" name="column_id" required>${colOpts}</select>
-          </div>
-          <div class="form-group">
-            <label>Descripción</label>
-            <textarea class="form-control" name="descripcion" rows="4" required placeholder="Describe el trámite..."></textarea>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <button class="panel-close" id="panel-close-new">&times;</button>
+        </div>
+
+        <div style="padding:24px;flex:1;overflow-y:auto;">
+          <div id="new-ticket-error" class="login-error"></div>
+          <form id="form-new-ticket">
             <div class="form-group">
-              <label>Compañía</label>
-              <select class="form-control" name="compania">
-                <option value="">Sin compañía</option>
-                <option value="ADESLAS">ADESLAS</option>
-                <option value="DKV">DKV</option>
-              </select>
+              <label>Tipo de trámite</label>
+              <select class="form-control" name="tipo_id" required>${typeOpts}</select>
             </div>
             <div class="form-group">
-              <label>Urgencia</label>
-              <select class="form-control" name="urgencia">
-                <option value="normal">Normal</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
-              </select>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div class="form-group">
-              <label>Nº Póliza (opcional)</label>
-              <input type="text" class="form-control" name="num_poliza" placeholder="Ej: 12345">
+              <label>Bandeja</label>
+              <select class="form-control" name="column_id" required>${colOpts}</select>
             </div>
             <div class="form-group">
-              <label>Nº Solicitud (opcional)</label>
-              <input type="text" class="form-control" name="num_solicitud" placeholder="Ej: SOL-001">
+              <label>Descripción</label>
+              <textarea class="form-control" name="descripcion" rows="4" required placeholder="Describe el trámite..."></textarea>
             </div>
-          </div>
-          <div class="form-group">
-            <label>ID Deal Pipedrive (opcional)</label>
-            <input type="text" class="form-control" name="pipedrive_deal_id" placeholder="Ej: 12345">
-          </div>
-          ${assignHtml}
-          <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" id="btn-cancel-ticket">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Crear trámite</button>
-          </div>
-        </form>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label>Urgencia</label>
+                <select class="form-control" name="urgencia">
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Nº Póliza (opcional)</label>
+                <input type="text" class="form-control" name="num_poliza" placeholder="Ej: 12345">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label>Nº Solicitud (opcional)</label>
+                <input type="text" class="form-control" name="num_solicitud" placeholder="Ej: SOL-001">
+              </div>
+              <div class="form-group">
+                <label>ID Deal Pipedrive (opcional)</label>
+                <input type="text" class="form-control" name="pipedrive_deal_id" placeholder="Ej: 12345">
+              </div>
+            </div>
+            ${assignHtml}
+            <div class="panel-footer" style="border-top:none;padding:16px 0 0;">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-new">Cancelar</button>
+              <button type="submit" class="btn btn-primary" style="margin-left:auto;">Crear trámite</button>
+            </div>
+          </form>
+        </div>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    document.getElementById('btn-cancel-ticket').addEventListener('click', () => overlay.remove());
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    // Animar entrada
+    requestAnimationFrame(() => overlay.classList.add('open'));
+
+    const closePanel = () => {
+      overlay.classList.remove('open');
+      setTimeout(() => overlay.remove(), 300);
+    };
+
+    document.getElementById('panel-close-new').addEventListener('click', closePanel);
+    document.getElementById('btn-cancel-new').addEventListener('click', closePanel);
+    overlay.querySelector('.tramite-panel-backdrop').addEventListener('click', closePanel);
 
     document.getElementById('form-new-ticket').addEventListener('submit', async (e) => {
       e.preventDefault();
       const form = e.target;
-      const errEl = document.getElementById('ticket-modal-error');
+      const errEl = document.getElementById('new-ticket-error');
       errEl.style.display = 'none';
 
       const body = {
@@ -640,16 +651,15 @@ const TicketsModule = {
 
       try {
         const ticket = await API.post('/tickets', body);
-        // Actualizar campos nuevos via PATCH
+        // Actualizar campos extras via PATCH
         const extra = {};
-        if (form.compania.value) extra.compania = form.compania.value;
         if (form.num_poliza.value) extra.num_poliza = form.num_poliza.value;
         if (form.num_solicitud.value) extra.num_solicitud = form.num_solicitud.value;
         if (form.urgencia.value !== 'normal') extra.urgencia = form.urgencia.value;
         if (Object.keys(extra).length > 0) {
           await API.patch(`/tickets/${ticket.id}`, extra);
         }
-        overlay.remove();
+        closePanel();
         await this.loadKanban();
       } catch (err) {
         errEl.textContent = err.message;

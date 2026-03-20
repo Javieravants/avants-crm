@@ -34,14 +34,14 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol },
+      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRY || '8h' }
     );
 
     res.json({
       token,
-      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol },
+      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa },
     });
   } catch (err) {
     console.error('Error en login:', err);
@@ -69,7 +69,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // POST /api/auth/users — crear usuario (solo admin)
 router.post('/users', authMiddleware, requireRole('admin'), async (req, res) => {
-  const { nombre, email, password, rol, telefono } = req.body;
+  const { nombre, email, password, rol, telefono, empresa } = req.body;
   if (!nombre || !email || !password || !rol) {
     return res.status(400).json({ error: 'Nombre, email, contraseña y rol son obligatorios' });
   }
@@ -80,10 +80,10 @@ router.post('/users', authMiddleware, requireRole('admin'), async (req, res) => 
   try {
     const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (nombre, email, password_hash, rol, telefono, password_visible)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, nombre, email, rol, telefono, password_visible, activo, created_at`,
-      [nombre, email, hash, rol, telefono || null, password]
+      `INSERT INTO users (nombre, email, password_hash, rol, telefono, password_visible, empresa)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, nombre, email, rol, telefono, password_visible, empresa, activo, created_at`,
+      [nombre, email, hash, rol, telefono || null, password, empresa || 'ADESLAS']
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -100,8 +100,8 @@ router.get('/users', authMiddleware, requireRole('admin', 'supervisor'), async (
   try {
     // Solo admin ve password_visible
     const fields = req.user.rol === 'admin'
-      ? 'id, nombre, email, rol, telefono, password_visible, activo, created_at'
-      : 'id, nombre, email, rol, telefono, activo, created_at';
+      ? 'id, nombre, email, rol, telefono, password_visible, empresa, activo, created_at'
+      : 'id, nombre, email, rol, telefono, empresa, activo, created_at';
     const result = await pool.query(`SELECT ${fields} FROM users ORDER BY created_at DESC`);
     res.json(result.rows);
   } catch (err) {
@@ -113,7 +113,7 @@ router.get('/users', authMiddleware, requireRole('admin', 'supervisor'), async (
 // PATCH /api/auth/users/:id — actualizar usuario (solo admin)
 router.patch('/users/:id', authMiddleware, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const { nombre, email, rol, activo, password, telefono } = req.body;
+  const { nombre, email, rol, activo, password, telefono, empresa } = req.body;
 
   try {
     const fields = [];
@@ -130,6 +130,7 @@ router.patch('/users/:id', authMiddleware, requireRole('admin'), async (req, res
     }
     if (telefono !== undefined) { fields.push(`telefono = $${idx++}`); values.push(telefono || null); }
     if (activo !== undefined) { fields.push(`activo = $${idx++}`); values.push(activo); }
+    if (empresa !== undefined) { fields.push(`empresa = $${idx++}`); values.push(empresa || null); }
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       fields.push(`password_hash = $${idx++}`); values.push(hash);
@@ -143,7 +144,7 @@ router.patch('/users/:id', authMiddleware, requireRole('admin'), async (req, res
     values.push(id);
     const result = await pool.query(
       `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx}
-       RETURNING id, nombre, email, rol, telefono, activo, created_at`,
+       RETURNING id, nombre, email, rol, telefono, empresa, activo, created_at`,
       values
     );
 

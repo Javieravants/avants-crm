@@ -23,12 +23,22 @@ router.get('/kanban', async (req, res) => {
     if (tipo_id) { where.push(`t.tipo_id = $${idx++}`); values.push(tipo_id); }
     if (compania) { where.push(`t.compania = $${idx++}`); values.push(compania); }
 
-    // Agentes solo ven sus propios tickets
+    // Filtro por empresa según rol
     if (req.user.rol === 'agent') {
+      // Agentes: solo sus tickets + filtro por empresa
       where.push(`(t.created_by = $${idx} OR t.assigned_to = $${idx})`);
       values.push(req.user.id);
       idx++;
+      const userEmpresa = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+      const emp = userEmpresa.rows[0]?.empresa;
+      if (emp) { where.push(`t.compania = $${idx++}`); values.push(emp); }
+    } else if (req.user.rol === 'supervisor') {
+      // Supervisores: solo trámites de su empresa
+      const userEmpresa = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+      const emp = userEmpresa.rows[0]?.empresa;
+      if (emp) { where.push(`t.compania = $${idx++}`); values.push(emp); }
     }
+    // Admin: ve todo, filtra opcionalmente por query param compania
 
     const result = await pool.query(`
       SELECT t.id, t.tipo_id, t.estado, t.descripcion, t.prioridad, t.urgencia,
@@ -126,11 +136,18 @@ router.get('/', async (req, res) => {
       values.push(tipo_id);
     }
 
-    // Agentes solo ven sus propios tickets
+    // Filtro por empresa según rol
     if (req.user.rol === 'agent') {
       where.push(`(t.created_by = $${idx} OR t.assigned_to = $${idx})`);
       values.push(req.user.id);
       idx++;
+      const userEmpresa = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+      const emp = userEmpresa.rows[0]?.empresa;
+      if (emp) { where.push(`t.compania = $${idx++}`); values.push(emp); }
+    } else if (req.user.rol === 'supervisor') {
+      const userEmpresa = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+      const emp = userEmpresa.rows[0]?.empresa;
+      if (emp) { where.push(`t.compania = $${idx++}`); values.push(emp); }
     }
 
     const result = await pool.query(`
@@ -180,10 +197,17 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Ticket no encontrado' });
     }
 
-    // Agente solo ve sus propios tickets
+    // Verificar permisos por rol y empresa
     const t = ticket.rows[0];
     if (req.user.rol === 'agent' && t.created_by !== req.user.id && t.assigned_to !== req.user.id) {
       return res.status(403).json({ error: 'No tienes permiso para ver este ticket' });
+    }
+    if (req.user.rol === 'supervisor' || req.user.rol === 'agent') {
+      const userEmpresa = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+      const emp = userEmpresa.rows[0]?.empresa;
+      if (emp && t.compania && t.compania !== emp) {
+        return res.status(403).json({ error: 'No tienes permiso para ver este ticket' });
+      }
     }
 
     // Comentarios
@@ -211,13 +235,17 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    // Auto-asignar empresa según el usuario que crea el trámite
+    const userRow = await pool.query('SELECT empresa FROM users WHERE id = $1', [req.user.id]);
+    const empresa = userRow.rows[0]?.empresa || null;
+
     const result = await pool.query(`
       INSERT INTO tickets (tipo_id, column_id, descripcion, pipedrive_deal_id, prioridad,
-        created_by, agente_id, assigned_to, estado)
-      VALUES ($1, $2, $3, $4, $5, $6, $6, $7, 'nuevo')
+        created_by, agente_id, assigned_to, estado, compania)
+      VALUES ($1, $2, $3, $4, $5, $6, $6, $7, 'nuevo', $8)
       RETURNING *
     `, [tipo_id, column_id, descripcion, pipedrive_deal_id || null, prioridad || 'normal',
-        req.user.id, assigned_to || null]);
+        req.user.id, assigned_to || null, empresa]);
 
     // Log de actividad
     await pool.query(
