@@ -17,6 +17,8 @@ async function seed() {
       ['migration-personas.sql', 'Personas'],
       ['migration-fichate-ionos.sql', 'Fichate (tablas ft_)'],
       ['migration-pipeline.sql', 'Pipeline Kanban'],
+      ['migration-grabaciones.sql', 'Grabaciones y Pólizas'],
+      ['migration-calculadora.sql', 'Calculadora y Propuestas'],
     ];
 
     for (const [file, label] of migrations) {

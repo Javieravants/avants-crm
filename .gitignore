@@ -4,3 +4,5 @@ node_modules/
 backend/uploads/
 .DS_Store
 *.tmp
+backups/
+.claude/audit.log

@@ -305,8 +305,27 @@ async function initPipelineTables() {
   }
 }
 
+// Auto-migración de tablas adicionales
+async function initExtraMigrations() {
+  const fs = require('fs');
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql'];
+  for (const file of extras) {
+    try {
+      const migPath = path.join(__dirname, 'config', file);
+      if (fs.existsSync(migPath)) {
+        const sql = fs.readFileSync(migPath, 'utf8');
+        await pool.query(sql);
+      }
+    } catch (e) {
+      console.warn(`Migration ${file} warning:`, e.message);
+    }
+  }
+  console.log('Migraciones extras verificadas');
+}
+
 app.listen(PORT, async () => {
   console.log(`Avants CRM corriendo en http://localhost:${PORT}`);
   await initFichateTables();
   await initPipelineTables();
+  await initExtraMigrations();
 });
