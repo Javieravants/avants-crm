@@ -161,6 +161,66 @@ const PersonasModule = {
   _ini(n) { return (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); },
   _hu(id) { return (id*47)%360; },
 
+  // Card visual para propuestas/grabaciones en el historial
+  _renderNotaPropuesta(n, txt) {
+    const fecha = new Date(n.created_at).toLocaleString('es-ES');
+    const esGrabacion = txt.includes('GRABACIÓN PÓLIZA');
+
+    // Parsear datos de la nota
+    const extractLine = (prefix) => {
+      const regex = new RegExp(prefix + '\\s*:?\\s*(.+)', 'i');
+      const m = txt.match(regex);
+      return m ? m[1].trim() : '';
+    };
+
+    const producto = extractLine('Producto|POLIZA|Tipo') || extractLine('OPCIÓN 1');
+    const precio = extractLine('Precio|Prima mensual|PRECIO');
+    const puntos = extractLine('TOTAL.*pts|Puntos') || '';
+    const puntosNum = parseInt((puntos.match(/[\d.]+/) || ['0'])[0].replace('.', ''));
+
+    // Regalos por puntos
+    let regalo = '';
+    if (puntosNum >= 6000) regalo = '🎁 Aspirador Dyson V8';
+    else if (puntosNum >= 4000) regalo = '🎁 Apple Watch SE';
+    else if (puntosNum >= 3000) regalo = '🎁 AirPods Pro';
+    else if (puntosNum >= 2000) regalo = '🎁 Tarjeta Amazon 50€';
+    else if (puntosNum >= 1000) regalo = '🎁 Tarjeta Amazon 25€';
+
+    // Extraer asegurados (buscar líneas numeradas tipo "1. NOMBRE")
+    const asegLines = txt.match(/\d+\.\s+[A-ZÁÉÍÓÚÑ][\w\s]+/g) || [];
+
+    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+      <!-- Header -->
+      <div style="background:${esGrabacion?'linear-gradient(135deg,#ef4444,#dc2626)':'linear-gradient(135deg,#009DDD,#0088c2)'};padding:14px 18px;display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;">
+          ${esGrabacion?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>':'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>'}
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:800;color:#fff;">${esGrabacion?'Grabación de Póliza':'Presupuesto ADESLAS'}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.8);">${n.user_nombre||''} · ${fecha}</div>
+        </div>
+        ${producto?`<div style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;">${this._esc(producto.substring(0,30))}</div>`:''}
+      </div>
+      <!-- Body -->
+      <div style="padding:14px 18px;">
+        ${asegLines.length>0?`<div style="margin-bottom:10px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.8px;margin-bottom:6px;">Asegurados (${asegLines.length})</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${asegLines.slice(0,6).map((a,i)=>{const name=a.replace(/^\d+\.\s+/,'').split(' - ')[0].trim();return`<div style="display:flex;align-items:center;gap:5px;background:#f4f6f9;border-radius:8px;padding:4px 8px;font-size:11px;"><div style="width:20px;height:20px;border-radius:50%;background:hsl(${this._hu(i)},55%,55%);color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700">${this._ini(name)}</div><span style="font-weight:600">${this._esc(name.substring(0,20))}</span></div>`;}).join('')}
+          </div>
+        </div>`:''}
+        ${precio?`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:13px;color:#475569;">Total mensual</span>
+          <span style="font-size:20px;font-weight:800;color:var(--accent);">${this._esc(precio.substring(0,20))}</span>
+        </div>`:''}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          ${puntosNum>0?`<div style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;">🎁 ${puntosNum.toLocaleString('es-ES')} pts</div>`:''}
+          ${regalo?`<div style="background:#ecfdf5;color:#10b981;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;">${regalo}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  },
+
   renderFicha(p) {
     const container = document.getElementById('main-content');
     container.style.padding = '0';
@@ -527,15 +587,31 @@ const PersonasModule = {
           <button class="btn btn-primary btn-sm" id="btn-add-nota" style="margin-top:8px;">Añadir nota</button>
         </div>
         <div id="notas-list">
-          ${notas.length === 0 ? '<p class="text-light">Sin notas</p>' : notas.map(n => `
-            <div class="comment" style="margin-bottom:8px;">
-              <div class="comment-header">
-                <strong>${n.user_nombre || 'Sistema'}</strong>
-                <span class="text-light">${new Date(n.created_at).toLocaleString('es-ES')}</span>
+          ${notas.length === 0 ? '<p class="text-light">Sin notas</p>' : notas.map(n => {
+            const txt = n.texto || '';
+            // Detectar propuestas de calculadora
+            if (txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA')) {
+              return this._renderNotaPropuesta(n, txt);
+            }
+            // Detectar actividades programadas
+            if (txt.startsWith('📅')) {
+              return `<div style="background:#e6f5fc;border:1px solid rgba(0,157,221,.2);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;">📅</div>
+                  <div style="flex:1"><span style="font-size:13px;font-weight:700;">Actividad programada</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${n.user_nombre||''} · ${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
+                </div>
+                <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
+              </div>`;
+            }
+            // Nota normal
+            return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#fffbeb;display:flex;align-items:center;justify-content:center;font-size:14px;">📝</div>
+                <div style="flex:1"><span style="font-size:13px;font-weight:700;">${n.user_nombre||'Sistema'}</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
               </div>
-              <div class="comment-body">${this._esc(n.texto)}</div>
-            </div>
-          `).join('')}
+              <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
+            </div>`;
+          }).join('')}
         </div>
       `;
 
