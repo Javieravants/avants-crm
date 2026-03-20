@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grabación de Pólizas - ADESLAS</title>
+    <title>Grabación de Pólizas - Avants Suite</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Tailwind config para usar colores del CRM
+      tailwind.config = { theme: { extend: { colors: { blue: { 500: '#009DDD', 600: '#009DDD', 700: '#0088c2' }, indigo: { 600: '#009DDD', 700: '#0088c2' } }, borderRadius: { xl: '12px', '2xl': '16px' } } } }
+    </script>
     <style>
-        * { font-family: 'Open Sans', sans-serif; }
-        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #009DDD; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+        input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 157, 221, 0.2); }
         .campo-cargado { background-color: #f0fdf4 !important; border-color: #86efac !important; }
         input:not([type="date"]):not([type="radio"]):not([type="checkbox"]), 
         select, 
@@ -25,25 +29,25 @@
         .resumen-propuesta { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-100 via-white to-blue-50 min-h-screen">
-    
+<body class="bg-[#f4f6f9] min-h-screen">
+
     <!-- HEADER -->
-    <div class="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white py-4 px-4 shadow-lg">
+    <div class="bg-white border-b border-[#e8edf2] py-3 px-4">
         <div class="max-w-6xl mx-auto flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-10 h-10 bg-[#009DDD] rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold">Grabación Pólizas ADESLAS</h1>
-                    <p class="text-blue-200 text-xs">Sistema integrado con Pipedrive</p>
+                    <h1 class="text-lg font-bold text-[#0f172a]">Grabación Pólizas ADESLAS</h1>
+                    <p class="text-[#94a3b8] text-xs">Avants Suite · Integrado con Pipedrive</p>
                 </div>
             </div>
-            <div id="dealInfo" class="hidden text-right bg-white/10 px-3 py-1.5 rounded-lg">
-                <p class="text-xs text-blue-200">Deal #<span id="dealIdHeader"></span></p>
-                <p class="font-medium text-sm truncate max-w-[200px]" id="dealTitle"></p>
+            <div id="dealInfo" class="hidden text-right bg-[#f4f6f9] px-3 py-1.5 rounded-lg border border-[#e8edf2]">
+                <p class="text-xs text-[#94a3b8]">Deal #<span id="dealIdHeader"></span></p>
+                <p class="font-medium text-sm truncate max-w-[200px] text-[#0f172a]" id="dealTitle"></p>
             </div>
         </div>
     </div>
@@ -533,7 +537,7 @@
     <!-- MODAL: Guion de Grabación -->
     <div id="modalGuion" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
         <div class="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            <div class="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex justify-between items-center">
+            <div class="p-4 bg-[#009DDD] text-white flex justify-between items-center">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                     Guion de Grabación
@@ -560,24 +564,20 @@
                 </div>
 
                 <button onclick="guardarEnPipedrive()" id="btnGuardar"
-                    class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition shadow-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white">
+                    class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition shadow-lg bg-[#009DDD] hover:bg-[#0088c2] text-white">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                    Guardar Todo en Pipedrive
+                    Guardar en Pipedrive
+                </button>
+                <button onclick="guardarEnCRM()" id="btnGuardarCRM"
+                    class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition shadow-lg bg-[#10b981] hover:bg-[#059669] text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    Guardar en CRM
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- BOTÓN FLOTANTE - IR A GRABACIONES -->
-    <a href="https://segurosdesaludonline.com/GRABACIONES/" 
-       target="_blank"
-       class="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-full shadow-lg hover:from-red-600 hover:to-orange-600 transition-all hover:scale-105 group"
-       title="Ir a Grabaciones">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-        </svg>
-        <span class="font-bold text-sm">GRABAR</span>
-    </a>
+    <!-- Botón flotante eliminado (estamos dentro del CRM) -->
 
     <!-- JavaScript -->
     <script src="grabaciones.js"></script>

@@ -3864,51 +3864,47 @@ function generarNotaEstructurada() {
     // Productos que pueden tener descuento compañía (SALUD, DENTAL)
     const productoConDescuento = tipoProducto === 'SALUD' || tipoProducto === 'DENTAL';
     
-    // Usar HTML con <br> para que Pipedrive respete los saltos de línea
+    const importe = document.getElementById('importe').value;
+    const frecuencia = document.getElementById('frecuenciaPago').value;
+    const primaAnual = (parseFloat(importe)||0) * (frecuencia==='MENSUAL'?12:frecuencia==='TRIMESTRAL'?4:frecuencia==='SEMESTRAL'?2:1);
+
     let nota = `
-<h2>═══ GRABACIÓN PÓLIZA ADESLAS ═══</h2>
-<b>TIPO:</b> ${tipoProducto}${esPolizaEmpresa ? ' (EMPRESA)' : ''}<br>
-<b>FECHA:</b> ${fecha}<br>
-<b>POLIZA:</b> ${tipoPoliza}<br>
-${productoConDental ? `<b>DENTAL:</b> ${dental || 'Sin dental'}<br>` : ''}
-<b>PRECIO:</b> ${document.getElementById('importe').value}€/${document.getElementById('frecuenciaPago').value}<br>
-<b>🎁 PUNTOS CAMPAÑA:</b> ${puntosCampana ? parseInt(puntosCampana).toLocaleString('es-ES') + ' pts' : '-'}<br>
-${productoConDescuento ? `<b>DESCUENTO COMPAÑÍA:</b> ${dtoCompania || '-'}<br>` : ''}
-${productoConDescuento ? `<b>DESCUENTO CONTRA:</b> ${dtoContra || '-'}<br>` : ''}
-<b>EFECTO:</b> ${formatearFechaES(document.getElementById('fechaEfecto').value)}<br>
-<b>SOLICITUD:</b> ${document.getElementById('solicitud').value || '-'}<br>
-<b>NUM_POLIZA:</b> ${document.getElementById('poliza').value || '-'}<br>
-<b>AGENTE:</b> ${document.getElementById('agente').value || '-'}<br>
+<h2>════════════════════════════════════</h2>
+<h2>🏥 GRABACIÓN PÓLIZA ADESLAS</h2>
+<h2>════════════════════════════════════</h2>
+<br>
+<b>📋 DATOS PÓLIZA</b><br>
+- Tipo: ${tipoProducto}${esPolizaEmpresa ? ' (EMPRESA)' : ''} | Producto: ${tipoPoliza}<br>
+- Precio: ${importe}€/${frecuencia} | Anual: ${primaAnual.toFixed(2)}€<br>
+- Efecto: ${formatearFechaES(document.getElementById('fechaEfecto').value)} | Agente: ${document.getElementById('agente').value || '-'}<br>
+- Solicitud: ${document.getElementById('solicitud').value || '-'} | Póliza: ${document.getElementById('poliza').value || '-'}<br>
+${productoConDescuento ? `- Descuento compañía: ${dtoCompania || '-'} | Contra: ${dtoContra || '-'}<br>` : ''}
+${productoConDental ? `- Dental: ${dental || 'Sin dental'}<br>` : ''}
+- 🎁 Puntos campaña: ${puntosCampana ? parseInt(puntosCampana).toLocaleString('es-ES') + ' pts' : '-'}<br>
+- Fecha grabación: ${fecha}<br>
 <br>
 `;
 
     // Sección TOMADOR según si es empresa o persona
     if (esPolizaEmpresa) {
-        nota += `<h3>─── TOMADOR (EMPRESA) ───</h3>
-<b>RAZÓN SOCIAL:</b> ${tomador.razonSocial}<br>
-<b>CIF:</b> ${tomador.cif}<br>
-<b>TELÉFONO:</b> ${tomador.telefono}<br>
-<b>EMAIL:</b> ${tomador.email}<br>
-<b>PERSONA CONTACTO:</b> ${tomador.contacto}<br>
-<b>CARGO:</b> ${tomador.cargo}<br>
-<b>ACTIVIDAD:</b> ${tomador.actividad}<br>
-<b>DIRECCIÓN:</b> ${tomador.direccion}<br>
-<b>CP:</b> ${tomador.cp}<br>
-<b>LOCALIDAD:</b> ${tomador.localidad}<br>
-<b>PROVINCIA:</b> ${tomador.provincia}<br>
-<b>IBAN:</b> ${tomador.iban}<br>
+        nota += `<b>🏢 TOMADOR (EMPRESA)</b><br>
+- Razón Social: ${tomador.razonSocial}<br>
+- CIF: ${tomador.cif}<br>
+- Teléfono: ${tomador.telefono} | Email: ${tomador.email}<br>
+- Contacto: ${tomador.contacto} (${tomador.cargo})<br>
+- Actividad: ${tomador.actividad}<br>
+- Dirección: ${tomador.direccion}, ${tomador.cp} ${tomador.localidad}, ${tomador.provincia}<br>
+- IBAN: ${tomador.iban}<br>
 `;
     } else {
-        const tituloTomador = !tomadorEsAsegurado ? 'TOMADOR (SOLO PAGA - NO ASEGURADO)' : 'TOMADOR';
-        nota += `<h3>─── ${tituloTomador} ───</h3>
-<b>NOMBRE:</b> ${tomador.nombre} ${tomador.apellidos}<br>
-<b>DNI:</b> ${tomador.nif}<br>
-<b>FECHA NAC:</b> ${formatearFechaES(tomador.fechaNac)}<br>
-<b>SEXO:</b> ${tomador.sexo}<br>
-<b>TELÉFONO:</b> ${tomador.telefono}<br>
-<b>EMAIL:</b> ${tomador.email}<br>
-<b>DIRECCIÓN:</b> ${tomador.direccion}<br>
-<b>CP:</b> ${tomador.cp}<br>
+        const tituloTomador = !tomadorEsAsegurado ? '👤 TOMADOR (SOLO PAGA - NO ASEGURADO)' : '👤 TOMADOR';
+        nota += `<b>${tituloTomador}</b><br>
+- Nombre: ${tomador.nombre} ${tomador.apellidos}<br>
+- DNI: ${tomador.nif} | Fecha nac: ${formatearFechaES(tomador.fechaNac)} | Sexo: ${tomador.sexo}<br>
+- Teléfono: ${tomador.telefono} | Email: ${tomador.email}<br>
+- Dirección: ${tomador.direccion}, ${tomador.cp} ${tomador.localidad}, ${tomador.provincia}<br>
+- IBAN: ${tomador.iban}<br>
+- Estado civil: ${tomador.estadoCivil} | Nacionalidad: ${tomador.nacionalidad}<br>
 <b>LOCALIDAD:</b> ${tomador.localidad}<br>
 <b>PROVINCIA:</b> ${tomador.provincia}<br>
 <b>NACIONALIDAD:</b> ${tomador.nacionalidad}<br>
@@ -3921,7 +3917,7 @@ ${productoConDescuento ? `<b>DESCUENTO CONTRA:</b> ${dtoContra || '-'}<br>` : ''
     if (tipoProducto === 'MASCOTAS') {
         nota += `
 <br>
-<h3>─── MASCOTA ───</h3>
+<b>🐾 MASCOTA</b><br>
 <b>NOMBRE:</b> ${datosMascota.nombre || '-'}<br>
 <b>TIPO:</b> ${datosMascota.tipo || '-'}<br>
 <b>RAZA:</b> ${datosMascota.raza || '-'}<br>
@@ -3935,7 +3931,7 @@ ${productoConDescuento ? `<b>DESCUENTO CONTRA:</b> ${dtoContra || '-'}<br>` : ''
 <br>
 <h3>─── ${tituloAsegurados} (${asegurados.length}) ───</h3>
 <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; font-size: 12px;">
-<tr style="background-color: #0052A5; color: white;">
+<tr style="background-color: #009DDD; color: white;">
 <th>#</th><th>NOMBRE</th><th>APELLIDOS</th><th>DNI</th><th>FECHA NAC</th><th>SEXO</th>
 </tr>
 `;
@@ -3954,9 +3950,9 @@ ${productoConDescuento ? `<b>DESCUENTO CONTRA:</b> ${dtoContra || '-'}<br>` : ''
         if (tipoProducto === 'SALUD' && !esPolizaGO) {
             nota += `
 <br>
-<h3>─── CUESTIONARIO SALUD${esPolizaSenior ? ' SENIOR' : ''} ───</h3>
+<b>❤️ CUESTIONARIO SALUD${esPolizaSenior ? ' SENIOR' : ''}</b><br>
 <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; font-size: 12px;">
-<tr style="background-color: #0052A5; color: white;">
+<tr style="background-color: #009DDD; color: white;">
 <th>PREGUNTA</th>`;
             
             // Cabecera con nombres de asegurados
@@ -4104,7 +4100,8 @@ ${productoConDescuento ? `<b>DESCUENTO CONTRA:</b> ${dtoContra || '-'}<br>` : ''
     
     nota += `
 <br>
-<h2>═══ FIN GRABACIÓN ═══</h2>
+<br><b>════════════════════════════════════</b><br>
+<i>Grabado con Avants Suite · ${fecha}</i>
 `;
     
     return nota;
@@ -4188,3 +4185,89 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.setAttribute('tabindex', '0');
     });
 });
+
+// ============================================================================
+// GUARDAR EN CRM (Avants Suite)
+// Añadido para integración con BD del CRM — no modifica funciones existentes
+// ============================================================================
+async function guardarEnCRM() {
+    const btn = document.getElementById('btnGuardarCRM');
+    if (!btn) return;
+    const btnOriginal = btn.innerHTML;
+    btn.innerHTML = '<div class="loader"></div><span>Guardando en CRM...</span>';
+    btn.disabled = true;
+
+    let token = null;
+    try { token = window.parent?.localStorage?.getItem('token') || localStorage.getItem('token'); }
+    catch(e) { token = localStorage.getItem('token'); }
+
+    if (!token) {
+        mostrarError('No estás logueado en el CRM. Abre la grabación desde el CRM.');
+        btn.innerHTML = btnOriginal; btn.disabled = false; return;
+    }
+
+    try {
+        const tipoPolizaVal = tipoProducto === 'SALUD'
+            ? document.getElementById('tipoPoliza')?.value
+            : document.getElementById('tipoPolizaInput')?.value;
+
+        const guionTexto = document.getElementById('guionTexto')?.textContent || '';
+
+        const aseguradosData = asegurados.map(a => ({
+            nombre: a.nombre||'', apellidos: a.apellidos||'', dni: a.nif||'',
+            fechaNac: a.fechaNac||'', sexo: a.sexo||'', parentesco: a.parentesco||'',
+            cuestionario: a.cuestionario||{}
+        }));
+
+        const mascotaData = tipoProducto === 'MASCOTAS' ? {
+            nombre: document.getElementById('mascotaNombre')?.value||'',
+            tipo: document.getElementById('mascotaTipo')?.value||'',
+            raza: document.getElementById('mascotaRaza')?.value||'',
+            chip: document.getElementById('mascotaChip')?.value||''
+        } : null;
+
+        const body = {
+            deal_id: dealId ? parseInt(dealId) : null,
+            compania: 'ADESLAS',
+            producto: tipoPolizaVal || tipoProducto,
+            tipo_producto: tipoProducto.toLowerCase(),
+            n_solicitud: document.getElementById('solicitud')?.value||null,
+            n_poliza: document.getElementById('poliza')?.value||null,
+            fecha_efecto: document.getElementById('fechaEfecto')?.value||null,
+            forma_pago: document.getElementById('frecuenciaPago')?.value||'MENSUAL',
+            prima_mensual: parseFloat(document.getElementById('importe')?.value)||0,
+            dental: document.getElementById('dental')?.value||null,
+            estado: 'grabado',
+            datos_titular: {
+                nombre: document.getElementById('tomadorNombre')?.value||'',
+                apellidos: document.getElementById('tomadorApellidos')?.value||'',
+                dni: document.getElementById('tomadorNif')?.value||'',
+                iban: document.getElementById('tomadorIBAN')?.value||''
+            },
+            asegurados_data: aseguradosData,
+            datos_mascota: mascotaData,
+            script_grabacion: guionTexto,
+            pipedrive_deal_id: dealId ? parseInt(dealId) : null
+        };
+
+        const res = await fetch('/api/grabaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            mostrarExito('Guardado en CRM — Póliza ID: ' + (data.id || data.poliza_id || 'OK'));
+            btn.innerHTML = '✅ Guardado en CRM';
+            btn.classList.remove('bg-[#10b981]');
+            btn.classList.add('bg-gray-400');
+        } else {
+            mostrarError('Error CRM: ' + (data.error || 'desconocido'));
+            btn.innerHTML = btnOriginal; btn.disabled = false;
+        }
+    } catch(e) {
+        mostrarError('Error conexión CRM: ' + e.message);
+        btn.innerHTML = btnOriginal; btn.disabled = false;
+    }
+}

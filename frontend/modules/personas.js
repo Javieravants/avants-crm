@@ -216,6 +216,7 @@ const PersonasModule = {
             <button class="tab-btn" data-tab="familiares" style="${ts}">Familiares (${familiares.length})</button>
             <button class="tab-btn" data-tab="notas" style="${ts}">Notas (${notas.length})</button>
             <button class="tab-btn" data-tab="calculadora" style="${ts}">Calculadora</button>
+            <button class="tab-btn" data-tab="grabar" style="${ts}">Grabar</button>
             <div style="flex:1"></div>
             <div style="display:flex;gap:6px;align-items:center;padding:4px 0;">
               <button onclick="PersonasModule._showAddActivity(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px">📅 Actividad</button>
@@ -378,6 +379,18 @@ const PersonasModule = {
           <button onclick="PersonasModule.renderTab('grabaciones',PersonasModule._fichaPersona)" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">← Volver al contacto</button>
         </div>
         <iframe src="/calculadora/index.html${dealParam}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+      return;
+    }
+
+    if (tab === 'grabar') {
+      const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
+      const dealParam = activeDeal?.pipedrive_deal_id ? '?deal_id='+activeDeal.pipedrive_deal_id : (activeDeal?.pipedrive_id ? '?deal_id='+activeDeal.pipedrive_id : '');
+      content.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:15px;font-weight:700;">🎙 Grabación de Póliza</span>
+          <button onclick="PersonasModule.renderTab('grabaciones',PersonasModule._fichaPersona)" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">← Volver al contacto</button>
+        </div>
+        <iframe src="/grabaciones/index.html${dealParam}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
       return;
     }
 
