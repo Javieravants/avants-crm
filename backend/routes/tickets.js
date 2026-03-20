@@ -228,7 +228,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/tickets — crear ticket
 router.post('/', async (req, res) => {
-  const { tipo_id, column_id, descripcion, pipedrive_deal_id, prioridad, assigned_to } = req.body;
+  const { tipo_id, column_id, descripcion, pipedrive_deal_id, prioridad, assigned_to, contacto_id } = req.body;
 
   if (!tipo_id || !column_id || !descripcion) {
     return res.status(400).json({ error: 'Tipo, columna y descripción son obligatorios' });
@@ -241,11 +241,11 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(`
       INSERT INTO tickets (tipo_id, column_id, descripcion, pipedrive_deal_id, prioridad,
-        created_by, agente_id, assigned_to, estado, compania)
-      VALUES ($1, $2, $3, $4, $5, $6, $6, $7, 'nuevo', $8)
+        created_by, agente_id, assigned_to, estado, compania, contacto_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $6, $7, 'nuevo', $8, $9)
       RETURNING *
     `, [tipo_id, column_id, descripcion, pipedrive_deal_id || null, prioridad || 'normal',
-        req.user.id, assigned_to || null, empresa]);
+        req.user.id, assigned_to || null, empresa, contacto_id || null]);
 
     // Log de actividad
     await pool.query(

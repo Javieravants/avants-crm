@@ -1,5 +1,27 @@
 // === Módulo Personas / Clientes ===
 
+// Iconos SVG Avants Suite (avants_icons_v2)
+const _ICO = {
+  volver: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/></svg>`,
+  llamada: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>`,
+  whatsapp: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>`,
+  email: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 8l10 7 10-7"/></svg>`,
+  editar: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>`,
+  agendar: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h1.5l1 2 2-4 1 2H15"/></svg>`,
+  grabar: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="14" rx="4"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/><path d="M9 21h6"/></svg>`,
+  historial: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/><path d="M3.5 8.5A9 9 0 0 1 12 3"/></svg>`,
+  propuesta: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 15h6M9 9h2"/></svg>`,
+  polizas: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L4 7v6c0 4.4 3.4 8.5 8 9.5 4.6-1 8-5.1 8-9.5V7z"/><path d="M9 12l2 2 4-4"/></svg>`,
+  tramites: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 15h4"/><circle cx="17" cy="17" r="3" fill="white" stroke="currentColor"/><path d="M17 15.5v1.5l1 1"/></svg>`,
+  nota: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>`,
+  añadir: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>`,
+  guardar: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>`,
+  cierre: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="${c}"/></svg>`,
+  seguimiento: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  gestion: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1.5"/><path d="M9 12h6M9 15h4"/></svg>`,
+  agenda: (s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/><circle cx="8" cy="15" r="1" fill="${c}"/><circle cx="12" cy="15" r="1" fill="${c}"/><circle cx="16" cy="15" r="1" fill="${c}"/></svg>`,
+};
+
 const PersonasModule = {
   currentPage: 1,
   filters: {},
@@ -250,18 +272,17 @@ const PersonasModule = {
           <!-- Fila 1: Back + Nombre + Comunicación + Acciones -->
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
             <button id="btn-back-personas" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:4px;font-family:inherit;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-              Contactos
+              ${_ICO.volver(14,'#94a3b8')} Contactos
             </button>
             <div style="font-size:22px;font-weight:800;flex:1;">${this._esc(p.nombre || 'Sin nombre')}</div>
             <!-- Comunicación: Llamar + WhatsApp + Email -->
             <div style="display:flex;gap:6px;">
-              ${p.telefono ? `<button onclick="window.open('tel:${p.telefono}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px" title="Llamar">📞 Llamar</button>` : ''}
-              ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px" title="WhatsApp">💬 WhatsApp</button>` : ''}
-              ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px" title="Email">📧 Email</button>` : ''}
+              ${p.telefono ? `<button onclick="window.open('tel:${p.telefono}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
+              ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
+              ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Email">${_ICO.email(16,'#475569')} Email</button>` : ''}
             </div>
             <div style="width:1px;height:24px;background:#e8edf2"></div>
-            <button id="btn-edit-persona" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:12px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit">✏️ Editar</button>
+            <button id="btn-edit-persona" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:12px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.editar(14,'#475569')} Editar</button>
             ${p.pipedrive_person_id ? `<a href="https://avantssl.pipedrive.com/person/${p.pipedrive_person_id}" target="_blank" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;font-size:12px;font-weight:600;color:#94a3b8;text-decoration:none">Pipedrive ↗</a>` : ''}
             <button style="padding:7px 16px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✓ Ganado</button>
             <button style="padding:7px 16px;border-radius:8px;border:1px solid #ef4444;background:#fff;color:#ef4444;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">✕ Perdido</button>
@@ -270,17 +291,15 @@ const PersonasModule = {
 
           <!-- TABS + Acciones derecha -->
           <div style="display:flex;gap:2px;border-top:1px solid #e8edf2;" id="persona-tabs">
-            <button class="tab-btn active" data-tab="grabaciones" style="${ts}">Pólizas</button>
-            <button class="tab-btn" data-tab="deals" style="${ts}">Oportunidades (${dealsAbiertos.length})</button>
-            <button class="tab-btn" data-tab="tramites" style="${ts}">Trámites (${tickets.length})</button>
-            <button class="tab-btn" data-tab="familiares" style="${ts}">Familiares (${familiares.length})</button>
-            <button class="tab-btn" data-tab="notas" style="${ts}">Notas (${notas.length})</button>
-            <button class="tab-btn" data-tab="calculadora" style="${ts}">Calculadora</button>
-            <button class="tab-btn" data-tab="grabar" style="${ts}">Grabar</button>
+            <button class="tab-btn active" data-tab="historial" style="${ts}">${_ICO.historial(14)} Historial</button>
+            <button class="tab-btn" data-tab="propuestas" style="${ts}">${_ICO.propuesta(14)} Propuestas</button>
+            <button class="tab-btn" data-tab="polizas" style="${ts}">${_ICO.polizas(14)} Pólizas</button>
+            <button class="tab-btn" data-tab="tramites" style="${ts}">${_ICO.tramites(14)} Trámites (${tickets.length})</button>
+            <button class="tab-btn" data-tab="notas" style="${ts}">${_ICO.nota(14)} Notas (${notas.length})</button>
             <div style="flex:1"></div>
             <div style="display:flex;gap:6px;align-items:center;padding:4px 0;">
-              <button onclick="PersonasModule._showAddActivity(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px">📅 Actividad</button>
-              <button onclick="App.navigate('grabaciones')" style="padding:7px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:4px">🎙 Grabar</button>
+              <button onclick="PersonasModule._showAddActivity(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.agendar(16,'#475569')} Actividad</button>
+              <button onclick="PersonasModule._openGrabarInline()" style="padding:7px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.grabar(16,'#fff')} Grabar</button>
             </div>
           </div>
         </div>
@@ -319,7 +338,7 @@ const PersonasModule = {
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Seguros actuales (${polizasActivas.length})</div>
               ${polizasActivas.length===0?'<div style="font-size:13px;color:#94a3b8">Sin pólizas activas</div>':''}
               ${polizasActivas.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
-                <span style="font-size:16px">🏥</span>
+                <span style="display:flex;align-items:center">${_ICO.polizas(16,'#475569')}</span>
                 <div style="flex:1"><div style="font-size:12px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:11px;color:#94a3b8">${d.poliza||'Sin nº póliza'}</div></div>
                 ${d.prima?`<div style="font-size:13px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
               </div>`).join('')}
@@ -330,7 +349,7 @@ const PersonasModule = {
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Oportunidades (${dealsAbiertos.length})</div>
               ${dealsAbiertos.length===0?'<div style="font-size:13px;color:#94a3b8">Sin oportunidades abiertas</div>':''}
               ${dealsAbiertos.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
-                <span style="font-size:16px">🎯</span>
+                <span style="display:flex;align-items:center">${_ICO.cierre(16,'var(--accent)')}</span>
                 <div style="flex:1"><div style="font-size:12px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:11px;color:#94a3b8">${d.pipedrive_stage||d.estado||''}</div></div>
                 ${d.prima?`<div style="font-size:13px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
               </div>`).join('')}
@@ -380,140 +399,257 @@ const PersonasModule = {
       this.renderTab(btn.dataset.tab, p);
     });
 
-    this.renderTab('grabaciones', p);
+    this.renderTab('historial', p);
   },
 
-  // Modal para añadir actividad (próxima llamada)
+  // Popup actividad con calendario (estilo mockup_popup_postllamada)
   _showAddActivity(personaId) {
-    const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:400';
-    modal.onclick = (e) => { if(e.target===modal) modal.remove(); };
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-    const defDate = tomorrow.toISOString().split('T')[0];
-    modal.innerHTML = `<div style="background:#fff;border-radius:14px;width:400px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden">
-      <div style="padding:18px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;gap:12px">
-        <span style="font-size:20px">📅</span>
-        <div style="font-size:16px;font-weight:800;flex:1">Nueva Actividad</div>
-        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:18px">✕</button>
-      </div>
-      <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
-        <div><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Tipo</label>
-          <select id="act-tipo" class="form-control" style="margin-top:4px"><option value="call">Llamada</option><option value="email">Email</option><option value="meeting">Reunión</option></select></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Fecha</label>
-            <input type="date" id="act-fecha" class="form-control" style="margin-top:4px" value="${defDate}"></div>
-          <div><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Hora</label>
-            <input type="time" id="act-hora" class="form-control" style="margin-top:4px" value="10:00"></div>
-        </div>
-        <div><label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.6px">Nota</label>
-          <textarea id="act-nota" class="form-control" rows="2" style="margin-top:4px" placeholder="Ej: Llamar para seguimiento propuesta"></textarea></div>
-        <button onclick="PersonasModule._saveActivity(${personaId})" style="padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Programar actividad</button>
-      </div>
-    </div>`;
-    document.body.appendChild(modal);
-  },
+    const p = this._fichaPersona;
+    const nombre = p?.nombre || 'Contacto';
+    const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    let currentDate = new Date();
+    currentDate.setDate(currentDate.getDate() + 1); // Mañana por defecto
+    let selectedTipo = 'llamada';
+    let selectedSlot = null;
 
-  async _saveActivity(personaId) {
-    const tipo = document.getElementById('act-tipo')?.value;
-    const fecha = document.getElementById('act-fecha')?.value;
-    const hora = document.getElementById('act-hora')?.value;
-    const nota = document.getElementById('act-nota')?.value;
-    if (!fecha) return alert('Selecciona fecha');
-    try {
-      await API.post(`/personas/${personaId}/notas`, { texto: `📅 ${tipo==='call'?'Llamada':tipo==='email'?'Email':'Reunión'} programada: ${fecha} ${hora||''}\n${nota||''}` });
-      document.querySelector('div[style*="fixed"]')?.remove();
-      if (this._fichaPersona) this.showFicha(personaId);
-    } catch(e) { alert('Error: '+e.message); }
+    // Horas 09:00-19:30
+    const HORAS = [];
+    for (let h=9;h<=19;h++) { HORAS.push(`${String(h).padStart(2,'0')}:00`); HORAS.push(`${String(h).padStart(2,'0')}:30`); }
+
+    const tipoConfig = {
+      llamada: { label: 'Llamada', ico: _ICO.llamada(20,'#3b82f6'), color: '#3b82f6', bg: '#eff6ff' },
+      cierre: { label: 'Cierre', ico: _ICO.cierre(20,'#10b981'), color: '#10b981', bg: '#ecfdf5' },
+      seguimiento: { label: 'Seguimiento', ico: _ICO.seguimiento(20,'#f59e0b'), color: '#f59e0b', bg: '#fffbeb' },
+      gestion: { label: 'Gestión', ico: _ICO.gestion(20,'#475569'), color: '#475569', bg: '#f4f6f9' },
+    };
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:400;padding:20px;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    const popup = document.createElement('div');
+    popup.style.cssText = 'background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.16);width:820px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;';
+
+    const renderCal = () => {
+      const d = currentDate;
+      const dateStr = `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+      const calDate = popup.querySelector('#act-cal-date');
+      if (calDate) calDate.textContent = dateStr;
+
+      const timesEl = popup.querySelector('#act-cal-times');
+      const eventsEl = popup.querySelector('#act-cal-events');
+      if (!timesEl || !eventsEl) return;
+
+      timesEl.innerHTML = HORAS.map(h => `<div style="height:48px;display:flex;align-items:flex-start;justify-content:flex-end;padding-right:8px;padding-top:2px;font-size:10px;font-weight:600;color:#94a3b8;border-bottom:1px ${h.endsWith(':30')?'dashed rgba(232,237,242,.8)':'solid #e8edf2'};">${h.endsWith(':00')?h:''}</div>`).join('');
+
+      eventsEl.innerHTML = HORAS.map(h => {
+        const isSelected = selectedSlot && selectedSlot.hora === h;
+        return `<div style="height:48px;border-bottom:1px ${h.endsWith(':30')?'dashed rgba(232,237,242,.8)':'solid #e8edf2'};display:flex;align-items:center;padding:2px 6px;gap:4px;" class="act-cal-row" data-hora="${h}">
+          ${isSelected ? `<div style="height:40px;border-radius:7px;padding:4px 8px;background:#ecfdf5;border:2px solid #10b981;display:flex;flex-direction:column;justify-content:center;min-width:120px;"><div style="font-size:11px;font-weight:700;color:#10b981;">${this._esc(nombre.split(' ')[0])}</div><div style="font-size:10px;color:#94a3b8;">Nueva actividad</div></div>` : ''}
+          <div class="act-add-slot" data-hora="${h}" style="height:40px;border-radius:7px;padding:4px 8px;border:1px dashed #d1d9e0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#94a3b8;min-width:80px;transition:all .12s;flex:1;">+ Agendar aquí</div>
+        </div>`;
+      }).join('');
+
+      // Click en slots
+      eventsEl.querySelectorAll('.act-add-slot').forEach(slot => {
+        slot.addEventListener('mouseenter', () => { slot.style.borderColor = 'var(--accent)'; slot.style.color = 'var(--accent)'; slot.style.background = '#fff0f3'; });
+        slot.addEventListener('mouseleave', () => { slot.style.borderColor = '#d1d9e0'; slot.style.color = '#94a3b8'; slot.style.background = ''; });
+        slot.addEventListener('click', () => {
+          selectedSlot = { hora: slot.dataset.hora };
+          renderCal();
+          // Actualizar resumen
+          const resEl = popup.querySelector('#act-sel-resumen');
+          const dStr = `${DAYS[d.getDay()]} ${d.getDate()}/${String(d.getMonth()+1).padStart(2,'0')} · ${slot.dataset.hora}`;
+          if (resEl) { resEl.style.display = 'flex'; resEl.querySelector('.act-sel-hora').textContent = dStr; }
+          const footerEl = popup.querySelector('#act-footer-info');
+          if (footerEl) footerEl.textContent = `Actividad agendada: ${dStr}`;
+        });
+      });
+    };
+
+    popup.innerHTML = `
+      <!-- HEADER -->
+      <div style="padding:16px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div>
+          <div style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;">${_ICO.agendar(20,'var(--accent)')} Nueva actividad</div>
+          <div style="font-size:13px;color:#94a3b8;font-weight:500;">${this._esc(nombre)}</div>
+        </div>
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:22px;padding:2px 8px;border-radius:6px;line-height:1;">×</button>
+      </div>
+
+      <!-- BODY -->
+      <div style="display:flex;flex:1;overflow:hidden;">
+        <!-- IZQUIERDA -->
+        <div style="width:300px;flex-shrink:0;border-right:1px solid #e8edf2;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px;">Tipo de actividad</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;" id="act-tipo-grid">
+              ${Object.entries(tipoConfig).map(([key, cfg]) => `
+                <button class="act-tipo-btn" data-tipo="${key}" style="display:flex;align-items:center;gap:7px;padding:9px 10px;border-radius:8px;border:1px solid ${selectedTipo===key?cfg.color:'#e8edf2'};background:${selectedTipo===key?cfg.bg:'#fff'};cursor:pointer;font-size:11px;font-weight:600;color:${selectedTipo===key?cfg.color:'#475569'};text-align:left;transition:all .12s;">
+                  ${cfg.ico} ${cfg.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:8px;">Nota rápida</div>
+            <textarea id="act-nota" style="width:100%;padding:9px 11px;border:1px solid #e8edf2;border-radius:8px;font-size:12px;resize:none;outline:none;color:#0f172a;line-height:1.6;font-family:inherit;" rows="3" placeholder="Ej: Muy interesada, llamar jueves tarde..."></textarea>
+          </div>
+
+          <div id="act-sel-resumen" style="background:#ecfdf5;border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:8px 10px;display:none;align-items:center;gap:8px;">
+            <div style="flex:1;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:2px;">Actividad agendada</div>
+              <div class="act-sel-hora" style="font-size:13px;font-weight:800;color:#10b981;">—</div>
+            </div>
+            ${_ICO.agendar(20,'#10b981')}
+          </div>
+        </div>
+
+        <!-- DERECHA — CALENDARIO -->
+        <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <div style="padding:14px 16px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="act-cal-nav" data-dir="-1" style="background:none;border:1px solid #e8edf2;border-radius:7px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#475569;">‹</button>
+              <div id="act-cal-date" style="font-size:14px;font-weight:700;min-width:200px;">—</div>
+              <button class="act-cal-nav" data-dir="1" style="background:none;border:1px solid #e8edf2;border-radius:7px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#475569;">›</button>
+            </div>
+            <button id="act-cal-today" style="padding:5px 12px;border-radius:7px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:#475569;font-family:inherit;">Hoy</button>
+          </div>
+          <div style="flex:1;overflow-y:auto;" id="act-cal-body">
+            <div style="display:flex;min-height:100%;">
+              <div id="act-cal-times" style="width:52px;flex-shrink:0;"></div>
+              <div id="act-cal-events" style="flex:1;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="padding:12px 20px;border-top:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#fff;">
+        <div id="act-footer-info" style="font-size:12px;color:#94a3b8;">Selecciona una franja horaria para agendar</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:9px 16px;border-radius:9px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:#475569;font-family:inherit;display:flex;align-items:center;gap:5px;">${_ICO.volver(14,'#475569')} Cancelar</button>
+          <button id="act-btn-save" style="padding:9px 24px;border-radius:9px;border:none;background:var(--accent);color:white;cursor:pointer;font-size:13px;font-weight:700;box-shadow:0 3px 12px rgba(255,74,110,.3);font-family:inherit;display:flex;align-items:center;gap:5px;">${_ICO.guardar(14,'#fff')} Guardar</button>
+        </div>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Render calendario
+    renderCal();
+
+    // Event: tipo selección
+    popup.querySelectorAll('.act-tipo-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedTipo = btn.dataset.tipo;
+        const cfg = tipoConfig[selectedTipo];
+        popup.querySelectorAll('.act-tipo-btn').forEach(b => {
+          const bc = tipoConfig[b.dataset.tipo];
+          const isActive = b.dataset.tipo === selectedTipo;
+          b.style.borderColor = isActive ? bc.color : '#e8edf2';
+          b.style.background = isActive ? bc.bg : '#fff';
+          b.style.color = isActive ? bc.color : '#475569';
+        });
+      });
+    });
+
+    // Event: navegación días
+    popup.querySelectorAll('.act-cal-nav').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentDate.setDate(currentDate.getDate() + parseInt(btn.dataset.dir));
+        selectedSlot = null;
+        renderCal();
+      });
+    });
+    popup.querySelector('#act-cal-today').addEventListener('click', () => {
+      currentDate = new Date();
+      selectedSlot = null;
+      renderCal();
+    });
+
+    // Event: guardar
+    popup.querySelector('#act-btn-save').addEventListener('click', async () => {
+      if (!selectedSlot) return alert('Selecciona una hora en el calendario');
+      const cfg = tipoConfig[selectedTipo];
+      const nota = popup.querySelector('#act-nota')?.value || '';
+      const d = currentDate;
+      const fechaStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      try {
+        await API.post(`/personas/${personaId}/notas`, {
+          texto: `📅 ${cfg.label} programada: ${fechaStr} ${selectedSlot.hora}\n${nota}`
+        });
+        overlay.remove();
+        if (this._fichaPersona) this.showFicha(personaId);
+      } catch (e) { alert('Error: ' + e.message); }
+    });
   },
 
   renderTab(tab, p) {
     const content = document.getElementById('persona-tab-content');
 
-    // Tab Calculadora → iframe interno
-    if (tab === 'calculadora') {
-      const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
-      const dealParam = activeDeal?.pipedrive_deal_id ? '?deal_id='+activeDeal.pipedrive_deal_id : '';
-      content.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:15px;font-weight:700;">Calculadora ADESLAS</span>
-          <button onclick="PersonasModule.renderTab('grabaciones',PersonasModule._fichaPersona)" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">← Volver al contacto</button>
-        </div>
-        <iframe src="/calculadora/index.html${dealParam}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+    if (tab === 'historial') {
+      // Timeline unificada: notas + tickets, orden cronológico inverso
+      const items = [];
+      (p.notas || []).forEach(n => {
+        const txt = n.texto || '';
+        const isPropuesta = txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA');
+        const isActivity = txt.startsWith('📅');
+        items.push({ type: isPropuesta ? 'propuesta' : isActivity ? 'actividad' : 'nota', data: n, date: new Date(n.created_at) });
+      });
+      (p.tickets || []).forEach(t => {
+        items.push({ type: 'tramite', data: t, date: new Date(t.created_at) });
+      });
+      items.sort((a, b) => b.date - a.date);
+
+      if (items.length === 0) {
+        content.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.historial(32,'#d1d9e0')}<p style="margin-top:8px;">Sin actividad registrada</p></div>`;
+        return;
+      }
+
+      content.innerHTML = items.map(item => {
+        if (item.type === 'propuesta') return this._renderNotaPropuesta(item.data, item.data.texto);
+        if (item.type === 'actividad') return this._renderHistorialActividad(item.data);
+        if (item.type === 'tramite') return this._renderHistorialTramite(item.data);
+        return this._renderHistorialNota(item.data);
+      }).join('');
       return;
     }
 
-    if (tab === 'grabar') {
-      const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
-      const dealParam = activeDeal?.pipedrive_deal_id ? '?deal_id='+activeDeal.pipedrive_deal_id : (activeDeal?.pipedrive_id ? '?deal_id='+activeDeal.pipedrive_id : '');
-      content.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:15px;font-weight:700;">🎙 Grabación de Póliza</span>
-          <button onclick="PersonasModule.renderTab('grabaciones',PersonasModule._fichaPersona)" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">← Volver al contacto</button>
-        </div>
-        <iframe src="/grabaciones/index.html${dealParam}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+    if (tab === 'propuestas') {
+      const propuestas = (p.notas || []).filter(n => {
+        const txt = n.texto || '';
+        return txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA');
+      });
+      if (propuestas.length === 0) {
+        content.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.propuesta(32,'#d1d9e0')}<p style="margin-top:8px;">Sin propuestas guardadas</p></div>`;
+        return;
+      }
+      content.innerHTML = propuestas.map(n => this._renderNotaPropuesta(n, n.texto)).join('');
       return;
     }
 
-    if (tab === 'grabaciones') {
+    if (tab === 'polizas') {
       this.renderTabGrabaciones(content, p);
       return;
-    } else if (tab === 'polizas') {
-      const polizas = (p.deals || []).filter(d => d.estado === 'poliza_activa');
-      if (polizas.length === 0) {
-        content.innerHTML = '<p class="text-light">Sin pólizas activas</p>';
-        return;
-      }
-      content.innerHTML = `
-        <table>
-          <thead><tr><th>Póliza</th><th>Producto</th><th>Compañía</th><th>Prima</th><th>Fecha efecto</th><th>Agente</th></tr></thead>
-          <tbody>
-            ${polizas.map(d => `
-              <tr>
-                <td><strong>${d.poliza || '—'}</strong></td>
-                <td>${this._esc(d.producto || '—')}</td>
-                <td>${d.datos_extra?.etiqueta || d.compania || '—'}</td>
-                <td>${d.prima ? d.prima.toLocaleString('es-ES', {style:'currency',currency:'EUR'}) : '—'}</td>
-                <td>${d.fecha_efecto ? new Date(d.fecha_efecto).toLocaleDateString('es-ES') : '—'}</td>
-                <td>${d.agente_nombre || d.pipedrive_owner || '—'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (tab === 'deals') {
-      const deals = (p.deals || []).filter(d => d.estado === 'en_tramite');
-      if (deals.length === 0) {
-        content.innerHTML = '<p class="text-light">Sin oportunidades abiertas</p>';
-        return;
-      }
-      content.innerHTML = `
-        <table>
-          <thead><tr><th>Deal</th><th>Producto</th><th>Etapa</th><th>Valor</th><th>Fecha</th></tr></thead>
-          <tbody>
-            ${deals.map(d => `
-              <tr>
-                <td><strong>${d.poliza || d.pipedrive_id || '—'}</strong></td>
-                <td>${this._esc(d.producto || '—')}</td>
-                <td><span class="badge badge-supervisor">${d.pipedrive_stage || '—'}</span></td>
-                <td>${d.prima ? d.prima.toLocaleString('es-ES', {style:'currency',currency:'EUR'}) : '—'}</td>
-                <td>${d.created_at ? new Date(d.created_at).toLocaleDateString('es-ES') : '—'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (tab === 'tramites') {
+    }
+
+    if (tab === 'tramites') {
       const tickets = p.tickets || [];
-      if (tickets.length === 0) {
-        content.innerHTML = '<p class="text-light">Sin trámites</p>';
-        return;
-      }
       content.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h4 style="margin:0;font-size:16px;font-weight:700;">Trámites</h4>
+          <button class="btn btn-primary btn-sm" id="btn-new-tramite-ficha" style="display:flex;align-items:center;gap:5px;">${_ICO.añadir(14,'#fff')} Nuevo trámite</button>
+        </div>
+        ${tickets.length === 0 ? `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.tramites(32,'#d1d9e0')}<p style="margin-top:8px;">Sin trámites</p></div>` : `
         <table>
           <thead><tr><th>#</th><th>Tipo</th><th>Estado</th><th>Descripción</th><th>Fecha</th></tr></thead>
           <tbody>
             ${tickets.map(t => `
-              <tr>
+              <tr class="tramite-row" data-ticket-id="${t.id}" style="cursor:pointer;">
                 <td>${t.id}</td>
                 <td>${t.tipo_nombre || '—'}</td>
                 <td>${this._estadoBadge(t.estado)}</td>
@@ -522,95 +658,41 @@ const PersonasModule = {
               </tr>
             `).join('')}
           </tbody>
-        </table>
-      `;
-    } else if (tab === 'familiares') {
-      const fams = p.familiares || [];
-      content.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h4 style="margin:0;">Familiares / Asegurados</h4>
-          <button class="btn btn-primary btn-sm" id="btn-add-familiar">+ Añadir</button>
-        </div>
-        ${fams.length === 0 ? '<p class="text-light">Sin familiares vinculados</p>' : `
-        <table>
-          <thead><tr><th>Nombre</th><th>DNI</th><th>Parentesco</th><th>F. Nacimiento</th><th>Teléfono</th><th></th></tr></thead>
-          <tbody>
-            ${fams.map(f => `
-              <tr>
-                <td><strong>${this._esc(f.nombre)}</strong></td>
-                <td>${f.dni || '—'}</td>
-                <td>${f.parentesco || '—'}</td>
-                <td>${f.fecha_nacimiento ? new Date(f.fecha_nacimiento).toLocaleDateString('es-ES') : '—'}</td>
-                <td>${f.telefono || '—'}</td>
-                <td><button class="btn btn-secondary btn-sm btn-danger-text" data-del-fam="${f.id}">Eliminar</button></td>
-              </tr>
-            `).join('')}
-          </tbody>
         </table>`}
       `;
 
-      document.getElementById('btn-add-familiar').addEventListener('click', () => this.showFamiliarForm(p.id));
-      content.querySelectorAll('[data-del-fam]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('¿Eliminar este familiar?')) return;
-          await API.delete(`/personas/${p.id}/familiares/${btn.dataset.delFam}`);
-          this.showFicha(p.id);
+      // Botón nuevo trámite → abre panel lateral con contacto_id
+      document.getElementById('btn-new-tramite-ficha')?.addEventListener('click', () => {
+        if (typeof TicketsModule !== 'undefined' && TicketsModule.openNewPanel) {
+          TicketsModule.openNewPanel(p.id);
+        }
+      });
+      // Filas clickables → abre panel del trámite
+      content.querySelectorAll('.tramite-row').forEach(row => {
+        row.addEventListener('click', () => {
+          if (typeof TicketsModule !== 'undefined' && TicketsModule.openPanel) {
+            TicketsModule.openPanel(parseInt(row.dataset.ticketId));
+          }
         });
       });
-    } else if (tab === 'historial') {
-      const otros = (p.deals || []).filter(d => !['poliza_activa', 'en_tramite'].includes(d.estado));
-      if (otros.length === 0) {
-        content.innerHTML = '<p class="text-light">Sin historial</p>';
-        return;
-      }
+      return;
+    }
+
+    if (tab === 'notas') {
+      const notas = (p.notas || []).filter(n => {
+        const txt = n.texto || '';
+        return !txt.includes('PRESUPUESTO ADESLAS') && !txt.includes('GRABACIÓN PÓLIZA');
+      });
       content.innerHTML = `
-        <table>
-          <thead><tr><th>Deal</th><th>Producto</th><th>Estado</th><th>Valor</th><th>Fecha</th></tr></thead>
-          <tbody>
-            ${otros.map(d => `
-              <tr style="opacity:0.7;">
-                <td>${d.poliza || d.pipedrive_id || '—'}</td>
-                <td>${this._esc(d.producto || '—')}</td>
-                <td>${this._estadoBadge(d.estado)}</td>
-                <td>${d.prima ? d.prima.toLocaleString('es-ES', {style:'currency',currency:'EUR'}) : '—'}</td>
-                <td>${d.created_at ? new Date(d.created_at).toLocaleDateString('es-ES') : '—'}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-    } else if (tab === 'notas') {
-      const notas = p.notas || [];
-      content.innerHTML = `
-        <div style="margin-bottom:12px;">
-          <textarea class="form-control" id="new-nota" rows="2" placeholder="Escribe una nota..."></textarea>
-          <button class="btn btn-primary btn-sm" id="btn-add-nota" style="margin-top:8px;">Añadir nota</button>
+        <div style="margin-bottom:16px;display:flex;gap:8px;align-items:flex-start;">
+          <textarea class="form-control" id="new-nota" rows="2" placeholder="Escribe una nota..." style="flex:1;"></textarea>
+          <button class="btn btn-primary" id="btn-add-nota" style="display:flex;align-items:center;gap:5px;white-space:nowrap;">${_ICO.añadir(14,'#fff')} Añadir</button>
         </div>
         <div id="notas-list">
-          ${notas.length === 0 ? '<p class="text-light">Sin notas</p>' : notas.map(n => {
+          ${notas.length === 0 ? `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.nota(32,'#d1d9e0')}<p style="margin-top:8px;">Sin notas</p></div>` : notas.map(n => {
             const txt = n.texto || '';
-            // Detectar propuestas de calculadora
-            if (txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA')) {
-              return this._renderNotaPropuesta(n, txt);
-            }
-            // Detectar actividades programadas
-            if (txt.startsWith('📅')) {
-              return `<div style="background:#e6f5fc;border:1px solid rgba(0,157,221,.2);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                  <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;">📅</div>
-                  <div style="flex:1"><span style="font-size:13px;font-weight:700;">Actividad programada</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${n.user_nombre||''} · ${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
-                </div>
-                <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
-              </div>`;
-            }
-            // Nota normal
-            return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                <div style="width:32px;height:32px;border-radius:50%;background:#fffbeb;display:flex;align-items:center;justify-content:center;font-size:14px;">📝</div>
-                <div style="flex:1"><span style="font-size:13px;font-weight:700;">${n.user_nombre||'Sistema'}</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
-              </div>
-              <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
-            </div>`;
+            if (txt.startsWith('📅')) return this._renderHistorialActividad(n);
+            return this._renderHistorialNota(n);
           }).join('')}
         </div>
       `;
@@ -622,7 +704,81 @@ const PersonasModule = {
         await API.post(`/personas/${p.id}/notas`, { texto });
         this.showFicha(p.id);
       });
+      return;
     }
+  },
+
+  // Historial card renderers
+  _renderHistorialNota(n) {
+    const txt = n.texto || '';
+    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:#fffbeb;display:flex;align-items:center;justify-content:center;">${_ICO.nota(16,'#f59e0b')}</div>
+        <div style="flex:1"><span style="font-size:13px;font-weight:700;">${n.user_nombre||'Sistema'}</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
+      </div>
+      <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
+    </div>`;
+  },
+
+  _renderHistorialActividad(n) {
+    const txt = n.texto || '';
+    return `<div style="background:#e6f5fc;border:1px solid rgba(0,157,221,.2);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;">${_ICO.agendar(16,'#fff')}</div>
+        <div style="flex:1"><span style="font-size:13px;font-weight:700;">Actividad programada</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${n.user_nombre||''} · ${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
+      </div>
+      <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
+    </div>`;
+  },
+
+  _renderHistorialTramite(t) {
+    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;" onclick="typeof TicketsModule!=='undefined'&&TicketsModule.openPanel&&TicketsModule.openPanel(${t.id})">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:#f0f4ff;display:flex;align-items:center;justify-content:center;">${_ICO.tramites(16,'#3b82f6')}</div>
+        <div style="flex:1">
+          <span style="font-size:13px;font-weight:700;">Trámite #${t.id}</span>
+          ${t.tipo_nombre ? `<span style="font-size:11px;color:#94a3b8;margin-left:6px;">· ${t.tipo_nombre}</span>` : ''}
+          <span style="font-size:11px;color:#94a3b8;margin-left:6px;">${new Date(t.created_at).toLocaleString('es-ES')}</span>
+        </div>
+        ${this._estadoBadge(t.estado)}
+      </div>
+      <div style="font-size:13px;color:#475569;margin-left:40px;">${this._esc((t.descripcion || '').substring(0, 100))}</div>
+    </div>`;
+  },
+
+  // === Grabar inline (Opción A — dentro de la ficha) ===
+  _openGrabarInline() {
+    const p = this._fichaPersona;
+    if (!p) return;
+    const content = document.getElementById('persona-tab-content');
+    const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
+    const params = new URLSearchParams();
+    if (activeDeal?.pipedrive_deal_id) params.set('deal_id', activeDeal.pipedrive_deal_id);
+    else if (activeDeal?.pipedrive_id) params.set('deal_id', activeDeal.pipedrive_id);
+    params.set('persona_id', p.id);
+    const qs = params.toString() ? '?' + params.toString() : '';
+
+    // Desactivar tabs visualmente
+    document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => {
+      b.style.color = '#94a3b8';
+      b.style.borderBottomColor = 'transparent';
+    });
+
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${_ICO.grabar(20,'#ef4444')} Grabación de Póliza</span>
+        <button id="btn-volver-grabar" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver al contacto</button>
+      </div>
+      <iframe src="/grabaciones/index.html${qs}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+
+    document.getElementById('btn-volver-grabar').addEventListener('click', () => {
+      const firstTab = document.querySelector('#persona-tabs .tab-btn');
+      if (firstTab) {
+        firstTab.style.color = 'var(--accent)';
+        firstTab.style.borderBottomColor = 'var(--accent)';
+      }
+      this.renderTab('historial', p);
+    });
   },
 
   // === TAB GRABACIONES (pólizas del CRM) ===

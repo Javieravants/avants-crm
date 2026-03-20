@@ -536,7 +536,7 @@ const TicketsModule = {
   },
 
   // === Panel lateral nuevo trámite ===
-  openNewPanel() {
+  openNewPanel(contactoId) {
     const prev = document.querySelector('.tramite-panel-overlay');
     if (prev) prev.remove();
 
@@ -648,6 +648,7 @@ const TicketsModule = {
         prioridad: form.urgencia.value,
       };
       if (form.assigned_to && form.assigned_to.value) body.assigned_to = parseInt(form.assigned_to.value);
+      if (contactoId) body.contacto_id = contactoId;
 
       try {
         const ticket = await API.post('/tickets', body);
