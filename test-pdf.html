@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="frontend/shared/pdf-propuesta.js"></script>
+</head><body>
+<h2>Generando PDF de prueba...</h2>
+<script>
+window.onload = function() {
+  PDFPropuesta.download({
+    referencia: 'PRE-2026-00147',
+    fecha: '20/03/2026',
+    clienteNombre: 'María Belén Hernán Hernández',
+    clienteDNI: '12345678Z',
+    clienteTelefono: '+34 661 502 656',
+    clienteEmail: 'belen.hernan.hernandez@gmail.com',
+    clienteDireccion: 'C/ Alcalá 45, 3ºB, 28001 Madrid',
+    agente: 'Beatriz Sánchez Parras',
+    asegurados: [
+      { nombre: 'María Belén Hernán Hernández', edad: 48, sexo: 'M', zona: 1, precio: '77,00' },
+      { nombre: 'Carlos Hernán López', edad: 52, sexo: 'H', zona: 1, precio: '92,00' }
+    ],
+    productos: [
+      { nombre: 'Salud - Plena Plus', precioMensual: '154,00', detalle: 'Zona 1 Madrid - 2 asegurados' },
+      { nombre: 'Dental Familia', precioMensual: '8,93', detalle: 'Complemento dental' },
+      { nombre: 'Decesos Plus', precioMensual: '6,28', detalle: 'Capital 4.500 EUR - Servicio Plus' }
+    ],
+    totalMensual: '169,21',
+    totalAnual: '1.692,10',
+    descuentos: {
+      compania: '10% (4+ asegurados)',
+      opcional: '5% contracomisión',
+      campana: '2 meses gratis (meses 6 y 15)'
+    },
+    puntos: 4000,
+    regalo: 'Apple Watch SE'
+  });
+  document.body.innerHTML = '<h2 style="font-family:Inter,sans-serif;color:#10b981">PDF descargado. Revisa tu carpeta de descargas.</h2><p>Archivo: PRE-2026-00147_Maria_Belen_Hernan_Hernandez.pdf</p>';
+};
+</script>
+</body></html>
