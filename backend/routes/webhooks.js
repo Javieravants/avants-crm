@@ -84,25 +84,38 @@ async function handleDeal(action, data, previous) {
     if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 1900) efecto = efectoRaw;
   }
 
-  // Stage name y pipeline_id / stage_id
-  let stageName = '';
-  let pipelineIdPipedrive = data.pipeline_id || null;
-  let stageIdPipedrive = data.stage_id || null;
   // Mapear pipeline_id de Pipedrive → pipeline_id local
+  let stageName = '';
   let localPipelineId = null;
-  let localStageId = stageIdPipedrive; // stage_id se usa directo
-  if (pipelineIdPipedrive) {
-    const pipeRes = await pool.query('SELECT id FROM pipelines WHERE pipedrive_id = $1', [pipelineIdPipedrive]);
+  let localStageId = null;
+  if (data.pipeline_id) {
+    const pipeRes = await pool.query('SELECT id FROM pipelines WHERE pipedrive_id = $1', [data.pipeline_id]);
     if (pipeRes.rows.length > 0) localPipelineId = pipeRes.rows[0].id;
   }
+  // Mapear stage_id de Pipedrive → id local en pipeline_stages
   if (data.stage_id) {
-    try {
-      const stageRes = await fetch(
-        `https://api.pipedrive.com/v1/stages/${data.stage_id}?api_token=${process.env.PIPEDRIVE_API_KEY}`
-      );
-      const stageData = await stageRes.json();
-      if (stageData.data) stageName = stageData.data.name || '';
-    } catch {}
+    const stageRes = await pool.query('SELECT id, name FROM pipeline_stages WHERE pipedrive_id = $1', [data.stage_id]);
+    if (stageRes.rows.length > 0) {
+      localStageId = stageRes.rows[0].id;
+      stageName = stageRes.rows[0].name;
+    } else {
+      // Stage no existe — obtener de API y crear
+      try {
+        const apiRes = await fetch(`https://api.pipedrive.com/v1/stages/${data.stage_id}?api_token=${process.env.PIPEDRIVE_API_KEY}`);
+        const apiData = await apiRes.json();
+        if (apiData.data) {
+          stageName = apiData.data.name || '';
+          if (localPipelineId) {
+            const ins = await pool.query(
+              `INSERT INTO pipeline_stages (pipeline_id, pipedrive_id, name, orden)
+               VALUES ($1, $2, $3, $4) ON CONFLICT (pipeline_id, name) DO UPDATE SET pipedrive_id = $2 RETURNING id`,
+              [localPipelineId, data.stage_id, stageName, apiData.data.order_nr || 0]
+            );
+            localStageId = ins.rows[0]?.id || null;
+          }
+        }
+      } catch {}
+    }
   }
 
   // Owner name
