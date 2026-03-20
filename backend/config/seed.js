@@ -19,6 +19,7 @@ async function seed() {
       ['migration-pipeline.sql', 'Pipeline Kanban'],
       ['migration-grabaciones.sql', 'Grabaciones y Pólizas'],
       ['migration-calculadora.sql', 'Calculadora y Propuestas'],
+      ['migration-tramites-v2.sql', 'Trámites v2 — Kanban + Comunicaciones'],
     ];
 
     for (const [file, label] of migrations) {
