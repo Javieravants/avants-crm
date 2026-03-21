@@ -66,20 +66,27 @@ const PipelineModule = {
         .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
         .pl-col-add:hover{border-color:#009DDD;color:#009DDD}
-        .pl-card{background:#fff;border:1px solid #e8edf2;border-radius:9px;padding:10px;cursor:grab;transition:all .13s;box-shadow:0 1px 3px rgba(0,0,0,.07);user-select:none}
-        .pl-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#d1d9e0;transform:translateY(-1px)}
-        .pl-card.dragging{opacity:.4;transform:rotate(2deg)}
-        .pl-card-contact{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-        .pl-card-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
-        .pl-card-name{font-size:14px;font-weight:700;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .pl-card-prod{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:8px}
-        .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid #e8edf2}
-        .pl-card-agent{display:flex;align-items:center;gap:5px}
-        .pl-card-ag-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff;flex-shrink:0}
-        .pl-card-ag-name{font-size:10px;color:#94a3b8}
-        .pl-card-time{font-size:10px;color:#94a3b8}
-        .pl-card-time.urgent{color:#f59e0b;font-weight:700}
-        .pl-card-time.overdue{color:#ef4444;font-weight:700}
+        .pl-card{background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:0;cursor:pointer;transition:all .13s;box-shadow:0 1px 3px rgba(0,0,0,.05);user-select:none;overflow:hidden;border-left:3px solid #94a3b8;}
+        .pl-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px);}
+        .pl-card.dragging{opacity:.4;transform:rotate(2deg);}
+        .pl-card.act-red{border-left-color:#ef4444;}
+        .pl-card.act-green{border-left-color:#10b981;}
+        .pl-card.act-amber{border-left-color:#f59e0b;}
+        .pl-card.act-gray{border-left-color:#94a3b8;}
+        .pl-card-body{padding:10px 10px 8px;}
+        .pl-card-top{display:flex;align-items:flex-start;gap:6px;margin-bottom:2px;}
+        .pl-card-indicator{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+        .pl-card-indicator.tri{width:0;height:0;border-radius:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #f59e0b;margin-top:4px;}
+        .pl-card-name{font-size:13px;font-weight:700;line-height:1.35;flex:1;color:#0f172a;word-break:break-word;}
+        .pl-card-id{font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0;margin-top:2px;}
+        .pl-card-persona{font-size:11px;color:#009DDD;font-weight:500;margin-bottom:6px;padding-left:16px;}
+        .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-top:1px solid #f0f0f0;background:#fafbfc;}
+        .pl-card-agent{display:flex;align-items:center;gap:5px;}
+        .pl-card-ag-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff;flex-shrink:0;}
+        .pl-card-ag-name{font-size:10px;color:#475569;font-weight:500;}
+        .pl-card-time{font-size:10px;color:#94a3b8;font-weight:600;}
+        .pl-card-time.urgent{color:#f59e0b;font-weight:700;}
+        .pl-card-time.overdue{color:#ef4444;font-weight:700;}
         .pl-modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:400}
         .pl-modal{background:#fff;border-radius:14px;width:460px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:90vh;overflow-y:auto}
         .pl-modal-hd{padding:18px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;gap:12px}
@@ -293,50 +300,44 @@ const PipelineModule = {
   },
 
   renderCard(d) {
-    const name = d.persona_nombre || 'Sin contacto';
-    const color = `hsl(${this.hu(d.persona_id||d.id)},55%,55%)`;
+    const title = d.producto || d.compania || 'Deal';
+    const persona = d.persona_nombre || '';
     const days = d.days_in_stage;
     const timeClass = days >= 7 ? 'overdue' : days >= 5 ? 'urgent' : '';
-    const prod = d.producto || d.compania || '';
-    const prodClass = prod.toLowerCase().includes('dental') ? 'background:#fffbeb;color:#f59e0b'
-      : prod.toLowerCase().includes('mascot') ? 'background:#ecfdf5;color:#10b981'
-      : prod.toLowerCase().includes('deces') ? 'background:#f5f3ff;color:#8b5cf6'
-      : 'background:#eff6ff;color:#3b82f6';
+    const displayId = d.pipedrive_id || d.id;
 
-    // Indicador de actividad: basado en next_activity_date o updated_at
+    // Indicador de actividad
     const nextAct = d.next_activity_date ? new Date(d.next_activity_date) : null;
     const now = new Date();
-    let actColor, actTitle;
+    let actClass, actTitle, isTri = false;
     if (!nextAct) {
-      actColor = '#f59e0b'; actTitle = 'Sin próxima llamada';  // Amarillo triángulo
+      actClass = 'act-amber'; actTitle = 'Sin llamada agendada'; isTri = true;
     } else {
       const diffH = (nextAct - now) / 3600000;
-      if (diffH < 0) { actColor = '#ef4444'; actTitle = 'Llamada vencida'; }       // Rojo
-      else if (diffH <= 2) { actColor = '#22c55e'; actTitle = 'Llamada < 2h'; }     // Verde
-      else { actColor = '#94a3b8'; actTitle = 'Llamada > 2h'; }                      // Gris
+      if (diffH < 0) { actClass = 'act-red'; actTitle = 'Llamada vencida'; }
+      else if (diffH <= 2) { actClass = 'act-green'; actTitle = 'Llamada < 2h'; }
+      else if (diffH <= 12) { actClass = 'act-gray'; actTitle = 'Llamada > 2h'; }
+      else { actClass = 'act-gray'; actTitle = 'Llamada > 12h'; }
     }
-    const actIndicator = !nextAct
-      ? `<div title="${actTitle}" style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #f59e0b;flex-shrink:0"></div>`
-      : `<div title="${actTitle}" style="width:12px;height:12px;border-radius:50%;background:${actColor};flex-shrink:0"></div>`;
+    const indicatorColor = { 'act-red':'#ef4444', 'act-green':'#10b981', 'act-amber':'#f59e0b', 'act-gray':'#94a3b8' }[actClass];
 
-    // Click → abrir ficha contacto directamente
+    // Click → abrir ficha contacto
     const onclick = d.persona_id
       ? `App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),300)`
       : `PipelineModule.showDealModal(${d.id})`;
 
-    const displayId = d.pipedrive_id || d.id;
-
-    return `<div class="pl-card" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
-      <div class="pl-card-contact">
-        <div class="pl-card-av" style="background:${color}">${this.ini(name)}</div>
-        <div class="pl-card-name" style="flex:1">${this.esc(name)}</div>
-        <span style="font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0">#${displayId}</span>
-        ${actIndicator}
+    return `<div class="pl-card ${actClass}" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
+      <div class="pl-card-body">
+        <div class="pl-card-top">
+          <div class="pl-card-indicator ${isTri ? 'tri' : ''}" ${!isTri ? `style="background:${indicatorColor}"` : ''} title="${actTitle}"></div>
+          <div class="pl-card-name">${this.esc(title)}</div>
+          <div class="pl-card-id">#${displayId}</div>
+        </div>
+        ${persona ? `<div class="pl-card-persona">${this.esc(persona)}</div>` : ''}
       </div>
-      ${prod ? `<div class="pl-card-prod" style="${prodClass}">${this.esc(prod)}</div>` : ''}
       <div class="pl-card-foot">
         <div class="pl-card-agent">
-          ${d.agente_nombre ? `<div class="pl-card-ag-av" style="background:hsl(${this.hu(d.agente_id||0)},55%,55%)">${this.ini(d.agente_nombre)}</div><span class="pl-card-ag-name">${d.agente_nombre.split(' ')[0]}</span>` : '<span class="pl-card-ag-name" style="color:#e8edf2">Sin agente</span>'}
+          ${d.agente_nombre ? `<div class="pl-card-ag-av" style="background:hsl(${this.hu(d.agente_id||0)},55%,55%)">${this.ini(d.agente_nombre)}</div><span class="pl-card-ag-name">${d.agente_nombre.split(' ')[0]}</span>` : '<span class="pl-card-ag-name">Sin agente</span>'}
         </div>
         <div class="pl-card-time ${timeClass}">${this.ago(days)}</div>
       </div>
