@@ -56,8 +56,8 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px;display:flex;gap:12px}
-        .pl-col{width:220px;flex-shrink:0;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
+        .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+        .pl-col{min-width:0;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
         .pl-col-hd{padding:10px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #e8edf2}
         .pl-col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
         .pl-col-name{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -71,7 +71,7 @@ const PipelineModule = {
         .pl-card.dragging{opacity:.4;transform:rotate(2deg)}
         .pl-card-contact{display:flex;align-items:center;gap:8px;margin-bottom:8px}
         .pl-card-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
-        .pl-card-name{font-size:12px;font-weight:700;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .pl-card-name{font-size:14px;font-weight:700;line-height:1.3;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .pl-card-prod{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-bottom:8px}
         .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid #e8edf2}
         .pl-card-agent{display:flex;align-items:center;gap:5px}
@@ -305,8 +305,8 @@ const PipelineModule = {
       else { actColor = '#94a3b8'; actTitle = 'Llamada > 2h'; }                      // Gris
     }
     const actIndicator = !nextAct
-      ? `<div title="${actTitle}" style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid #f59e0b;flex-shrink:0"></div>`
-      : `<div title="${actTitle}" style="width:10px;height:10px;border-radius:50%;background:${actColor};flex-shrink:0"></div>`;
+      ? `<div title="${actTitle}" style="width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #f59e0b;flex-shrink:0"></div>`
+      : `<div title="${actTitle}" style="width:12px;height:12px;border-radius:50%;background:${actColor};flex-shrink:0"></div>`;
 
     // Click → abrir ficha contacto directamente
     const onclick = d.persona_id

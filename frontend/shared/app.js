@@ -390,4 +390,10 @@ const App = {
 };
 
 // Iniciar la app
-document.addEventListener('DOMContentLoaded', () => App.init());
+document.addEventListener('DOMContentLoaded', () => {
+  // Restaurar estado del sidebar desde localStorage
+  if (localStorage.getItem('sidebar-collapsed') === 'true') {
+    document.querySelector('.sidebar')?.classList.add('collapsed');
+  }
+  App.init();
+});

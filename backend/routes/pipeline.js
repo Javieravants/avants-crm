@@ -317,6 +317,7 @@ router.post('/sync-pipedrive', async (req, res) => {
     const limit = 500;
     let totalDeals = 0;
     let updatedDeals = 0;
+    let createdDeals = 0;
     let errors = 0;
     const pipelineStats = {};
 
@@ -342,18 +343,44 @@ router.post('/sync-pipedrive', async (req, res) => {
           if (!stR.rows[0]) continue;
           const stId = stR.rows[0].id;
 
-          // Actualizar deal en nuestra BD por pipedrive_id
-          const upd = await pool.query(
-            `UPDATE deals SET pipeline_id = $1, stage_id = $2, stage_entered_at = COALESCE($3, created_at)
-             WHERE pipedrive_id = $4 AND (pipeline_id IS NULL OR pipeline_id != $1 OR stage_id != $2)`,
-            [plId, stId, d.stage_change_time || null, d.id]);
+          // Buscar persona vinculada
+          let personaId = null;
+          const pdPersonId = typeof d.person_id === 'object' ? d.person_id?.value : d.person_id;
+          if (pdPersonId) {
+            const pRes = await pool.query('SELECT id FROM personas WHERE pipedrive_person_id = $1', [pdPersonId]);
+            if (pRes.rows[0]) personaId = pRes.rows[0].id;
+          }
 
-          if (upd.rowCount > 0) {
-            updatedDeals++;
+          // Verificar si existe en CRM
+          const existing = await pool.query('SELECT id FROM deals WHERE pipedrive_id = $1', [d.id]);
+
+          if (existing.rows.length > 0) {
+            // Actualizar pipeline/stage si cambió
+            const upd = await pool.query(
+              `UPDATE deals SET pipeline_id = $1, stage_id = $2, stage_entered_at = COALESCE($3, stage_entered_at, created_at),
+               persona_id = COALESCE($4, persona_id), pipedrive_status = 'open'
+               WHERE pipedrive_id = $5 AND (pipeline_id IS NULL OR pipeline_id != $1 OR stage_id != $2)`,
+              [plId, stId, d.stage_change_time || null, personaId, d.id]);
+            if (upd.rowCount > 0) {
+              updatedDeals++;
+              pipelineStats[plName] = (pipelineStats[plName] || 0) + 1;
+            }
+          } else {
+            // Crear deal que no existe en CRM
+            const ownerName = d.owner_name || d.user_id?.name || '';
+            const producto = d.title || '';
+            await pool.query(
+              `INSERT INTO deals (pipedrive_id, persona_id, pipeline_id, stage_id, producto, pipedrive_status,
+               pipedrive_stage, pipedrive_owner, estado, fuente, stage_entered_at, created_at)
+               VALUES ($1, $2, $3, $4, $5, 'open', $6, $7, 'en_tramite', 'pipedrive', $8, $9)`,
+              [d.id, personaId, plId, stId, producto, stR.rows[0]?.name || '', ownerName,
+               d.stage_change_time || d.add_time || new Date(), d.add_time || new Date()]);
+            createdDeals++;
             pipelineStats[plName] = (pipelineStats[plName] || 0) + 1;
           }
         } catch (e) {
           errors++;
+          console.error(`Sync deal #${d.id} error:`, e.message);
         }
       }
 
@@ -364,6 +391,7 @@ router.post('/sync-pipedrive', async (req, res) => {
     const result = {
       total_pipedrive_deals: totalDeals,
       deals_updated: updatedDeals,
+      deals_created: createdDeals,
       stages_created: stagesCreated,
       errors,
       by_pipeline: pipelineStats

@@ -51,11 +51,19 @@ body {
 .sidebar.collapsed {
   width: 52px;
 }
+.sidebar .sidebar-logo,
+.sidebar .sidebar-footer,
+.sidebar .notif-badge,
+.sidebar .sidebar-link span:not(.icon) {
+  transition: opacity 0.15s ease, width 0.2s ease;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .sidebar.collapsed .sidebar-logo,
 .sidebar.collapsed .sidebar-footer,
-.sidebar.collapsed .notif-badge { display: none; }
+.sidebar.collapsed .notif-badge { opacity: 0; width: 0; height: 0; overflow: hidden; }
 .sidebar.collapsed .sidebar-link { justify-content: center; padding: 12px 8px; }
-.sidebar.collapsed .sidebar-link span:not(.icon) { display: none; }
+.sidebar.collapsed .sidebar-link span:not(.icon) { opacity: 0; width: 0; overflow: hidden; }
 .sidebar-toggle {
   height: 40px;
   display: flex;
