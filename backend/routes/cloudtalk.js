@@ -5,7 +5,8 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-const CT_BASE = 'https://api.cloudtalk.io/api';
+const CT_BASE_V1 = 'https://api.cloudtalk.io/api';
+const CT_BASE_V2 = 'https://api.cloudtalk.io/v1';
 
 function ctAuth() {
   const key = process.env.CLOUDTALK_API_KEY;
@@ -20,7 +21,7 @@ router.get('/status', async (req, res) => {
   if (!auth) return res.status(500).json({ error: 'CLOUDTALK_API_KEY o CLOUDTALK_API_SECRET no configuradas' });
 
   try {
-    const r = await fetch(CT_BASE + '/agents.json', { headers: { Authorization: auth } });
+    const r = await fetch(CT_BASE_V1 + '/agents.json', { headers: { Authorization: auth } });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: 'CloudTalk API error', detail: data });
     res.json({ ok: true, agents: (data.responseData || data.data || []).length });
@@ -38,7 +39,7 @@ router.post('/call', async (req, res) => {
   if (!auth) return res.status(500).json({ error: 'CloudTalk no configurado' });
 
   try {
-    const r = await fetch(CT_BASE + '/calls/activity.json', {
+    const r = await fetch(CT_BASE_V2 + '/voice-agent/calls', {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -75,7 +76,7 @@ router.get('/calls', async (req, res) => {
   if (!auth) return res.status(500).json({ error: 'CloudTalk no configurado' });
 
   try {
-    const r = await fetch(CT_BASE + '/calls.json?phone_number=' + encodeURIComponent(phone) + '&limit=10&order=desc', {
+    const r = await fetch(CT_BASE_V1 + '/calls.json?phone_number=' + encodeURIComponent(phone) + '&limit=10&order=desc', {
       headers: { Authorization: auth },
     });
     const data = await r.json();
