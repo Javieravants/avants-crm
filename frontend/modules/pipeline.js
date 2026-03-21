@@ -112,14 +112,19 @@ const PipelineModule = {
       ]);
       this.pipelines = plR.pipelines || [];
       this.agents = agR.agents || [];
-    } catch(e) { console.error('Error cargando pipelines:', e); }
+    } catch(e) { console.error('Error cargando pipelines:', e); c.innerHTML = `<p style="color:red;padding:20px;">Error cargando pipelines: ${e.message}</p>`; return; }
+
+    console.log('[Pipeline] Pipelines cargados:', this.pipelines.length, '| Agentes:', this.agents.length);
 
     if (!this.currentPipeline && this.pipelines.length > 0) {
       this.currentPipeline = this.pipelines[0];
     }
 
+    if (!this.currentPipeline) { c.innerHTML = '<p style="padding:20px;color:#94a3b8;">No hay pipelines disponibles.</p>'; return; }
+
+    console.log('[Pipeline] Pipeline seleccionado:', this.currentPipeline.name, '| ID:', this.currentPipeline.id);
     this.renderShell(c);
-    if (this.currentPipeline) this.loadBoard();
+    this.loadBoard();
   },
 
   renderShell(c) {
@@ -238,7 +243,8 @@ const PipelineModule = {
       this.renderStats(stats);
       this.renderBoard();
     } catch(e) {
-      board.innerHTML = `<div class="pl-empty">Error: ${e.message}</div>`;
+      console.error('Pipeline loadBoard error:', e);
+      board.innerHTML = `<div class="pl-empty" style="color:#ef4444;">Error cargando pipeline: ${e.message}<br><br><button onclick="PipelineModule.loadBoard()" style="padding:8px 16px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-family:inherit;">Reintentar</button></div>`;
     }
   },
 
@@ -253,32 +259,37 @@ const PipelineModule = {
     if (!board) return;
 
     if (this.stages.length === 0) {
-      board.innerHTML = '<div class="pl-empty">Este pipeline no tiene etapas. Usa el botón ✏️ para añadir etapas.</div>';
+      board.innerHTML = '<div class="pl-empty">Este pipeline no tiene etapas. Usa el botón de editar para añadir etapas.</div>';
       return;
     }
 
-    const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#009DDD','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
+    try {
+      const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#009DDD','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
 
-    board.innerHTML = this.stages.map((s,i) => `
-      <div class="pl-col" data-stage-id="${s.id}">
-        ${this.editMode ? `<div style="padding:10px;background:#fff;border-bottom:1px solid #e8edf2">
-          <input class="pl-edit-input" value="${this.esc(s.name)}" style="width:100%;margin-bottom:6px" onchange="PipelineModule.renameStage(${s.id},this.value)">
-          <div style="display:flex;gap:4px">
-            <button style="flex:1;padding:4px;border-radius:6px;border:1px solid #ef4444;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:10px;font-weight:600;font-family:inherit" onclick="PipelineModule.deleteStage(${s.id})">Eliminar</button>
+      board.innerHTML = this.stages.map((s,i) => `
+        <div class="pl-col" data-stage-id="${s.id}">
+          ${this.editMode ? `<div style="padding:10px;background:#fff;border-bottom:1px solid #e8edf2">
+            <input class="pl-edit-input" value="${this.esc(s.name)}" style="width:100%;margin-bottom:6px" onchange="PipelineModule.renameStage(${s.id},this.value)">
+            <div style="display:flex;gap:4px">
+              <button style="flex:1;padding:4px;border-radius:6px;border:1px solid #ef4444;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:10px;font-weight:600;font-family:inherit" onclick="PipelineModule.deleteStage(${s.id})">Eliminar</button>
+            </div>
+          </div>` : `<div class="pl-col-hd">
+            <div class="pl-col-dot" style="background:${s.color||colColors[i%colColors.length]}"></div>
+            <div class="pl-col-name">${this.esc(s.name)}</div>
+            <div class="pl-col-count">${s.deals.length}</div>
+          </div>`}
+          <div class="pl-col-cards" data-stage-id="${s.id}">
+            ${s.deals.map(d => { try { return this.renderCard(d); } catch(e) { console.error('Card render error deal #'+d.id, e); return ''; } }).join('')}
           </div>
-        </div>` : `<div class="pl-col-hd">
-          <div class="pl-col-dot" style="background:${s.color||colColors[i%colColors.length]}"></div>
-          <div class="pl-col-name">${this.esc(s.name)}</div>
-          <div class="pl-col-count">${s.deals.length}</div>
-        </div>`}
-        <div class="pl-col-cards" data-stage-id="${s.id}">
-          ${s.deals.map(d => this.renderCard(d)).join('')}
+          <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
         </div>
-        <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
-      </div>
-    `).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
+      `).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
 
-    this.initDragDrop();
+      this.initDragDrop();
+    } catch(e) {
+      console.error('Pipeline renderBoard error:', e);
+      board.innerHTML = `<div class="pl-empty" style="color:#ef4444;">Error renderizando: ${e.message}</div>`;
+    }
   },
 
   renderCard(d) {
