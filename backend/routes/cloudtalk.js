@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-const CT_BASE = 'https://my.cloudtalk.io/api';
+const CT_BASE = 'https://api.cloudtalk.io/api';
 
 function ctAuth() {
   const key = process.env.CLOUDTALK_API_KEY;
