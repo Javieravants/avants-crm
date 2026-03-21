@@ -338,8 +338,23 @@ router.post('/sync-pipedrive', async (req, res) => {
           const plId = plR.rows[0].id;
           const plName = plR.rows[0].name;
 
-          // Buscar stage en nuestra BD por pipedrive_id
-          const stR = await pool.query('SELECT id FROM pipeline_stages WHERE pipedrive_id = $1', [d.stage_id]);
+          // Buscar stage en nuestra BD por pipedrive_id, crear si no existe
+          let stR = await pool.query('SELECT id, name FROM pipeline_stages WHERE pipedrive_id = $1', [d.stage_id]);
+          if (!stR.rows[0]) {
+            // Auto-crear stage desde Pipedrive
+            try {
+              const sRes = await fetch(`${baseUrl}/stages/${d.stage_id}?api_token=${apiKey}`);
+              const sData = await sRes.json();
+              if (sData.success && sData.data) {
+                const ins = await pool.query(
+                  `INSERT INTO pipeline_stages (pipeline_id, pipedrive_id, name, orden)
+                   VALUES ($1, $2, $3, $4) ON CONFLICT (pipeline_id, name) DO UPDATE SET pipedrive_id = $2 RETURNING id, name`,
+                  [plId, d.stage_id, sData.data.name, sData.data.order_nr || 0]);
+                stR = { rows: ins.rows };
+                stagesCreated++;
+              }
+            } catch {}
+          }
           if (!stR.rows[0]) continue;
           const stId = stR.rows[0].id;
 
