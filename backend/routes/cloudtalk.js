@@ -57,31 +57,17 @@ router.post('/call', async (req, res) => {
       return res.status(502).json({ error: 'Agente no encontrado en CloudTalk', email });
     }
 
-    // Iniciar llamada via CloudTalk API v1
-    const r = await fetch(CT_BASE_V2 + '/voice-agent/calls', {
-      method: 'POST',
-      headers: { Authorization: auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        voice_agent_id: String(ctAgent.id),
-        call_number: phone,
-      }),
-    });
-    const data = await r.json();
-
-    if (!r.ok) {
-      return res.status(502).json({ error: 'CloudTalk error', detail: data });
-    }
-
     // Registrar la llamada en el historial del contacto
     if (persona_id) {
-      const texto = `Llamada iniciada a ${phone}${persona_nombre ? ' (' + persona_nombre + ')' : ''} via CloudTalk`;
+      const texto = `Llamada iniciada a ${phone}${persona_nombre ? ' (' + persona_nombre + ')' : ''} via CloudTalk · Agente: ${ctAgent.firstname} ${ctAgent.lastname}`;
       await pool.query(
         'INSERT INTO persona_notas (persona_id, user_id, texto) VALUES ($1, $2, $3)',
         [persona_id, req.user.id, texto]
       );
     }
 
-    res.json({ ok: true, call: data });
+    // Devolver info del agente para el widget
+    res.json({ ok: true, agent: { id: ctAgent.id, name: ctAgent.firstname + ' ' + ctAgent.lastname, extension: ctAgent.extension } });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
