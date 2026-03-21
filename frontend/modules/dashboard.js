@@ -310,17 +310,6 @@ const DashboardModule = {
           </div>
           <div class="dash-card-body">
             <div class="dash-chart-wrap" id="dash-chart"></div>
-            <!-- Botones demo celebración/ánimo -->
-            <div style="display:flex;gap:8px;margin-top:12px;">
-              <button onclick="window.dispararCelebracion('VENTA CERRADA','ADESLAS Plena Total · 149€/mes')" class="dash-demo-btn" style="border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.08);color:#10b981;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
-                Simular venta
-              </button>
-              <button onclick="window.dispararAnimo('Llevas 5 sin respuesta. ¡El siguiente coge seguro!')" class="dash-demo-btn" style="border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#f59e0b;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                Simular ánimo
-              </button>
-            </div>
           </div>
         </div>
       </div>
