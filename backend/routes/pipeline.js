@@ -376,4 +376,56 @@ router.post('/sync-pipedrive', async (req, res) => {
   }
 });
 
+// Limpiar deals huérfanos: open en CRM pero lost/won/deleted en Pipedrive
+router.post('/cleanup-stale-deals', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Solo admin' });
+    const apiKey = process.env.PIPEDRIVE_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'PIPEDRIVE_API_KEY no configurada' });
+
+    // Obtener deals open sin pipeline
+    const stale = await pool.query(
+      "SELECT id, pipedrive_id FROM deals WHERE pipedrive_status = 'open' AND pipeline_id IS NULL AND pipedrive_id IS NOT NULL"
+    );
+
+    let updated = 0, notFound = 0, errors = 0;
+    for (const deal of stale.rows) {
+      try {
+        const r = await fetch(`https://api.pipedrive.com/v1/deals/${deal.pipedrive_id}?api_token=${apiKey}`);
+        const data = await r.json();
+        if (!data.success || !data.data) { notFound++; continue; }
+
+        const pd = data.data;
+        let estado = 'en_tramite';
+        if (pd.status === 'won') estado = 'poliza_activa';
+        else if (pd.status === 'lost') estado = 'perdido';
+
+        // Mapear pipeline y stage
+        let plId = null, stId = null;
+        if (pd.pipeline_id) {
+          const plR = await pool.query('SELECT id FROM pipelines WHERE pipedrive_id = $1', [pd.pipeline_id]);
+          if (plR.rows[0]) plId = plR.rows[0].id;
+        }
+        if (pd.stage_id) {
+          const stR = await pool.query('SELECT id FROM pipeline_stages WHERE pipedrive_id = $1', [pd.stage_id]);
+          if (stR.rows[0]) stId = stR.rows[0].id;
+        }
+
+        await pool.query(
+          `UPDATE deals SET pipedrive_status = $1, estado = $2, pipeline_id = $3, stage_id = $4, updated_at = NOW() WHERE id = $5`,
+          [pd.status, estado, plId, stId, deal.id]
+        );
+        updated++;
+
+        // Rate limit
+        if (updated % 8 === 0) await new Promise(r => setTimeout(r, 300));
+      } catch (e) { errors++; }
+    }
+
+    res.json({ total: stale.rows.length, updated, notFound, errors });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
