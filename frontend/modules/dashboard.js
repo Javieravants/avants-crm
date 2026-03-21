@@ -166,6 +166,10 @@ const DashboardModule = {
     const ini = (n) => (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const hu = (id) => (id*47)%360;
 
+    // Calcular posición en ranking
+    const miRank = d.ranking.findIndex(r => r.id === user.id) + 1;
+    const miPuntos = d.ranking.find(r => r.id === user.id)?.ventas || 0;
+
     c.innerHTML = `<div class="dash-wrap">
       <!-- HERO -->
       <div class="dash-hero">
@@ -173,7 +177,29 @@ const DashboardModule = {
         <div class="dash-hero-top">
           <div class="dash-hero-left">
             <div class="dash-hero-name">${saludo}, <span>${this._esc(nombre)}</span></div>
-            <div class="dash-hero-sub">${hoy} · ${kpis.deals_open || 0} deals activos · ${kpis.tickets_activos || 0} trámites abiertos</div>
+            <div class="dash-hero-sub">${hoy} · ${kpis.deals_open || 0} deals activos · ${kpis.tickets_activos || 0} trámites</div>
+
+            <!-- FICHAR + INICIAR -->
+            <div class="dash-hero-actions">
+              <button class="dash-btn-fichar" id="dash-btn-fichar">
+                <div class="dash-btn-fichar-ico">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                </div>
+                <div class="dash-btn-fichar-info">
+                  <div class="dash-btn-fichar-title">Fichar entrada</div>
+                  <div class="dash-btn-fichar-sub">No has fichado aún</div>
+                </div>
+              </button>
+              <button class="dash-btn-iniciar" id="dash-btn-iniciar">
+                <div class="dash-btn-iniciar-ico">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <div class="dash-btn-iniciar-info">
+                  <div class="dash-btn-iniciar-title">Iniciar jornada de llamadas</div>
+                  <div class="dash-btn-iniciar-sub">Power Dialer · ${kpis.deals_open || 0} contactos en cola</div>
+                </div>
+              </button>
+            </div>
           </div>
           <div class="dash-hero-quote" id="dash-frase">
             <div id="dash-frase-txt"></div>
@@ -182,31 +208,41 @@ const DashboardModule = {
         </div>
       </div>
 
-      <!-- KPIs -->
+      <!-- KPIs (5 como en mockup) -->
       <div class="dash-kpi-grid">
         <div class="dash-kpi">
           <div class="dash-kpi-glow" style="background:#009DDD;"></div>
-          <div class="dash-kpi-label">Deals activos</div>
-          <div class="dash-kpi-val" style="color:#009DDD;">${kpis.deals_open || 0}</div>
-          <div class="dash-kpi-sub">en pipeline</div>
+          <div class="dash-kpi-label">Llamadas hoy</div>
+          <div class="dash-kpi-val" style="color:#009DDD;">${kpis.llamadas_hoy || 0}</div>
+          <div class="dash-kpi-sub">objetivo: 35</div>
+          <div class="dash-kpi-progress"><div class="dash-kpi-fill" style="width:${Math.min(100,Math.round((kpis.llamadas_hoy||0)/35*100))}%;background:#009DDD;"></div></div>
         </div>
         <div class="dash-kpi">
           <div class="dash-kpi-glow" style="background:#10b981;"></div>
-          <div class="dash-kpi-label">Ventas hoy</div>
-          <div class="dash-kpi-val" style="color:#10b981;">${kpis.ventas_hoy || 0}</div>
-          <div class="dash-kpi-sub">deals cerrados</div>
+          <div class="dash-kpi-label">Ventas este mes</div>
+          <div class="dash-kpi-val" style="color:#10b981;">${kpis.ventas_mes || 0}</div>
+          <div class="dash-kpi-sub">objetivo: 20</div>
+          <div class="dash-kpi-progress"><div class="dash-kpi-fill" style="width:${Math.min(100,Math.round((kpis.ventas_mes||0)/20*100))}%;background:#10b981;"></div></div>
         </div>
         <div class="dash-kpi">
           <div class="dash-kpi-glow" style="background:#f59e0b;"></div>
-          <div class="dash-kpi-label">Tickets activos</div>
-          <div class="dash-kpi-val" style="color:#f59e0b;">${kpis.tickets_activos || 0}</div>
-          <div class="dash-kpi-sub">pendientes</div>
+          <div class="dash-kpi-label">Puntos mes</div>
+          <div class="dash-kpi-val" style="color:#f59e0b;">${(miPuntos * 100).toLocaleString('es-ES')}</div>
+          <div class="dash-kpi-sub">${miRank > 0 ? '#' + miRank + ' en ranking' : 'sin posición'}</div>
+          <div class="dash-kpi-progress"><div class="dash-kpi-fill" style="width:${Math.min(100,Math.round(miPuntos*100/60))}%;background:#f59e0b;"></div></div>
+        </div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-glow" style="background:#ef4444;"></div>
+          <div class="dash-kpi-label">Racha</div>
+          <div class="dash-kpi-val" style="color:#ef4444;">${kpis.racha || 0}<span style="font-size:14px;"> días</span></div>
+          <div class="dash-kpi-sub">cumpliendo objetivo</div>
         </div>
         <div class="dash-kpi">
           <div class="dash-kpi-glow" style="background:#8b5cf6;"></div>
-          <div class="dash-kpi-label">Resueltos mes</div>
-          <div class="dash-kpi-val" style="color:#8b5cf6;">${kpis.tickets_resueltos || 0}</div>
-          <div class="dash-kpi-sub">este mes</div>
+          <div class="dash-kpi-label">Calidad IA</div>
+          <div class="dash-kpi-val" style="color:#8b5cf6;">${kpis.calidad_ia || '—'}<span style="font-size:14px;">%</span></div>
+          <div class="dash-kpi-sub">última llamada</div>
+          <div class="dash-kpi-progress"><div class="dash-kpi-fill" style="width:${kpis.calidad_ia || 0}%;background:#8b5cf6;"></div></div>
         </div>
       </div>
 
@@ -297,6 +333,23 @@ const DashboardModule = {
     if (fraseEl) fraseEl.textContent = `"${frase.txt}"`;
     if (autorEl) autorEl.textContent = `— ${frase.autor}`;
 
+    // Botón Fichar
+    document.getElementById('dash-btn-fichar')?.addEventListener('click', function() {
+      const now = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      this.classList.add('fichado');
+      this.querySelector('.dash-btn-fichar-title').textContent = 'Fichada ' + now;
+      this.querySelector('.dash-btn-fichar-sub').textContent = 'Fichar salida al terminar';
+    });
+
+    // Botón Iniciar jornada
+    document.getElementById('dash-btn-iniciar')?.addEventListener('click', function() {
+      this.style.background = 'linear-gradient(135deg,#009DDD,#0070a8)';
+      this.querySelector('.dash-btn-iniciar-title').textContent = 'Jornada en curso';
+      this.querySelector('.dash-btn-iniciar-sub').textContent = 'Llamando...';
+      // Navegar al pipeline
+      setTimeout(() => App.navigate('pipeline'), 500);
+    });
+
     // Gráfico de barras
     this._renderChart();
   },
@@ -338,18 +391,36 @@ const DashboardModule = {
       .dash-hero-left{flex:1;}
       .dash-hero-name{font-size:26px;font-weight:800;color:#0f172a;margin-bottom:4px;}
       .dash-hero-name span{color:#009DDD;}
-      .dash-hero-sub{font-size:13px;color:#94a3b8;}
-      .dash-hero-quote{background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:10px 14px;max-width:340px;font-size:12px;color:#475569;font-style:italic;line-height:1.5;border-left:3px solid #009DDD;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+      .dash-hero-sub{font-size:13px;color:#94a3b8;margin-bottom:16px;}
+      .dash-hero-quote{background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:10px 14px;max-width:340px;font-size:12px;color:#475569;font-style:italic;line-height:1.5;border-left:3px solid #009DDD;box-shadow:0 1px 3px rgba(0,0,0,.05);align-self:flex-start;}
       .dash-hero-quote-author{font-size:10px;color:#94a3b8;margin-top:4px;font-style:normal;}
 
+      /* FICHAR + INICIAR */
+      .dash-hero-actions{display:flex;gap:12px;}
+      .dash-btn-fichar{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:11px;border:1px solid #e8edf2;background:#fff;color:#0f172a;cursor:pointer;transition:all .15s;font-family:inherit;}
+      .dash-btn-fichar:hover{border-color:#009DDD;color:#009DDD;}
+      .dash-btn-fichar.fichado{border-color:#10b981;color:#10b981;background:#ecfdf5;}
+      .dash-btn-fichar-ico{width:32px;height:32px;border-radius:8px;background:#f4f6f9;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+      .dash-btn-fichar-info{text-align:left;}
+      .dash-btn-fichar-title{font-size:12px;font-weight:700;}
+      .dash-btn-fichar-sub{font-size:10px;color:#94a3b8;margin-top:1px;}
+      .dash-btn-iniciar{flex:1;display:flex;align-items:center;gap:12px;padding:12px 20px;border-radius:11px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:white;cursor:pointer;transition:all .2s;box-shadow:0 4px 20px rgba(16,185,129,.3);font-family:inherit;position:relative;overflow:hidden;}
+      .dash-btn-iniciar:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(16,185,129,.4);}
+      .dash-btn-iniciar-ico{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+      .dash-btn-iniciar-info{text-align:left;flex:1;}
+      .dash-btn-iniciar-title{font-size:14px;font-weight:800;}
+      .dash-btn-iniciar-sub{font-size:11px;opacity:.85;margin-top:1px;}
+
       /* KPIs */
-      .dash-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 28px 20px;flex-shrink:0;}
+      .dash-kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0 28px 20px;flex-shrink:0;}
       .dash-kpi{background:#fff;border:1px solid #e8edf2;border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
       .dash-kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);}
       .dash-kpi-glow{position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.1;}
       .dash-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px;}
       .dash-kpi-val{font-size:32px;font-weight:800;line-height:1;margin-bottom:4px;}
       .dash-kpi-sub{font-size:11px;color:#94a3b8;}
+      .dash-kpi-progress{height:3px;background:#e8edf2;border-radius:2px;margin-top:10px;}
+      .dash-kpi-fill{height:100%;border-radius:2px;transition:width .8s ease;}
 
       /* GRID INFERIOR */
       .dash-bottom-grid{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:14px;padding:0 28px 28px;flex:1;min-height:0;}
@@ -398,7 +469,9 @@ const DashboardModule = {
       .dash-demo-btn{flex:1;padding:8px;border-radius:8px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;background:#fff;}
 
       /* RESPONSIVE */
-      @media(max-width:1024px){.dash-kpi-grid{grid-template-columns:repeat(2,1fr);}.dash-bottom-grid{grid-template-columns:1fr;}}
+      @media(max-width:1200px){.dash-kpi-grid{grid-template-columns:repeat(3,1fr);}}
+      @media(max-width:1024px){.dash-kpi-grid{grid-template-columns:repeat(2,1fr);}.dash-bottom-grid{grid-template-columns:1fr;}.dash-hero-top{flex-direction:column;}.dash-hero-quote{max-width:100%;}}
+      @media(max-width:768px){.dash-hero-actions{flex-direction:column;}}
     `;
   },
 };

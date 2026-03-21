@@ -20,6 +20,14 @@ router.get('/', async (req, res) => {
       !isAdmin ? [userId] : []
     );
 
+    // KPIs: ventas este mes
+    const ventasMes = await pool.query(
+      `SELECT COUNT(*) as total FROM deals
+       WHERE pipedrive_status = 'won' AND updated_at >= date_trunc('month', CURRENT_DATE)
+       ${!isAdmin ? 'AND agente_id = $1' : ''}`,
+      !isAdmin ? [userId] : []
+    );
+
     // KPIs: deals open del agente
     const dealsOpen = await pool.query(
       `SELECT COUNT(*) as total FROM deals
@@ -83,9 +91,13 @@ router.get('/', async (req, res) => {
       user: { id: req.user.id, nombre: req.user.nombre, rol: req.user.rol },
       kpis: {
         ventas_hoy: parseInt(ventasHoy.rows[0].total),
+        ventas_mes: parseInt(ventasMes.rows[0].total),
         deals_open: parseInt(dealsOpen.rows[0].total),
         tickets_activos: parseInt(ticketsActivos.rows[0].total),
         tickets_resueltos: parseInt(ticketsResueltos.rows[0].total),
+        llamadas_hoy: 0, // Placeholder — se llenará con CloudTalk
+        racha: 0, // Placeholder — se calculará con historial de ventas
+        calidad_ia: 0, // Placeholder — se llenará con análisis IA
       },
       ranking: ranking.rows,
       agenda: agenda.rows,
