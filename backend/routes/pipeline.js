@@ -153,12 +153,8 @@ router.get('/:id/board', async (req, res) => {
     const params = [pipelineId];
     let idx = 2;
 
-    // Filtro por agente (agentes solo ven los suyos)
-    if (!isAdmin(req)) {
-      sql += ` AND d.agente_id = $${idx}`;
-      params.push(req.user.id);
-      idx++;
-    } else if (agenteId && agenteId !== 'all') {
+    // Filtro por agente (solo cuando se selecciona explícitamente en dropdown)
+    if (agenteId && agenteId !== 'all') {
       sql += ` AND d.agente_id = $${idx}`;
       params.push(agenteId);
       idx++;
