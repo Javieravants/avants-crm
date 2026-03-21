@@ -214,15 +214,32 @@ router.get('/:id/stats', async (req, res) => {
 // DEALS
 // ══════════════════════════════════════════════
 
-// Mover deal a otra etapa
+// Mover deal a otra etapa o marcar ganado/perdido
 router.patch('/deals/:dealId/move', async (req, res) => {
   try {
-    const { stage_id, pipeline_id } = req.body;
-    if (!stage_id) return res.status(400).json({ error: 'stage_id obligatorio' });
-    const fields = ['stage_id = $1', 'stage_entered_at = NOW()'];
-    const vals = [stage_id];
-    let idx = 2;
+    const { stage_id, pipeline_id, status, lost_reason } = req.body;
+    const fields = ['updated_at = NOW()'];
+    const vals = [];
+    let idx = 1;
+
+    if (stage_id) {
+      fields.push(`stage_id = $${idx}`); vals.push(stage_id); idx++;
+      fields.push('stage_entered_at = NOW()');
+    }
     if (pipeline_id) { fields.push(`pipeline_id = $${idx}`); vals.push(pipeline_id); idx++; }
+    if (status === 'won') {
+      fields.push(`pipedrive_status = 'won'`);
+      fields.push(`estado = 'poliza_activa'`);
+    } else if (status === 'lost') {
+      fields.push(`pipedrive_status = 'lost'`);
+      fields.push(`estado = 'perdido'`);
+    }
+    if (lost_reason) { fields.push(`datos_extra = jsonb_set(COALESCE(datos_extra,'{}'), '{lost_reason}', $${idx}::jsonb)`); vals.push(JSON.stringify(lost_reason)); idx++; }
+
+    if (fields.length <= 1 && !stage_id && !status) {
+      return res.status(400).json({ error: 'stage_id o status obligatorio' });
+    }
+
     vals.push(req.params.dealId);
     await pool.query(`UPDATE deals SET ${fields.join(', ')} WHERE id = $${idx}`, vals);
     res.json({ ok: true });

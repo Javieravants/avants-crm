@@ -4262,6 +4262,11 @@ async function guardarEnCRM() {
             btn.innerHTML = '✅ Guardado en CRM';
             btn.classList.remove('bg-[#10b981]');
             btn.classList.add('bg-gray-400');
+            // Celebración GIF
+            try {
+              const celFn = window.parent?.dispararCelebracion || window.dispararCelebracion;
+              if (celFn) celFn('PÓLIZA GRABADA', (tipoPolizaVal||tipoProducto) + (body.prima_mensual ? ' · ' + body.prima_mensual + '€/mes' : ''));
+            } catch(e) {}
             // Generar PDF automáticamente si está disponible
             generarPDFGrabacion();
         } else {

@@ -428,11 +428,37 @@ const PipelineModule = {
         </div>
         <div class="pl-modal-ft">
           <button class="pl-btn-mover" onclick="this.closest('.pl-modal-ov').remove()">Cerrar</button>
-          ${d.persona_id?`<button class="pl-btn-ver" onclick="this.closest('.pl-modal-ov').remove();App.navigate('personas');setTimeout(()=>PersonasModule.viewPersona(${d.persona_id}),200)">👤 Ver ficha completa →</button>`:''}
+          <button style="padding:9px 14px;border-radius:8px;border:none;background:#10b981;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="PipelineModule.markDealWon(${d.id},'${this.esc(name)}','${this.esc(d.producto||'')}');this.closest('.pl-modal-ov').remove()">Ganado</button>
+          <button style="padding:9px 14px;border-radius:8px;border:1px solid #ef4444;background:#fff;color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="PipelineModule.markDealLost(${d.id});this.closest('.pl-modal-ov').remove()">Perdido</button>
+          ${d.persona_id?`<button class="pl-btn-ver" onclick="this.closest('.pl-modal-ov').remove();App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),200)">Ver ficha</button>`:''}
         </div>
       </div>`;
       document.body.appendChild(modal);
     } catch(e) { alert('Error: ' + e.message); }
+  },
+
+  // ══════════════════════════════════════
+  // MARCAR GANADO / PERDIDO
+  // ══════════════════════════════════════
+  async markDealWon(dealId, nombre, producto) {
+    try {
+      await API.patch(`/pipeline/deals/${dealId}/move`, { stage_id: null, status: 'won' });
+      if (window.dispararCelebracion) {
+        window.dispararCelebracion(
+          'VENTA CERRADA',
+          (producto ? producto + ' · ' : '') + (nombre || 'Deal #' + dealId)
+        );
+      }
+      this.loadBoard();
+    } catch (e) { alert('Error: ' + e.message); }
+  },
+
+  async markDealLost(dealId) {
+    const reason = prompt('Motivo de pérdida (opcional):');
+    try {
+      await API.patch(`/pipeline/deals/${dealId}/move`, { stage_id: null, status: 'lost', lost_reason: reason || null });
+      this.loadBoard();
+    } catch (e) { alert('Error: ' + e.message); }
   },
 
   // ══════════════════════════════════════

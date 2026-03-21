@@ -142,12 +142,12 @@ const DashboardModule = {
 
     const frase = _FRASES[Math.floor(Math.random() * _FRASES.length)];
     const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.85);display:flex;align-items:center;justify-content:center;z-index:1500;opacity:0;transition:opacity .4s;';
-    ov.innerHTML = `<div style="text-align:center;max-width:500px;padding:40px;">
-      <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#009DDD,#0070a8);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 0 30px rgba(0,157,221,.4);">
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:1500;opacity:0;transition:opacity .4s;';
+    ov.innerHTML = `<div style="text-align:center;max-width:500px;padding:40px;background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+      <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#009DDD,#0070a8);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 4px 20px rgba(0,157,221,.3);">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="white"/></svg>
       </div>
-      <div style="font-size:20px;font-weight:800;color:#f1f5f9;line-height:1.5;margin-bottom:12px;font-style:italic;">"${frase.txt}"</div>
+      <div style="font-size:20px;font-weight:800;color:#0f172a;line-height:1.5;margin-bottom:12px;font-style:italic;">"${frase.txt}"</div>
       <div style="font-size:13px;color:#94a3b8;">— ${frase.autor}</div>
       <button onclick="this.closest('div[style*=fixed]').style.opacity='0';setTimeout(()=>this.closest('div[style*=fixed]').remove(),400)" style="margin-top:24px;padding:10px 28px;border-radius:10px;border:none;background:#009DDD;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">A por el día</button>
     </div>`;
@@ -329,61 +329,61 @@ const DashboardModule = {
 
   _getStyles() {
     return `
-      .dash-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow-y:auto;background:#0a0f1e;color:#f1f5f9;font-size:14px;}
+      .dash-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow-y:auto;background:#f4f6f9;color:#0f172a;font-size:14px;}
 
       /* HERO */
       .dash-hero{padding:28px 28px 20px;position:relative;overflow:hidden;flex-shrink:0;}
-      .dash-hero-bg{position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(0,157,221,.12) 0%,transparent 70%);pointer-events:none;}
+      .dash-hero-bg{position:absolute;top:-60px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(0,157,221,.08) 0%,transparent 70%);pointer-events:none;}
       .dash-hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
       .dash-hero-left{flex:1;}
-      .dash-hero-name{font-size:26px;font-weight:800;color:#f1f5f9;margin-bottom:4px;}
+      .dash-hero-name{font-size:26px;font-weight:800;color:#0f172a;margin-bottom:4px;}
       .dash-hero-name span{color:#009DDD;}
       .dash-hero-sub{font-size:13px;color:#94a3b8;}
-      .dash-hero-quote{background:#111827;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 14px;max-width:340px;font-size:12px;color:#94a3b8;font-style:italic;line-height:1.5;border-left:3px solid #009DDD;}
-      .dash-hero-quote-author{font-size:10px;color:#475569;margin-top:4px;font-style:normal;}
+      .dash-hero-quote{background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:10px 14px;max-width:340px;font-size:12px;color:#475569;font-style:italic;line-height:1.5;border-left:3px solid #009DDD;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+      .dash-hero-quote-author{font-size:10px;color:#94a3b8;margin-top:4px;font-style:normal;}
 
       /* KPIs */
       .dash-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:0 28px 20px;flex-shrink:0;}
-      .dash-kpi{background:#111827;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:border-color .15s;}
-      .dash-kpi:hover{border-color:rgba(255,255,255,.12);}
-      .dash-kpi-glow{position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.15;}
-      .dash-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;margin-bottom:10px;}
+      .dash-kpi{background:#fff;border:1px solid #e8edf2;border-radius:14px;padding:16px;position:relative;overflow:hidden;transition:box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+      .dash-kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);}
+      .dash-kpi-glow{position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;opacity:.1;}
+      .dash-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:10px;}
       .dash-kpi-val{font-size:32px;font-weight:800;line-height:1;margin-bottom:4px;}
-      .dash-kpi-sub{font-size:11px;color:#475569;}
+      .dash-kpi-sub{font-size:11px;color:#94a3b8;}
 
       /* GRID INFERIOR */
       .dash-bottom-grid{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:14px;padding:0 28px 28px;flex:1;min-height:0;}
 
       /* CARD */
-      .dash-card{background:#111827;border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
-      .dash-card-head{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+      .dash-card{background:#fff;border:1px solid #e8edf2;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+      .dash-card-head{padding:14px 16px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
       .dash-card-title{font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:6px;}
-      .dash-card-badge{font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(0,157,221,.15);color:#009DDD;}
+      .dash-card-badge{font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(0,157,221,.1);color:#009DDD;}
       .dash-card-body{padding:12px 16px;flex:1;overflow-y:auto;}
-      .dash-empty{text-align:center;padding:24px;color:#475569;font-size:13px;}
+      .dash-empty{text-align:center;padding:24px;color:#94a3b8;font-size:13px;}
 
       /* AGENDA */
-      .dash-ag-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);}
+      .dash-ag-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #e8edf2;}
       .dash-ag-item:last-child{border-bottom:none;}
-      .dash-ag-hora{font-size:11px;font-weight:700;min-width:36px;flex-shrink:0;color:#94a3b8;}
+      .dash-ag-hora{font-size:11px;font-weight:700;min-width:36px;flex-shrink:0;color:#475569;}
       .dash-ag-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white;flex-shrink:0;}
       .dash-ag-info{flex:1;min-width:0;}
-      .dash-ag-name{font-size:11px;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .dash-ag-name{font-size:11px;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
       .dash-ag-tag{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;flex-shrink:0;}
-      .t-cierre{background:rgba(16,185,129,.15);color:#10b981;}
-      .t-llamada{background:rgba(0,157,221,.15);color:#009DDD;}
-      .t-seguimiento{background:rgba(245,158,11,.15);color:#f59e0b;}
-      .t-vencida{background:rgba(239,68,68,.15);color:#ef4444;}
+      .t-cierre{background:rgba(16,185,129,.1);color:#10b981;}
+      .t-llamada{background:rgba(0,157,221,.1);color:#009DDD;}
+      .t-seguimiento{background:rgba(245,158,11,.1);color:#f59e0b;}
+      .t-vencida{background:rgba(239,68,68,.1);color:#ef4444;}
 
       /* RANKING */
-      .dash-rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);}
+      .dash-rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e8edf2;}
       .dash-rank-item:last-child{border-bottom:none;}
-      .dash-rank-item.me{background:rgba(0,157,221,.06);margin:0 -16px;padding:8px 16px;border-radius:8px;}
+      .dash-rank-item.me{background:rgba(0,157,221,.05);margin:0 -16px;padding:8px 16px;border-radius:8px;}
       .dash-rank-pos{font-size:14px;font-weight:800;min-width:24px;text-align:center;flex-shrink:0;}
       .dash-rank-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:white;flex-shrink:0;}
       .dash-rank-info{flex:1;min-width:0;}
-      .dash-rank-name{font-size:12px;font-weight:600;color:#f1f5f9;}
-      .dash-rank-bar-wrap{height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:4px;}
+      .dash-rank-name{font-size:12px;font-weight:600;color:#0f172a;}
+      .dash-rank-bar-wrap{height:4px;background:#e8edf2;border-radius:2px;margin-top:4px;}
       .dash-rank-bar{height:100%;border-radius:2px;transition:width .8s ease;}
       .dash-rank-pts{font-size:12px;font-weight:800;flex-shrink:0;}
 
@@ -391,11 +391,11 @@ const DashboardModule = {
       .dash-chart-wrap{display:flex;align-items:flex-end;gap:8px;height:120px;padding:8px 0;}
       .dash-chart-group{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
       .dash-chart-bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .6s ease;}
-      .dash-chart-val{font-size:11px;font-weight:700;color:#94a3b8;}
-      .dash-chart-label{font-size:10px;color:#475569;font-weight:600;}
+      .dash-chart-val{font-size:11px;font-weight:700;color:#475569;}
+      .dash-chart-label{font-size:10px;color:#94a3b8;font-weight:600;}
 
       /* DEMO BTNS */
-      .dash-demo-btn{flex:1;padding:8px;border-radius:8px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;}
+      .dash-demo-btn{flex:1;padding:8px;border-radius:8px;border:1px solid;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;background:#fff;}
 
       /* RESPONSIVE */
       @media(max-width:1024px){.dash-kpi-grid{grid-template-columns:repeat(2,1fr);}.dash-bottom-grid{grid-template-columns:1fr;}}
