@@ -139,7 +139,7 @@ router.get('/:id/board', async (req, res) => {
 
     // Construir query de deals
     let sql = `
-      SELECT d.id, d.persona_id, d.pipeline_id, d.stage_id, d.agente_id,
+      SELECT d.id, d.pipedrive_id, d.persona_id, d.pipeline_id, d.stage_id, d.agente_id,
         d.producto, d.compania, d.prima, d.pipedrive_status, d.stage_entered_at,
         d.created_at, d.datos_extra,
         d.datos_extra->>'next_activity_date' as next_activity_date,

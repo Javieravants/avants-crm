@@ -313,10 +313,13 @@ const PipelineModule = {
       ? `App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),300)`
       : `PipelineModule.showDealModal(${d.id})`;
 
+    const displayId = d.pipedrive_id || d.id;
+
     return `<div class="pl-card" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
       <div class="pl-card-contact">
         <div class="pl-card-av" style="background:${color}">${this.ini(name)}</div>
         <div class="pl-card-name" style="flex:1">${this.esc(name)}</div>
+        <span style="font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0">#${displayId}</span>
         ${actIndicator}
       </div>
       ${prod ? `<div class="pl-card-prod" style="${prodClass}">${this.esc(prod)}</div>` : ''}

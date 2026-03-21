@@ -125,7 +125,7 @@ const PersonasModule = {
 
       tbody.innerHTML = personas.map((p) => `
         <tr class="persona-row" data-id="${p.id}" style="cursor:pointer;">
-          <td><strong>${this._esc(p.nombre || '')}</strong></td>
+          <td><strong>${this._esc(p.nombre || '')}</strong> <span style="font-size:10px;color:#94a3b8">#${p.pipedrive_person_id || p.id}</span></td>
           <td>${p.dni || '<span class="text-light">—</span>'}</td>
           <td>${p.telefono || '<span class="text-light">—</span>'}</td>
           <td>${p.email || '<span class="text-light">—</span>'}</td>
@@ -274,7 +274,10 @@ const PersonasModule = {
             <button id="btn-back-personas" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:4px;font-family:inherit;">
               ${_ICO.volver(14,'#94a3b8')} Contactos
             </button>
-            <div style="font-size:22px;font-weight:800;flex:1;">${this._esc(p.nombre || 'Sin nombre')}</div>
+            <div style="font-size:22px;font-weight:800;flex:1;">
+              ${this._esc(p.nombre || 'Sin nombre')}
+              <span style="font-size:12px;font-weight:600;color:#94a3b8;margin-left:8px;">#${p.pipedrive_person_id || p.id}</span>
+            </div>
             <!-- Comunicación: Llamar + WhatsApp + Email -->
             <div style="display:flex;gap:6px;">
               ${p.telefono ? `<button onclick="window.open('tel:${p.telefono}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}

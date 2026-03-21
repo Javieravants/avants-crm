@@ -568,6 +568,7 @@ const TicketsModule = {
           <div>
             <span class="kanban-card-type">Nuevo</span>
             <h2 class="panel-title">Nuevo trámite</h2>
+            ${contactoId ? `<span style="font-size:12px;color:#94a3b8;">Contacto #${contactoId}</span>` : ''}
           </div>
           <button class="panel-close" id="panel-close-new">&times;</button>
         </div>
