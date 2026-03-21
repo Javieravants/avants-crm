@@ -87,9 +87,10 @@ const App = {
 
     // Sidebar toggle
     document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
-      const sb = document.querySelector('.sidebar');
+      const sb = document.getElementById('sidebar');
+      if (!sb) return;
       sb.classList.toggle('collapsed');
-      localStorage.setItem('sidebar-collapsed', sb.classList.contains('collapsed'));
+      localStorage.setItem('sidebar', sb.classList.contains('collapsed') ? '1' : '0');
     });
   },
 
@@ -399,8 +400,8 @@ const App = {
 // Iniciar la app
 document.addEventListener('DOMContentLoaded', () => {
   // Restaurar estado del sidebar desde localStorage
-  if (localStorage.getItem('sidebar-collapsed') === 'true') {
-    document.querySelector('.sidebar')?.classList.add('collapsed');
+  if (localStorage.getItem('sidebar') === '1') {
+    document.getElementById('sidebar')?.classList.add('collapsed');
   }
   App.init();
 });
