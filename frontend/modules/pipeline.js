@@ -26,13 +26,13 @@ const PipelineModule = {
   async render() {
     const c = document.getElementById('main-content');
     c.style.padding = '0';
-    c.style.overflow = 'hidden';
+    c.style.overflow = 'auto';
 
     // Inyectar CSS
     if (!document.getElementById('pl-css')) {
       const st = document.createElement('style'); st.id = 'pl-css';
       st.textContent = `
-        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9}
+        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:visible;background:#f4f6f9}
         .pl-toolbar{background:#fff;border-bottom:1px solid #e8edf2;padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;flex-shrink:0}
         .pl-emb-wrap{position:relative}
         .pl-emb-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#0f172a;font-family:inherit}
