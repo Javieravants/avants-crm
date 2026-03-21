@@ -62,7 +62,7 @@ router.post('/call', async (req, res) => {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        voice_agent_id: ctAgent.id,
+        voice_agent_id: String(ctAgent.id),
         call_number: phone,
       }),
     });
