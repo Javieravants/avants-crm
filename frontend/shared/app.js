@@ -102,7 +102,7 @@ const App = {
     container.style.overflow = '';
 
     const modules = {
-      dashboard: () => this.renderDashboard(),
+      dashboard: () => DashboardModule.render(),
       personas: () => PersonasModule.render(),
       tickets: () => TicketsModule.render(),
       import: () => ImportModule.render(),

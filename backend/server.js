@@ -26,6 +26,7 @@ const calculadoraRoutes = require('./routes/calculadora');
 const grabacionesRoutes = require('./routes/grabaciones');
 const fichateRoutes = require('./routes/fichate');
 const pipelineRoutes = require('./routes/pipeline');
+const dashboardRoutes = require('./routes/dashboard');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +51,7 @@ app.use('/api/calculadora', calculadoraRoutes);
 app.use('/api/grabaciones', grabacionesRoutes);
 app.use('/api/fichate', fichateRoutes);
 app.use('/api/pipeline', pipelineRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
