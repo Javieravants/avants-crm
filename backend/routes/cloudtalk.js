@@ -32,18 +32,38 @@ router.get('/status', async (req, res) => {
 
 // POST /api/cloudtalk/call — iniciar llamada click-to-call
 router.post('/call', async (req, res) => {
-  const { phone, persona_id, persona_nombre } = req.body;
+  const { phone, persona_id, persona_nombre, agent_email } = req.body;
   if (!phone) return res.status(400).json({ error: 'phone obligatorio' });
 
   const auth = ctAuth();
   if (!auth) return res.status(500).json({ error: 'CloudTalk no configurado' });
 
   try {
+    // Buscar el voice_agent_id del agente en CloudTalk por email
+    const email = agent_email || req.user.email;
+    const agentsR = await fetch(CT_BASE_V1 + '/agents.json', { headers: { Authorization: auth } });
+    const agentsData = await agentsR.json();
+    const agents = agentsData.data || agentsData.responseData || [];
+    const ctAgent = agents.find(a => a.email === email);
+
+    if (!ctAgent) {
+      // Registrar igualmente y hacer fallback
+      if (persona_id) {
+        await pool.query(
+          'INSERT INTO persona_notas (persona_id, user_id, texto) VALUES ($1, $2, $3)',
+          [persona_id, req.user.id, `Llamada a ${phone} (agente no encontrado en CloudTalk)`]
+        );
+      }
+      return res.status(502).json({ error: 'Agente no encontrado en CloudTalk', email });
+    }
+
+    // Iniciar llamada via CloudTalk API v1
     const r = await fetch(CT_BASE_V2 + '/voice-agent/calls', {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        phone_number: phone,
+        voice_agent_id: ctAgent.id,
+        call_number: phone,
       }),
     });
     const data = await r.json();
@@ -52,7 +72,7 @@ router.post('/call', async (req, res) => {
       return res.status(502).json({ error: 'CloudTalk error', detail: data });
     }
 
-    // Registrar la llamada como nota en el historial del contacto
+    // Registrar la llamada en el historial del contacto
     if (persona_id) {
       const texto = `Llamada iniciada a ${phone}${persona_nombre ? ' (' + persona_nombre + ')' : ''} via CloudTalk`;
       await pool.query(
@@ -61,7 +81,7 @@ router.post('/call', async (req, res) => {
       );
     }
 
-    res.json({ ok: true, call: data.responseData || data.data || data });
+    res.json({ ok: true, call: data });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
