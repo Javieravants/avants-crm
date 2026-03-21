@@ -57,11 +57,13 @@ const PipelineModule = {
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
         .pl-board{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:16px 20px 8px;width:100%;overflow:visible;}
-        .pl-col{min-width:0;width:100%;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
-        .pl-col-hd{padding:10px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #e8edf2}
-        .pl-col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-        .pl-col-name{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .pl-col-count{font-size:10px;font-weight:700;color:#94a3b8;background:#f4f6f9;padding:2px 6px;border-radius:10px;flex-shrink:0}
+        .pl-col{min-width:0;width:100%;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
+        .pl-col.pl-col-top{background:#f6f7f9}
+        .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
+        .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
+        .pl-col-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#475569;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .pl-col-count{font-size:20px;font-weight:800;color:#475569;line-height:1;flex-shrink:0}
+        .pl-col-top .pl-col-count{color:#0f172a}
         .pl-col-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
         .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
@@ -272,26 +274,30 @@ const PipelineModule = {
     }
 
     try {
-      const colColors = ['#8b5cf6','#94a3b8','#f59e0b','#3b82f6','#009DDD','#10b981','#06b6d4','#ef4444','#f97316','#14b8a6'];
+      // Encontrar la columna con más deals para destacarla
+      const maxDeals = Math.max(...this.stages.map(s => s.deals.length), 0);
 
-      board.innerHTML = this.stages.map((s,i) => `
-        <div class="pl-col" data-stage-id="${s.id}">
+      board.innerHTML = this.stages.map((s,i) => {
+        const isTop = s.deals.length === maxDeals && maxDeals > 0;
+        return `
+        <div class="pl-col ${isTop ? 'pl-col-top' : ''}" data-stage-id="${s.id}">
           ${this.editMode ? `<div style="padding:10px;background:#fff;border-bottom:1px solid #e8edf2">
             <input class="pl-edit-input" value="${this.esc(s.name)}" style="width:100%;margin-bottom:6px" onchange="PipelineModule.renameStage(${s.id},this.value)">
             <div style="display:flex;gap:4px">
               <button style="flex:1;padding:4px;border-radius:6px;border:1px solid #ef4444;background:#fef2f2;color:#ef4444;cursor:pointer;font-size:10px;font-weight:600;font-family:inherit" onclick="PipelineModule.deleteStage(${s.id})">Eliminar</button>
             </div>
           </div>` : `<div class="pl-col-hd">
-            <div class="pl-col-dot" style="background:${s.color||colColors[i%colColors.length]}"></div>
-            <div class="pl-col-name">${this.esc(s.name)}</div>
-            <div class="pl-col-count">${s.deals.length}</div>
+            <div class="pl-col-hd-r1">
+              <div class="pl-col-name">${this.esc(s.name)}</div>
+              <div class="pl-col-count">${s.deals.length}</div>
+            </div>
           </div>`}
           <div class="pl-col-cards" data-stage-id="${s.id}">
             ${s.deals.map(d => { try { return this.renderCard(d); } catch(e) { console.error('Card render error deal #'+d.id, e); return ''; } }).join('')}
           </div>
           <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
-        </div>
-      `).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
+        </div>`;
+      }).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
 
       this.initDragDrop();
     } catch(e) {
