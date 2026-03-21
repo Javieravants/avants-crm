@@ -56,8 +56,8 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;display:flex;flex-direction:row;gap:12px;overflow-x:auto;padding:16px 20px 8px;min-height:calc(100vh - 160px);}
-        .pl-col{min-width:260px;width:260px;flex-shrink:0;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
+        .pl-board{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:16px 20px 8px;width:100%;overflow:visible;}
+        .pl-col{min-width:0;width:100%;display:flex;flex-direction:column;background:#f4f6f9;border-radius:12px;border:1px solid #e8edf2;overflow:hidden;max-height:100%}
         .pl-col-hd{padding:10px 12px;display:flex;align-items:center;gap:8px;background:#fff;border-bottom:1px solid #e8edf2}
         .pl-col-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
         .pl-col-name{font-size:12px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
