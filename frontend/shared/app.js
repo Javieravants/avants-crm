@@ -84,6 +84,13 @@ const App = {
       if (this.notifInterval) clearInterval(this.notifInterval);
       Auth.logout();
     });
+
+    // Sidebar toggle
+    document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+      const sb = document.querySelector('.sidebar');
+      sb.classList.toggle('collapsed');
+      localStorage.setItem('sidebar-collapsed', sb.classList.contains('collapsed'));
+    });
   },
 
   navigate(moduleName) {
