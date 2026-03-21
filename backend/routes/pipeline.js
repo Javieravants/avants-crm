@@ -370,11 +370,12 @@ router.post('/sync-pipedrive', async (req, res) => {
           const existing = await pool.query('SELECT id FROM deals WHERE pipedrive_id = $1', [d.id]);
 
           if (existing.rows.length > 0) {
-            // Actualizar pipeline/stage si cambió
+            // Actualizar pipeline/stage/status si cambió
             const upd = await pool.query(
               `UPDATE deals SET pipeline_id = $1, stage_id = $2, stage_entered_at = COALESCE($3, stage_entered_at, created_at),
-               persona_id = COALESCE($4, persona_id), pipedrive_status = 'open'
-               WHERE pipedrive_id = $5 AND (pipeline_id IS NULL OR pipeline_id != $1 OR stage_id != $2)`,
+               persona_id = COALESCE($4, persona_id), pipedrive_status = 'open', estado = 'en_tramite',
+               updated_at = NOW()
+               WHERE pipedrive_id = $5 AND (pipeline_id IS NULL OR pipeline_id != $1 OR stage_id != $2 OR pipedrive_status != 'open')`,
               [plId, stId, d.stage_change_time || null, personaId, d.id]);
             if (upd.rowCount > 0) {
               updatedDeals++;
