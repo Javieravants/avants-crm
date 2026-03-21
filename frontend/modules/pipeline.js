@@ -66,27 +66,28 @@ const PipelineModule = {
         .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
         .pl-col-add:hover{border-color:#009DDD;color:#009DDD}
-        .pl-card{background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:0;cursor:pointer;transition:all .13s;box-shadow:0 1px 3px rgba(0,0,0,.05);user-select:none;overflow:hidden;border-left:3px solid #94a3b8;}
-        .pl-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-1px);}
+        .pl-card{background:#fff;border:1px solid #e8edf2;border-left:3px solid #94a3b8;border-radius:0 8px 8px 0;cursor:pointer;transition:all .15s;user-select:none;overflow:hidden;}
+        .pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-1px);}
         .pl-card.dragging{opacity:.4;transform:rotate(2deg);}
         .pl-card.act-red{border-left-color:#ef4444;}
         .pl-card.act-green{border-left-color:#10b981;}
         .pl-card.act-amber{border-left-color:#f59e0b;}
         .pl-card.act-gray{border-left-color:#94a3b8;}
-        .pl-card-body{padding:8px 10px 6px;}
-        .pl-card-top{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
-        .pl-card-indicator{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-        .pl-card-indicator.tri{width:0;height:0;border-radius:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #f59e0b;}
-        .pl-card-name{font-size:13px;font-weight:700;flex:1;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-        .pl-card-id{font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0;}
-        .pl-card-persona{font-size:11px;color:#009DDD;font-weight:500;padding-left:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
-        .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-top:1px solid #f0f0f0;background:#fafbfc;}
-        .pl-card-agent{display:flex;align-items:center;gap:5px;}
-        .pl-card-ag-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff;flex-shrink:0;}
-        .pl-card-ag-name{font-size:10px;color:#475569;font-weight:500;}
-        .pl-card-time{font-size:10px;color:#94a3b8;font-weight:600;}
-        .pl-card-time.urgent{color:#f59e0b;font-weight:700;}
-        .pl-card-time.overdue{color:#ef4444;font-weight:700;}
+        .pl-card-body{padding:9px 10px 7px;}
+        .pl-card-row1{display:flex;align-items:center;gap:6px;}
+        .pl-card-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+        .pl-card-dot.tri{width:0;height:0;border-radius:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #f59e0b;}
+        .pl-card-name{font-size:13px;font-weight:700;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .pl-card-id{font-size:10px;color:#94a3b8;flex-shrink:0;}
+        .pl-card-sub{font-size:11px;color:#009DDD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;padding-left:14px;}
+        .pl-card-foot{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid #f0f2f5;}
+        .pl-card-ag{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0;}
+        .pl-card-agname{font-size:11px;color:#475569;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .pl-card-act{font-size:11px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:4px;}
+        .pl-card-act.vencida{color:#ef4444;}
+        .pl-card-act.hoy{color:#475569;}
+        .pl-card-act.prox{color:#10b981;}
+        .pl-card-act.lejos{color:#94a3b8;}
         .pl-modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:400}
         .pl-modal{background:#fff;border-radius:14px;width:460px;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;max-height:90vh;overflow-y:auto}
         .pl-modal-hd{padding:18px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;gap:12px}
@@ -300,49 +301,65 @@ const PipelineModule = {
   },
 
   renderCard(d) {
-    const prodRaw = d.producto || d.compania || '';
-    const isNumericProd = /^\d+$/.test(prodRaw);
-    // Si producto es solo un número (código label), mostrar persona como título
-    const title = isNumericProd ? (d.persona_nombre || 'Deal #' + (d.pipedrive_id || d.id)) : prodRaw;
-    const persona = isNumericProd ? '' : (d.persona_nombre || '');
-    const days = d.days_in_stage;
-    const timeClass = days >= 7 ? 'overdue' : days >= 5 ? 'urgent' : '';
+    // Nombre: persona siempre como título principal
+    const name = d.persona_nombre || d.producto || 'Sin contacto';
     const displayId = d.pipedrive_id || d.id;
+
+    // Subtítulo: email o teléfono si existe
+    const sub = d.persona_email || d.persona_telefono || '';
 
     // Indicador de actividad
     const nextAct = d.next_activity_date ? new Date(d.next_activity_date) : null;
     const now = new Date();
-    let actClass, actTitle, isTri = false;
+    let actClass, dotClass, isTri = false, actLabel = '';
     if (!nextAct) {
-      actClass = 'act-amber'; actTitle = 'Sin llamada agendada'; isTri = true;
+      actClass = 'act-amber'; dotClass = 'tri'; isTri = true; actLabel = '';
     } else {
       const diffH = (nextAct - now) / 3600000;
-      if (diffH < 0) { actClass = 'act-red'; actTitle = 'Llamada vencida'; }
-      else if (diffH <= 2) { actClass = 'act-green'; actTitle = 'Llamada < 2h'; }
-      else if (diffH <= 12) { actClass = 'act-gray'; actTitle = 'Llamada > 2h'; }
-      else { actClass = 'act-gray'; actTitle = 'Llamada > 12h'; }
+      if (diffH < 0) {
+        actClass = 'act-red'; dotClass = '';
+        actLabel = '<span class="pl-card-act vencida">Vencida</span>';
+      } else if (diffH <= 2) {
+        actClass = 'act-green'; dotClass = '';
+        const h = nextAct.getHours().toString().padStart(2,'0');
+        const m = nextAct.getMinutes().toString().padStart(2,'0');
+        actLabel = `<span class="pl-card-act prox">${h}:${m}</span>`;
+      } else {
+        const isToday = nextAct.toDateString() === now.toDateString();
+        actClass = 'act-gray'; dotClass = '';
+        if (isToday) {
+          const h = nextAct.getHours().toString().padStart(2,'0');
+          const m = nextAct.getMinutes().toString().padStart(2,'0');
+          actLabel = `<span class="pl-card-act hoy">Hoy ${h}:${m}</span>`;
+        } else {
+          const d2 = Math.ceil(diffH / 24);
+          actLabel = `<span class="pl-card-act lejos">${d2}d</span>`;
+        }
+      }
     }
-    const indicatorColor = { 'act-red':'#ef4444', 'act-green':'#10b981', 'act-amber':'#f59e0b', 'act-gray':'#94a3b8' }[actClass];
+    const dotColor = {'act-red':'#ef4444','act-green':'#10b981','act-amber':'#f59e0b','act-gray':'#94a3b8'}[actClass];
 
-    // Click → abrir ficha contacto
+    // Triángulo sin llamada para el footer
+    const triSvg = isTri ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M12 2L2 22h20L12 2z"/></svg>' : '';
+
+    // Click
     const onclick = d.persona_id
       ? `App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),300)`
       : `PipelineModule.showDealModal(${d.id})`;
 
     return `<div class="pl-card ${actClass}" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
       <div class="pl-card-body">
-        <div class="pl-card-top">
-          <div class="pl-card-indicator ${isTri ? 'tri' : ''}" ${!isTri ? `style="background:${indicatorColor}"` : ''} title="${actTitle}"></div>
-          <div class="pl-card-name">${this.esc(title)}</div>
+        <div class="pl-card-row1">
+          <div class="pl-card-dot ${isTri?'tri':''}" ${!isTri?`style="background:${dotColor}"`:''} title="${isTri?'Sin llamada agendada':''}"></div>
+          <div class="pl-card-name">${this.esc(name)}</div>
           <div class="pl-card-id">#${displayId}</div>
         </div>
-        ${persona ? `<div class="pl-card-persona">${this.esc(persona)}</div>` : ''}
+        ${sub ? `<div class="pl-card-sub">${this.esc(sub)}</div>` : ''}
       </div>
       <div class="pl-card-foot">
-        <div class="pl-card-agent">
-          ${d.agente_nombre ? `<div class="pl-card-ag-av" style="background:hsl(${this.hu(d.agente_id||0)},55%,55%)">${this.ini(d.agente_nombre)}</div><span class="pl-card-ag-name">${d.agente_nombre.split(' ')[0]}</span>` : '<span class="pl-card-ag-name">Sin agente</span>'}
-        </div>
-        <div class="pl-card-time ${timeClass}">${this.ago(days)}</div>
+        <div class="pl-card-ag" style="background:hsl(${this.hu(d.agente_id||d.id)},55%,55%)">${d.agente_nombre ? this.ini(d.agente_nombre) : '—'}</div>
+        <div class="pl-card-agname">${d.agente_nombre ? d.agente_nombre.split(' ')[0] : 'Sin agente'}</div>
+        ${triSvg}${actLabel}
       </div>
     </div>`;
   },
