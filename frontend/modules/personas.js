@@ -280,7 +280,7 @@ const PersonasModule = {
             </div>
             <!-- Comunicación: Llamar + WhatsApp + Email -->
             <div style="display:flex;gap:6px;">
-              ${p.telefono ? `<button onclick="window.open('tel:${p.telefono}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
+              ${p.telefono ? `<button id="btn-llamar-ct" onclick="PersonasModule._clickToCall('${p.telefono}',${p.id},'${(p.nombre||'').replace(/'/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
               ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
               ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Email">${_ICO.email(16,'#475569')} Email</button>` : ''}
             </div>
@@ -747,6 +747,35 @@ const PersonasModule = {
       </div>
       <div style="font-size:13px;color:#475569;margin-left:40px;">${this._esc((t.descripcion || '').substring(0, 100))}</div>
     </div>`;
+  },
+
+  // === Click-to-call via CloudTalk API ===
+  async _clickToCall(phone, personaId, nombre) {
+    const btn = document.getElementById('btn-llamar-ct');
+    if (!btn) return;
+    const original = btn.innerHTML;
+    btn.innerHTML = `${_ICO.llamada(16,'#fff')} Llamando...`;
+    btn.style.background = '#0088c2';
+    btn.disabled = true;
+
+    try {
+      const res = await API.post('/cloudtalk/call', { phone, persona_id: personaId, persona_nombre: nombre });
+      btn.innerHTML = `${_ICO.llamada(16,'#fff')} Conectando...`;
+      btn.style.background = '#009DDD';
+      // Restaurar después de 5 segundos
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.style.background = '#10b981';
+        btn.disabled = false;
+      }, 5000);
+    } catch (e) {
+      // Fallback: abrir con protocolo tel:
+      console.warn('CloudTalk API no disponible, usando tel:', e.message);
+      window.open('tel:' + phone);
+      btn.innerHTML = original;
+      btn.style.background = '#10b981';
+      btn.disabled = false;
+    }
   },
 
   // === Grabar inline (Opción A — dentro de la ficha) ===

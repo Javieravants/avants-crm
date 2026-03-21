@@ -27,6 +27,7 @@ const grabacionesRoutes = require('./routes/grabaciones');
 const fichateRoutes = require('./routes/fichate');
 const pipelineRoutes = require('./routes/pipeline');
 const dashboardRoutes = require('./routes/dashboard');
+const cloudtalkRoutes = require('./routes/cloudtalk');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.use('/api/grabaciones', grabacionesRoutes);
 app.use('/api/fichate', fichateRoutes);
 app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/cloudtalk', cloudtalkRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {
