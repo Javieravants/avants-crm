@@ -73,13 +73,13 @@ const PipelineModule = {
         .pl-card.act-green{border-left-color:#10b981;}
         .pl-card.act-amber{border-left-color:#f59e0b;}
         .pl-card.act-gray{border-left-color:#94a3b8;}
-        .pl-card-body{padding:10px 10px 8px;}
-        .pl-card-top{display:flex;align-items:flex-start;gap:6px;margin-bottom:2px;}
-        .pl-card-indicator{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;}
-        .pl-card-indicator.tri{width:0;height:0;border-radius:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #f59e0b;margin-top:4px;}
-        .pl-card-name{font-size:13px;font-weight:700;line-height:1.35;flex:1;color:#0f172a;word-break:break-word;}
-        .pl-card-id{font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0;margin-top:2px;}
-        .pl-card-persona{font-size:11px;color:#009DDD;font-weight:500;margin-bottom:6px;padding-left:16px;}
+        .pl-card-body{padding:8px 10px 6px;}
+        .pl-card-top{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+        .pl-card-indicator{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+        .pl-card-indicator.tri{width:0;height:0;border-radius:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #f59e0b;}
+        .pl-card-name{font-size:13px;font-weight:700;flex:1;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+        .pl-card-id{font-size:9px;color:#94a3b8;font-weight:600;flex-shrink:0;}
+        .pl-card-persona{font-size:11px;color:#009DDD;font-weight:500;padding-left:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
         .pl-card-foot{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-top:1px solid #f0f0f0;background:#fafbfc;}
         .pl-card-agent{display:flex;align-items:center;gap:5px;}
         .pl-card-ag-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:700;color:#fff;flex-shrink:0;}
@@ -300,8 +300,11 @@ const PipelineModule = {
   },
 
   renderCard(d) {
-    const title = d.producto || d.compania || 'Deal';
-    const persona = d.persona_nombre || '';
+    const prodRaw = d.producto || d.compania || '';
+    const isNumericProd = /^\d+$/.test(prodRaw);
+    // Si producto es solo un número (código label), mostrar persona como título
+    const title = isNumericProd ? (d.persona_nombre || 'Deal #' + (d.pipedrive_id || d.id)) : prodRaw;
+    const persona = isNumericProd ? '' : (d.persona_nombre || '');
     const days = d.days_in_stage;
     const timeClass = days >= 7 ? 'overdue' : days >= 5 ? 'urgent' : '';
     const displayId = d.pipedrive_id || d.id;
