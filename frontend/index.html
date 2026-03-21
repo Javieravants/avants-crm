@@ -96,6 +96,105 @@
     </main>
   </div>
 
+  <!-- CloudTalk Phone Widget — flotante global -->
+  <div id="ct-phone-widget">
+    <button id="ct-phone-btn" onclick="CloudTalkWidget.toggle()" title="Teléfono CloudTalk">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
+    </button>
+    <div id="ct-phone-panel" class="ct-panel-hidden">
+      <div id="ct-phone-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
+        <span>CloudTalk Phone</span>
+        <button onclick="CloudTalkWidget.toggle()" title="Cerrar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <iframe id="ct-phone-iframe" src="about:blank" allow="microphone; camera; autoplay"></iframe>
+    </div>
+  </div>
+
+  <style>
+    #ct-phone-widget{position:fixed;bottom:20px;right:20px;z-index:900;}
+    #ct-phone-btn{
+      width:52px;height:52px;border-radius:50%;border:none;
+      background:#009DDD;color:#fff;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 16px rgba(0,157,221,.4);
+      transition:all .2s;
+    }
+    #ct-phone-btn:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(0,157,221,.5);}
+    #ct-phone-btn.active{animation:ct-pulse 1.5s ease infinite;}
+    @keyframes ct-pulse{0%,100%{box-shadow:0 4px 16px rgba(16,185,129,.4);background:#10b981;}50%{box-shadow:0 4px 24px rgba(16,185,129,.6);background:#059669;}}
+    #ct-phone-panel{
+      position:absolute;bottom:62px;right:0;
+      width:360px;height:600px;
+      background:#fff;border-radius:12px;
+      box-shadow:0 8px 32px rgba(0,0,0,.16);
+      overflow:hidden;display:flex;flex-direction:column;
+      transition:all .25s ease;
+      transform-origin:bottom right;
+    }
+    #ct-phone-panel.ct-panel-hidden{
+      opacity:0;transform:scale(.9);pointer-events:none;
+    }
+    #ct-phone-header{
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px;background:#f4f6f9;
+      border-bottom:1px solid #e8edf2;
+      font-size:13px;font-weight:600;color:#475569;
+      flex-shrink:0;
+    }
+    #ct-phone-header button{
+      margin-left:auto;background:none;border:none;
+      cursor:pointer;color:#94a3b8;padding:2px;border-radius:4px;
+    }
+    #ct-phone-header button:hover{color:#0f172a;background:#e8edf2;}
+    #ct-phone-iframe{
+      flex:1;border:none;width:100%;
+    }
+  </style>
+
+  <script>
+  // CloudTalk Phone Widget — controlador global
+  const CloudTalkWidget = {
+    isOpen: false,
+    loaded: false,
+
+    toggle() {
+      const panel = document.getElementById('ct-phone-panel');
+      if (!panel) return;
+      this.isOpen = !this.isOpen;
+      if (this.isOpen) {
+        panel.classList.remove('ct-panel-hidden');
+        if (!this.loaded) {
+          document.getElementById('ct-phone-iframe').src = 'https://phone.cloudtalk.io';
+          this.loaded = true;
+        }
+      } else {
+        panel.classList.add('ct-panel-hidden');
+      }
+    },
+
+    // Abrir el widget con un número precargado
+    dialNumber(phone) {
+      if (!this.isOpen) this.toggle();
+      // CloudTalk Phone acepta deep links con número
+      const iframe = document.getElementById('ct-phone-iframe');
+      if (iframe && this.loaded) {
+        try {
+          iframe.contentWindow.postMessage({ type: 'dial', phone }, '*');
+        } catch(e) {}
+      }
+    },
+
+    // Indicador de llamada activa
+    setActive(active) {
+      const btn = document.getElementById('ct-phone-btn');
+      if (btn) btn.classList.toggle('active', active);
+    }
+  };
+  </script>
+
   <script src="/shared/auth.js"></script>
   <script src="/shared/api.js"></script>
   <script src="/modules/tickets.js"></script>

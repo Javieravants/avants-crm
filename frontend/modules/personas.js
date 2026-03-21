@@ -749,32 +749,18 @@ const PersonasModule = {
     </div>`;
   },
 
-  // === Click-to-call via CloudTalk API ===
-  async _clickToCall(phone, personaId, nombre) {
-    const btn = document.getElementById('btn-llamar-ct');
-    if (!btn) return;
-    const original = btn.innerHTML;
-    btn.innerHTML = `${_ICO.llamada(16,'#fff')} Llamando...`;
-    btn.style.background = '#0088c2';
-    btn.disabled = true;
-
-    try {
-      const res = await API.post('/cloudtalk/call', { phone, persona_id: personaId, persona_nombre: nombre });
-      btn.innerHTML = `${_ICO.llamada(16,'#fff')} Conectando...`;
-      btn.style.background = '#009DDD';
-      // Restaurar después de 5 segundos
-      setTimeout(() => {
-        btn.innerHTML = original;
-        btn.style.background = '#10b981';
-        btn.disabled = false;
-      }, 5000);
-    } catch (e) {
-      // Fallback: abrir con protocolo tel:
-      console.warn('CloudTalk API no disponible, usando tel:', e.message);
+  // === Click-to-call via CloudTalk Widget ===
+  _clickToCall(phone, personaId, nombre) {
+    // Abrir el widget CloudTalk con el número precargado
+    if (typeof CloudTalkWidget !== 'undefined') {
+      CloudTalkWidget.dialNumber(phone);
+    } else {
       window.open('tel:' + phone);
-      btn.innerHTML = original;
-      btn.style.background = '#10b981';
-      btn.disabled = false;
+    }
+
+    // Registrar la llamada en el historial del contacto
+    if (personaId) {
+      API.post('/cloudtalk/call', { phone, persona_id: personaId, persona_nombre: nombre }).catch(() => {});
     }
   },
 
