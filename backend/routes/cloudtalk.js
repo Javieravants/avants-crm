@@ -22,7 +22,7 @@ router.get('/status', async (req, res) => {
   try {
     const r = await fetch(CT_BASE + '/agents.json', { headers: { Authorization: auth } });
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: 'CloudTalk API error', detail: data });
+    if (!r.ok) return res.status(502).json({ error: 'CloudTalk API error', detail: data });
     res.json({ ok: true, agents: (data.responseData || data.data || []).length });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -48,7 +48,7 @@ router.post('/call', async (req, res) => {
     const data = await r.json();
 
     if (!r.ok) {
-      return res.status(r.status).json({ error: 'CloudTalk error', detail: data });
+      return res.status(502).json({ error: 'CloudTalk error', detail: data });
     }
 
     // Registrar la llamada como nota en el historial del contacto
@@ -79,7 +79,7 @@ router.get('/calls', async (req, res) => {
       headers: { Authorization: auth },
     });
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: 'CloudTalk error', detail: data });
+    if (!r.ok) return res.status(502).json({ error: 'CloudTalk error', detail: data });
     res.json({ calls: data.responseData || data.data || [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
