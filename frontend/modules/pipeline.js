@@ -57,16 +57,16 @@ const PipelineModule = {
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
         .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px 8px;-webkit-overflow-scrolling:touch;}
-        .pl-board-inner{display:table;min-width:max-content;border-spacing:10px 0;}
-        .pl-col{display:table-cell;width:220px;vertical-align:top;background:#fafbfc;border-radius:10px;}
-        .pl-col.pl-col-empty{width:120px;}
+        .pl-board-inner{display:table;min-width:max-content;border-spacing:6px 0;}
+        .pl-col{display:table-cell;width:240px;min-width:240px;vertical-align:top;background:#fafbfc;border-radius:10px;}
+        .pl-col.pl-col-empty{width:100px;min-width:100px;}
         .pl-col.pl-col-top{background:#f6f7f9}
         .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
         .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
         .pl-col-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#475569;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .pl-col-count{font-size:20px;font-weight:800;color:#475569;line-height:1;flex-shrink:0}
         .pl-col-top .pl-col-count{color:#0f172a}
-        .pl-col-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
+        .pl-col-cards{overflow-y:auto;max-height:calc(100vh - 220px);padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
         .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
         .pl-col-add:hover{border-color:#009DDD;color:#009DDD}
