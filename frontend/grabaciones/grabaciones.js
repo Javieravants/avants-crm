@@ -2261,6 +2261,7 @@ function habilitarBotonGuion(habilitar) {
 // VALIDACIONES
 // ============================================================================
 function validarDNIFormato(valor) {
+    if (!valor) return false;
     valor = valor.toUpperCase().trim();
     if (!valor) return false;
     
@@ -2304,6 +2305,7 @@ function validarIBANFormato(valor) {
 }
 
 function validarDNI(input) {
+    if (!input || !input.value) { if (input) input.classList.remove('campo-valido', 'campo-invalido'); return; }
     const valor = input.value.toUpperCase().trim();
     if (!valor) { input.classList.remove('campo-valido', 'campo-invalido'); return; }
 

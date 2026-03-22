@@ -56,8 +56,8 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:16px 20px 8px;width:100%;overflow:visible;}
-        .pl-col{min-width:0;width:100%;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
+        .pl-board{flex:1;display:flex;gap:10px;padding:16px 20px 8px;overflow-x:auto;overflow-y:hidden;}
+        .pl-col{flex:1;min-width:160px;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
         .pl-col.pl-col-top{background:#f6f7f9}
         .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
         .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
@@ -289,12 +289,13 @@ const PipelineModule = {
           </div>` : `<div class="pl-col-hd">
             <div class="pl-col-hd-r1">
               <div class="pl-col-name">${this.esc(s.name)}</div>
-              <div class="pl-col-count">${s.deals.length}</div>
+              <div class="pl-col-count">${s.total_deals || s.deals.length}</div>
             </div>
           </div>`}
           <div class="pl-col-cards" data-stage-id="${s.id}">
             ${s.deals.map(d => { try { return this.renderCard(d); } catch(e) { console.error('Card render error deal #'+d.id, e); return ''; } }).join('')}
           </div>
+          ${s.has_more ? `<div style="text-align:center;padding:6px;font-size:11px;font-weight:600;color:#009DDD;cursor:pointer;border-top:1px solid #e8edf2;" onclick="PipelineModule.loadMore(${s.id})">Ver ${s.total_deals - s.deals.length} más</div>` : ''}
           <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
         </div>`;
       }).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');

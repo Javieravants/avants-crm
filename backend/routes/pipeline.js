@@ -177,11 +177,12 @@ router.get('/:id/board', async (req, res) => {
       dealsByStage[d.stage_id].push(d);
     });
 
-    // Construir respuesta con stages + deals
-    const stages = stagesR.rows.map(s => ({
-      ...s,
-      deals: dealsByStage[s.id] || []
-    }));
+    // Construir respuesta con stages + deals (max 50 por columna)
+    const limit = parseInt(req.query.limit) || 50;
+    const stages = stagesR.rows.map(s => {
+      const all = dealsByStage[s.id] || [];
+      return { ...s, deals: all.slice(0, limit), total_deals: all.length, has_more: all.length > limit };
+    });
 
     res.json({ stages, total: dealsR.rows.length });
   } catch (e) { res.status(500).json({ error: e.message }); }

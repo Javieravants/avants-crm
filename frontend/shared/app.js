@@ -28,12 +28,13 @@ const App = {
 
     // Visibilidad por rol
     if (!Auth.hasRole('admin', 'supervisor')) {
-      document.getElementById('nav-import').classList.add('hidden');
+      document.getElementById('nav-import')?.classList.add('hidden');
+      document.getElementById('nav-personas')?.classList.add('hidden');
     }
     if (!Auth.hasRole('admin')) {
-      document.getElementById('nav-usuarios').classList.add('hidden');
-      document.getElementById('nav-settings').classList.add('hidden');
-      document.getElementById('nav-assistant').classList.add('hidden');
+      document.getElementById('nav-usuarios')?.classList.add('hidden');
+      document.getElementById('nav-settings')?.classList.add('hidden');
+      document.getElementById('nav-assistant')?.classList.add('hidden');
     }
 
     // Inyectar iconos SVG en sidebar

@@ -451,7 +451,7 @@ const TicketsModule = {
     const btnSend = document.getElementById('btn-send-comm');
     if (btnSend) {
       btnSend.addEventListener('click', async () => {
-        const mensaje = document.getElementById('panel-msg-texto').value.trim();
+        const mensaje = document.getElementById('panel-msg-texto')?.value?.trim() || '';
         if (!mensaje) return;
         try {
           const comm = await API.post(`/tickets/${ticketId}/comunicaciones`, {

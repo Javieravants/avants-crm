@@ -39,7 +39,7 @@
         <a class="sidebar-link active" data-module="dashboard">
           <span class="icon" id="ico-dashboard"></span> Dashboard
         </a>
-        <a class="sidebar-link" data-module="personas">
+        <a class="sidebar-link" data-module="personas" id="nav-personas">
           <span class="icon" id="ico-personas"></span> Clientes
         </a>
         <a class="sidebar-link" data-module="pipeline">
@@ -90,6 +90,18 @@
       </button>
     </aside>
 
+    <!-- Buscador global Cmd+K -->
+    <div id="search-overlay" class="search-hidden">
+      <div id="search-modal">
+        <div id="search-input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          <input id="search-input" type="text" placeholder="Buscar contactos, deals, trámites..." autocomplete="off">
+          <kbd>ESC</kbd>
+        </div>
+        <div id="search-results"></div>
+      </div>
+    </div>
+
     <!-- Main -->
     <main class="main-content" id="main-content">
       <!-- Los módulos se cargan aquí dinámicamente -->
@@ -114,6 +126,24 @@
   </div>
 
   <style>
+    /* Buscador global */
+    #search-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:800;display:flex;align-items:flex-start;justify-content:center;padding-top:min(20vh,140px);transition:opacity .15s;}
+    #search-overlay.search-hidden{opacity:0;pointer-events:none;}
+    #search-modal{background:#fff;border-radius:12px;width:560px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;}
+    #search-input-wrap{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e8edf2;}
+    #search-input{flex:1;border:none;outline:none;font-size:15px;font-family:inherit;color:#0f172a;background:none;}
+    #search-input::placeholder{color:#94a3b8;}
+    #search-input-wrap kbd{font-size:10px;font-weight:600;color:#94a3b8;background:#f4f6f9;border:1px solid #e8edf2;border-radius:4px;padding:2px 6px;font-family:inherit;}
+    #search-results{max-height:400px;overflow-y:auto;}
+    .sr-group{padding:6px 0;}
+    .sr-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;padding:6px 16px;}
+    .sr-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;transition:background .1s;}
+    .sr-item:hover{background:#f4f6f9;}
+    .sr-item-name{font-weight:600;color:#0f172a;flex:1;}
+    .sr-item-meta{font-size:11px;color:#94a3b8;}
+    .sr-item-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .sr-empty{padding:24px;text-align:center;color:#94a3b8;font-size:13px;}
+
     #ct-phone-widget{position:fixed;bottom:20px;right:20px;z-index:900;}
     #ct-phone-btn{
       width:52px;height:52px;border-radius:50%;border:none;
@@ -155,6 +185,72 @@
   </style>
 
   <script>
+  // Buscador global — Cmd+K
+  const SearchGlobal = {
+    isOpen: false,
+    timeout: null,
+    open() {
+      this.isOpen = true;
+      document.getElementById('search-overlay').classList.remove('search-hidden');
+      document.getElementById('search-input').value = '';
+      document.getElementById('search-results').innerHTML = '';
+      setTimeout(() => document.getElementById('search-input').focus(), 50);
+    },
+    close() {
+      this.isOpen = false;
+      document.getElementById('search-overlay').classList.add('search-hidden');
+    },
+    async search(q) {
+      if (!q || q.length < 2) { document.getElementById('search-results').innerHTML = ''; return; }
+      try {
+        const data = await API.get('/search?q=' + encodeURIComponent(q));
+        const el = document.getElementById('search-results');
+        let html = '';
+        if (data.personas.length) {
+          html += '<div class="sr-group"><div class="sr-label">Contactos</div>';
+          html += data.personas.map(p => `<div class="sr-item" onclick="SearchGlobal.close();App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.id}),200)">
+            <div class="sr-item-ico" style="background:#e6f5fc;color:#009DDD;">${_ICO.llamada(14,'#009DDD')}</div>
+            <div class="sr-item-name">${p.nombre}</div>
+            <div class="sr-item-meta">${p.telefono||p.email||''}</div>
+          </div>`).join('');
+          html += '</div>';
+        }
+        if (data.deals.length) {
+          html += '<div class="sr-group"><div class="sr-label">Deals</div>';
+          html += data.deals.map(d => `<div class="sr-item" onclick="SearchGlobal.close();App.navigate('pipeline');">
+            <div class="sr-item-ico" style="background:#f0fdf4;color:#10b981;">${_ICO.cierre(14,'#10b981')}</div>
+            <div class="sr-item-name">${d.persona_nombre||d.producto||'Deal'}</div>
+            <div class="sr-item-meta">#${d.pipedrive_id||d.id}</div>
+          </div>`).join('');
+          html += '</div>';
+        }
+        if (data.tickets.length) {
+          html += '<div class="sr-group"><div class="sr-label">Trámites</div>';
+          html += data.tickets.map(t => `<div class="sr-item" onclick="SearchGlobal.close();App.navigate('tickets');">
+            <div class="sr-item-ico" style="background:#fffbeb;color:#f59e0b;">${_ICO.tramites(14,'#f59e0b')}</div>
+            <div class="sr-item-name">${t.tipo_nombre||'Trámite'} #${t.id}</div>
+            <div class="sr-item-meta">${t.estado}</div>
+          </div>`).join('');
+          html += '</div>';
+        }
+        if (!html) html = '<div class="sr-empty">Sin resultados para "' + q + '"</div>';
+        el.innerHTML = html;
+      } catch(e) { console.error('Search error:', e); }
+    }
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); SearchGlobal.open(); }
+    if (e.key === 'Escape' && SearchGlobal.isOpen) SearchGlobal.close();
+  });
+  document.getElementById('search-overlay')?.addEventListener('click', (e) => {
+    if (e.target.id === 'search-overlay') SearchGlobal.close();
+  });
+  document.getElementById('search-input')?.addEventListener('input', (e) => {
+    clearTimeout(SearchGlobal.timeout);
+    SearchGlobal.timeout = setTimeout(() => SearchGlobal.search(e.target.value), 300);
+  });
+
   // CloudTalk Phone Widget — controlador global
   const CloudTalkWidget = {
     isOpen: false,
