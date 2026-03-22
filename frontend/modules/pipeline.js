@@ -32,7 +32,7 @@ const PipelineModule = {
     if (!document.getElementById('pl-css')) {
       const st = document.createElement('style'); st.id = 'pl-css';
       st.textContent = `
-        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:visible;background:#f4f6f9}
+        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9}
         .pl-toolbar{background:#fff;border-bottom:1px solid #e8edf2;padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;flex-shrink:0}
         .pl-emb-wrap{position:relative}
         .pl-emb-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#0f172a;font-family:inherit}
@@ -56,8 +56,9 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;display:flex;gap:10px;padding:16px 20px 8px;overflow-x:auto;overflow-y:hidden;}
-        .pl-col{flex:1;min-width:160px;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
+        .pl-board{flex:1;display:flex;flex-wrap:nowrap;gap:10px;padding:16px 20px 8px;overflow-x:auto;overflow-y:hidden;}
+        .pl-col{flex:1;min-width:220px;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
+        .pl-col.pl-col-empty{min-width:120px;flex:0 0 120px;}
         .pl-col.pl-col-top{background:#f6f7f9}
         .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
         .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
@@ -75,7 +76,7 @@ const PipelineModule = {
         .pl-card.act-green{border-left-color:#10b981;}
         .pl-card.act-amber{border-left-color:#f59e0b;}
         .pl-card.act-gray{border-left-color:#94a3b8;}
-        .pl-card-body{padding:9px 10px 7px;}
+        .pl-card-body{padding:10px 12px 8px;}
         .pl-card-row1{display:flex;align-items:center;gap:6px;}
         .pl-card-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
         .pl-card-dot.tri{width:0;height:0;border-radius:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #f59e0b;}
@@ -279,8 +280,9 @@ const PipelineModule = {
 
       board.innerHTML = this.stages.map((s,i) => {
         const isTop = s.deals.length === maxDeals && maxDeals > 0;
+        const isEmpty = s.deals.length === 0;
         return `
-        <div class="pl-col ${isTop ? 'pl-col-top' : ''}" data-stage-id="${s.id}">
+        <div class="pl-col ${isTop ? 'pl-col-top' : ''} ${isEmpty ? 'pl-col-empty' : ''}" data-stage-id="${s.id}">
           ${this.editMode ? `<div style="padding:10px;background:#fff;border-bottom:1px solid #e8edf2">
             <input class="pl-edit-input" value="${this.esc(s.name)}" style="width:100%;margin-bottom:6px" onchange="PipelineModule.renameStage(${s.id},this.value)">
             <div style="display:flex;gap:4px">
