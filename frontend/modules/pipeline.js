@@ -26,13 +26,13 @@ const PipelineModule = {
   async render() {
     const c = document.getElementById('main-content');
     c.style.padding = '0';
-    c.style.overflow = 'auto';
+    c.style.overflow = 'hidden';
 
     // Inyectar CSS
     if (!document.getElementById('pl-css')) {
       const st = document.createElement('style'); st.id = 'pl-css';
       st.textContent = `
-        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9}
+        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9;min-width:0;}
         .pl-toolbar{background:#fff;border-bottom:1px solid #e8edf2;padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;flex-shrink:0}
         .pl-emb-wrap{position:relative}
         .pl-emb-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#0f172a;font-family:inherit}
@@ -56,7 +56,7 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;display:flex;flex-wrap:nowrap;gap:10px;padding:16px 20px 8px;overflow-x:auto;overflow-y:hidden;}
+        .pl-board{flex:1;display:flex;flex-wrap:nowrap;gap:10px;padding:16px 20px 8px;overflow-x:auto;overflow-y:hidden;min-width:0;}
         .pl-col{flex:1;min-width:220px;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;max-height:100%}
         .pl-col.pl-col-empty{min-width:120px;flex:0 0 120px;}
         .pl-col.pl-col-top{background:#f6f7f9}
