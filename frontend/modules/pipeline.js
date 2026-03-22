@@ -66,7 +66,7 @@ const PipelineModule = {
         .pl-col-name{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#475569;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .pl-col-count{font-size:20px;font-weight:800;color:#475569;line-height:1;flex-shrink:0}
         .pl-col-top .pl-col-count{color:#0f172a}
-        .pl-col-cards{overflow-y:auto;max-height:calc(100vh - 220px);padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
+        .pl-col-cards{overflow-y:auto;max-height:calc(100vh - 160px);padding:8px;display:flex;flex-direction:column;gap:6px;min-height:60px}
         .pl-col-cards.drag-over{background:rgba(255,74,110,.04);border:2px dashed #009DDD;border-radius:0 0 12px 12px}
         .pl-col-add{margin:0 8px 8px;padding:6px;border-radius:7px;border:1px dashed #d1d9e0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:4px;font-family:inherit}
         .pl-col-add:hover{border-color:#009DDD;color:#009DDD}
