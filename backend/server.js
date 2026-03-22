@@ -29,6 +29,7 @@ const pipelineRoutes = require('./routes/pipeline');
 const dashboardRoutes = require('./routes/dashboard');
 const cloudtalkRoutes = require('./routes/cloudtalk');
 const searchRoutes = require('./routes/search');
+const documentosRoutes = require('./routes/documentos');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,6 +57,8 @@ app.use('/api/pipeline', pipelineRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/cloudtalk', cloudtalkRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/documentos', documentosRoutes);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -314,7 +317,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);

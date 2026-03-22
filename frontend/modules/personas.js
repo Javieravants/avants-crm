@@ -299,6 +299,7 @@ const PersonasModule = {
             <button class="tab-btn" data-tab="polizas" style="${ts}">${_ICO.polizas(14)} Pólizas</button>
             <button class="tab-btn" data-tab="tramites" style="${ts}">${_ICO.tramites(14)} Trámites (${tickets.length})</button>
             <button class="tab-btn" data-tab="notas" style="${ts}">${_ICO.nota(14)} Notas (${notas.length})</button>
+            <button class="tab-btn" data-tab="documentos" style="${ts}">${_ICO.propuesta(14)} Documentos</button>
             <div style="flex:1"></div>
             <div style="display:flex;gap:6px;align-items:center;padding:4px 0;">
               <button onclick="PersonasModule._showAddActivity(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.agendar(16,'#475569')} Actividad</button>
@@ -365,8 +366,18 @@ const PersonasModule = {
         </div>
       </div>
 
-      <!-- CSS responsive -->
+      <!-- CSS timeline + responsive -->
       <style>
+        .tl-wrap{padding-left:8px;}
+        .tl-item{display:flex;gap:12px;margin-bottom:0;position:relative;}
+        .tl-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:28px;}
+        .tl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;z-index:1;}
+        .tl-item:not(:last-child) .tl-line::after{content:'';flex:1;width:2px;background:#e8edf2;margin:4px 0;}
+        .tl-card{flex:1;min-width:0;padding-bottom:12px;}
+        .tl-card-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+        .tl-card-label{font-size:11px;font-weight:700;}
+        .tl-card-time{font-size:10px;color:#94a3b8;margin-left:auto;}
+        .tl-card-body{background:#fff;border:1px solid #e8edf2;border-radius:8px;padding:10px 12px;}
         @media(max-width:768px){
           .ficha-wrap{font-size:14px!important}
           .ficha-left{display:none!important}
@@ -599,9 +610,12 @@ const PersonasModule = {
       const items = [];
       (p.notas || []).forEach(n => {
         const txt = n.texto || '';
-        const isPropuesta = txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA');
-        const isActivity = txt.startsWith('📅');
-        items.push({ type: isPropuesta ? 'propuesta' : isActivity ? 'actividad' : 'nota', data: n, date: new Date(n.created_at) });
+        let type = 'nota';
+        if (txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA')) type = 'propuesta';
+        else if (txt.startsWith('📅') || txt.startsWith('[task]') || txt.startsWith('[meeting]') || txt.startsWith('[email]')) type = 'actividad';
+        else if (txt.startsWith('[call]') || txt.startsWith('Llamada iniciada a') || txt.includes('CloudTalk number')) type = 'llamada';
+        else if (txt.includes('LEAD DUPLICADO')) type = 'sistema';
+        items.push({ type, data: n, date: new Date(n.created_at) });
       });
       (p.tickets || []).forEach(t => {
         items.push({ type: 'tramite', data: t, date: new Date(t.created_at) });
@@ -613,12 +627,12 @@ const PersonasModule = {
         return;
       }
 
-      content.innerHTML = items.map(item => {
-        if (item.type === 'propuesta') return this._renderNotaPropuesta(item.data, item.data.texto);
-        if (item.type === 'actividad') return this._renderHistorialActividad(item.data);
-        if (item.type === 'tramite') return this._renderHistorialTramite(item.data);
-        return this._renderHistorialNota(item.data);
-      }).join('');
+      // Paginación: máx 30 items visibles, botón "Ver más"
+      const PAGE = 30;
+      this._historialItems = items;
+      this._historialPage = 1;
+      content.innerHTML = `<div class="tl-wrap" id="tl-wrap">${items.slice(0, PAGE).map(item => this._renderTimelineItem(item)).join('')}</div>
+        ${items.length > PAGE ? `<div id="tl-more" style="text-align:center;padding:12px;"><button onclick="PersonasModule._loadMoreHistorial()" style="padding:8px 20px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Ver ${items.length - PAGE} más</button></div>` : ''}`;
       return;
     }
 
@@ -693,9 +707,11 @@ const PersonasModule = {
         </div>
         <div id="notas-list">
           ${notas.length === 0 ? `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.nota(32,'#d1d9e0')}<p style="margin-top:8px;">Sin notas</p></div>` : notas.map(n => {
-            const txt = n.texto || '';
-            if (txt.startsWith('📅')) return this._renderHistorialActividad(n);
-            return this._renderHistorialNota(n);
+            return this._tlWrap(
+              { ico: _ICO.nota(14,'#f59e0b'), bg:'#fffbeb', border:'#f59e0b', label:'Nota' },
+              n.created_at,
+              this._renderTlNota(n)
+            );
           }).join('')}
         </div>
       `;
@@ -709,44 +725,183 @@ const PersonasModule = {
       });
       return;
     }
+
+    if (tab === 'documentos') {
+      content.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h4 style="margin:0;font-size:16px;font-weight:700;">Documentos</h4>
+          <label style="display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">
+            ${_ICO.añadir(14,'#fff')} Subir archivo
+            <input type="file" id="doc-upload" style="display:none;" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <select id="doc-cat" class="form-control" style="max-width:180px;font-size:12px;">
+            <option value="Otro">Categoría...</option>
+            <option value="Propuesta">Propuesta</option>
+            <option value="Póliza">Póliza</option>
+            <option value="DNI">DNI / Documentación</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div id="doc-list"><p class="text-light">Cargando...</p></div>
+      `;
+
+      // Cargar documentos existentes
+      this._loadDocumentos(p.id);
+
+      // Upload handler
+      document.getElementById('doc-upload')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const cat = document.getElementById('doc-cat')?.value || 'Otro';
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('categoria', cat);
+        try {
+          await API.upload('/documentos/' + p.id, fd);
+          this._loadDocumentos(p.id);
+        } catch (err) { alert('Error: ' + err.message); }
+      });
+      return;
+    }
+  },
+
+  async _loadDocumentos(personaId) {
+    const el = document.getElementById('doc-list');
+    if (!el) return;
+    try {
+      const docs = await API.get('/documentos/' + personaId);
+      if (docs.length === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.propuesta(32,'#d1d9e0')}<p style="margin-top:8px;">Sin documentos</p></div>`;
+        return;
+      }
+      const catColors = { Propuesta:'#009DDD', 'Póliza':'#10b981', DNI:'#8b5cf6', Otro:'#94a3b8' };
+      el.innerHTML = docs.map(d => {
+        const size = d.tamano > 1024*1024 ? (d.tamano/1024/1024).toFixed(1)+'MB' : Math.round(d.tamano/1024)+'KB';
+        const color = catColors[d.categoria] || '#94a3b8';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #e8edf2;">
+          <div style="width:36px;height:36px;border-radius:8px;background:${color}15;display:flex;align-items:center;justify-content:center;">${_ICO.propuesta(16,color)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._esc(d.nombre)}</div>
+            <div style="font-size:11px;color:#94a3b8;">${d.categoria} · ${size} · ${d.user_nombre||'Sistema'} · ${new Date(d.created_at).toLocaleDateString('es-ES')}</div>
+          </div>
+          <a href="${d.ruta}?token=${API.getToken()}" target="_blank" style="padding:5px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;color:#009DDD;font-size:11px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:4px;">
+            ${_ICO.propuesta(12,'#009DDD')} Descargar
+          </a>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      el.innerHTML = `<p style="color:#ef4444;">${e.message}</p>`;
+    }
   },
 
   // Historial card renderers
-  _renderHistorialNota(n) {
-    const txt = n.texto || '';
-    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:#fffbeb;display:flex;align-items:center;justify-content:center;">${_ICO.nota(16,'#f59e0b')}</div>
-        <div style="flex:1"><span style="font-size:13px;font-weight:700;">${n.user_nombre||'Sistema'}</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
+  // Timeline item dispatcher
+  _renderTimelineItem(item) {
+    const cfg = {
+      llamada:   { ico: _ICO.llamada(14,'#10b981'),  bg: '#f0fdf4', border: '#10b981', label: 'Llamada' },
+      actividad: { ico: _ICO.agendar(14,'#009DDD'),   bg: '#e6f5fc', border: '#009DDD', label: 'Actividad' },
+      propuesta: { ico: _ICO.propuesta(14,'#009DDD'),  bg: '#e6f5fc', border: '#009DDD', label: 'Propuesta' },
+      nota:      { ico: _ICO.nota(14,'#f59e0b'),       bg: '#fffbeb', border: '#f59e0b', label: 'Nota' },
+      tramite:   { ico: _ICO.tramites(14,'#3b82f6'),   bg: '#eff6ff', border: '#3b82f6', label: 'Trámite' },
+      sistema:   { ico: _ICO.historial(14,'#94a3b8'),   bg: '#f4f6f9', border: '#94a3b8', label: 'Sistema' },
+    }[item.type] || { ico: _ICO.nota(14,'#94a3b8'), bg: '#f4f6f9', border: '#94a3b8', label: 'Evento' };
+
+    if (item.type === 'propuesta') return this._renderNotaPropuesta(item.data, item.data.texto);
+    if (item.type === 'tramite') return this._tlWrap(cfg, item.date, this._renderTlTramite(item.data));
+    if (item.type === 'llamada') return this._tlWrap(cfg, item.date, this._renderTlLlamada(item.data));
+    if (item.type === 'actividad') return this._tlWrap(cfg, item.date, this._renderTlActividad(item.data));
+    if (item.type === 'sistema') return this._tlWrap(cfg, item.date, `<div style="font-size:12px;color:#94a3b8;">${this._stripHtml(item.data.texto)}</div>`);
+    return this._tlWrap(cfg, item.date, this._renderTlNota(item.data));
+  },
+
+  // Timeline wrapper: punto lateral + línea + card
+  _tlWrap(cfg, date, body) {
+    const d = new Date(date);
+    const time = d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    return `<div class="tl-item">
+      <div class="tl-line"><div class="tl-dot" style="background:${cfg.border};">${cfg.ico}</div></div>
+      <div class="tl-card">
+        <div class="tl-card-head"><span class="tl-card-label" style="color:${cfg.border};">${cfg.label}</span><span class="tl-card-time">${time}</span></div>
+        ${body}
       </div>
-      <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
     </div>`;
   },
 
-  _renderHistorialActividad(n) {
+  _renderTlNota(n) {
+    const txt = this._stripHtml(n.texto || '');
+    return `<div class="tl-card-body">${n.user_nombre ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">${n.user_nombre}</div>` : ''}
+      <div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(txt.substring(0, 300))}${txt.length > 300 ? '...' : ''}</div></div>`;
+  },
+
+  _renderTlLlamada(n) {
     const txt = n.texto || '';
-    return `<div style="background:#e6f5fc;border:1px solid rgba(0,157,221,.2);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;">${_ICO.agendar(16,'#fff')}</div>
-        <div style="flex:1"><span style="font-size:13px;font-weight:700;">Actividad programada</span> <span style="font-size:11px;color:#94a3b8;margin-left:8px;">${n.user_nombre||''} · ${new Date(n.created_at).toLocaleString('es-ES')}</span></div>
-      </div>
-      <div style="font-size:13px;color:#475569;margin-left:40px;white-space:pre-wrap;">${this._esc(txt)}</div>
+    // Parsear datos de llamada CloudTalk o importada
+    let agente = '', duracion = '', resultado = '', grabacion = '';
+    if (txt.startsWith('[call]')) {
+      const lines = txt.split('\n');
+      resultado = lines.find(l => !l.startsWith('[') && !l.startsWith('Fecha') && !l.startsWith('Estado') && !l.startsWith('Contacto') && l.trim())?.trim() || '';
+      const fecha = (lines.find(l => l.startsWith('Fecha:')) || '').replace('Fecha:','').trim();
+      const contacto = (lines.find(l => l.startsWith('Contacto:')) || '').replace('Contacto:','').trim();
+      return `<div class="tl-card-body">
+        ${resultado ? `<div style="font-size:13px;color:#475569;margin-bottom:4px;">${this._esc(resultado)}</div>` : ''}
+        ${contacto ? `<div style="font-size:11px;color:#94a3b8;">${this._esc(contacto)}</div>` : ''}
+      </div>`;
+    }
+    if (txt.includes('Llamada iniciada a')) {
+      const m = txt.match(/Llamada iniciada a (.+?) via CloudTalk · Agente: (.+)/);
+      return `<div class="tl-card-body">
+        <div style="font-size:13px;color:#475569;">Llamada a ${this._esc(m?.[1]||'')}</div>
+        <div style="font-size:11px;color:#94a3b8;">Agente: ${this._esc(m?.[2]||'')}</div>
+      </div>`;
+    }
+    // HTML de CloudTalk/Pipedrive
+    const clean = this._stripHtml(txt);
+    return `<div class="tl-card-body"><div style="font-size:13px;color:#475569;">${this._esc(clean.substring(0, 200))}</div></div>`;
+  },
+
+  _renderTlActividad(n) {
+    const txt = n.texto || '';
+    const clean = txt.replace(/^📅\s*/, '').replace(/^\[(task|email|meeting|call)\]\s*/i, '');
+    const lines = clean.split('\n').filter(l => l.trim());
+    return `<div class="tl-card-body">
+      <div style="font-size:13px;color:#475569;font-weight:600;">${this._esc(lines[0] || 'Actividad')}</div>
+      ${lines.length > 1 ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px;">${this._esc(lines.slice(1).join(' · ').substring(0, 120))}</div>` : ''}
     </div>`;
   },
 
-  _renderHistorialTramite(t) {
-    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;" onclick="typeof TicketsModule!=='undefined'&&TicketsModule.openPanel&&TicketsModule.openPanel(${t.id})">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:#f0f4ff;display:flex;align-items:center;justify-content:center;">${_ICO.tramites(16,'#3b82f6')}</div>
-        <div style="flex:1">
-          <span style="font-size:13px;font-weight:700;">Trámite #${t.id}</span>
-          ${t.tipo_nombre ? `<span style="font-size:11px;color:#94a3b8;margin-left:6px;">· ${t.tipo_nombre}</span>` : ''}
-          <span style="font-size:11px;color:#94a3b8;margin-left:6px;">${new Date(t.created_at).toLocaleString('es-ES')}</span>
-        </div>
+  _renderTlTramite(t) {
+    return `<div class="tl-card-body" style="cursor:pointer;" onclick="typeof TicketsModule!=='undefined'&&TicketsModule.openPanel&&TicketsModule.openPanel(${t.id})">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:13px;font-weight:600;color:#0f172a;">Trámite #${t.id}</span>
+        ${t.tipo_nombre ? `<span style="font-size:11px;color:#94a3b8;">· ${t.tipo_nombre}</span>` : ''}
         ${this._estadoBadge(t.estado)}
       </div>
-      <div style="font-size:13px;color:#475569;margin-left:40px;">${this._esc((t.descripcion || '').substring(0, 100))}</div>
+      ${t.descripcion ? `<div style="font-size:12px;color:#475569;margin-top:2px;">${this._esc((t.descripcion || '').substring(0, 80))}</div>` : ''}
     </div>`;
+  },
+
+  // Lazy loading del historial
+  _loadMoreHistorial() {
+    const PAGE = 30;
+    this._historialPage = (this._historialPage || 1) + 1;
+    const start = (this._historialPage - 1) * PAGE;
+    const items = (this._historialItems || []).slice(start, start + PAGE);
+    const wrap = document.getElementById('tl-wrap');
+    const more = document.getElementById('tl-more');
+    if (wrap) wrap.insertAdjacentHTML('beforeend', items.map(item => this._renderTimelineItem(item)).join(''));
+    const remaining = (this._historialItems || []).length - (start + PAGE);
+    if (more) {
+      if (remaining <= 0) more.remove();
+      else more.querySelector('button').textContent = `Ver ${remaining} más`;
+    }
+  },
+
+  // Limpiar HTML crudo de Pipedrive/CloudTalk
+  _stripHtml(str) {
+    if (!str) return '';
+    return str.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\n{3,}/g, '\n\n').trim();
   },
 
   // === Click-to-call via CloudTalk Widget ===
