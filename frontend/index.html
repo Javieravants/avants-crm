@@ -104,6 +104,14 @@
 
     <!-- Main -->
     <main class="main-content" id="main-content">
+      <!-- Topbar con buscador -->
+      <div id="topbar-search" style="display:flex;align-items:center;gap:10px;padding:10px 24px;background:#fff;border-bottom:1px solid #e8edf2;margin:-32px -32px 20px;position:sticky;top:0;z-index:50;">
+        <div style="display:flex;align-items:center;gap:8px;background:#f4f6f9;border:1px solid #e8edf2;border-radius:8px;padding:7px 12px;flex:1;max-width:400px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          <input id="topbar-search-input" type="text" placeholder="Buscar contactos, deals, trámites..." autocomplete="off" style="border:none;outline:none;background:none;font-size:13px;font-family:inherit;color:#0f172a;width:100%;">
+        </div>
+        <div id="topbar-search-results" style="display:none;position:absolute;top:100%;left:24px;background:#fff;border:1px solid #e8edf2;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:400px;max-height:400px;overflow-y:auto;z-index:100;"></div>
+      </div>
       <!-- Los módulos se cargan aquí dinámicamente -->
     </main>
   </div>
@@ -249,6 +257,39 @@
   document.getElementById('search-input')?.addEventListener('input', (e) => {
     clearTimeout(SearchGlobal.timeout);
     SearchGlobal.timeout = setTimeout(() => SearchGlobal.search(e.target.value), 300);
+  });
+
+  // Topbar search (siempre visible)
+  let topbarTimeout;
+  document.getElementById('topbar-search-input')?.addEventListener('input', (e) => {
+    clearTimeout(topbarTimeout);
+    const q = e.target.value;
+    const resultsEl = document.getElementById('topbar-search-results');
+    if (!q || q.length < 2) { resultsEl.style.display = 'none'; return; }
+    topbarTimeout = setTimeout(async () => {
+      try {
+        const data = await API.get('/search?q=' + encodeURIComponent(q));
+        let html = '';
+        if (data.personas.length) {
+          html += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Contactos</div>';
+          html += data.personas.map(p => `<div class="sr-item" onclick="document.getElementById('topbar-search-results').style.display='none';document.getElementById('topbar-search-input').value='';App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.id}),200)" style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f4f6f9;">
+            <span style="font-weight:600;">${p.nombre}</span><span style="font-size:11px;color:#94a3b8;margin-left:auto;">${p.telefono||p.email||''}</span>
+          </div>`).join('');
+        }
+        if (data.deals.length) {
+          html += '<div style="padding:6px 12px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Deals</div>';
+          html += data.deals.map(d => `<div class="sr-item" onclick="document.getElementById('topbar-search-results').style.display='none';document.getElementById('topbar-search-input').value='';App.navigate('pipeline');" style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f4f6f9;">
+            <span style="font-weight:600;">${d.persona_nombre||d.producto||'Deal'}</span><span style="font-size:11px;color:#94a3b8;margin-left:auto;">#${d.pipedrive_id||d.id}</span>
+          </div>`).join('');
+        }
+        if (!html) html = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">Sin resultados</div>';
+        resultsEl.innerHTML = html;
+        resultsEl.style.display = 'block';
+      } catch(e) { console.error('Topbar search error:', e); }
+    }, 300);
+  });
+  document.getElementById('topbar-search-input')?.addEventListener('blur', () => {
+    setTimeout(() => { document.getElementById('topbar-search-results').style.display = 'none'; }, 200);
   });
 
   // CloudTalk Phone Widget — controlador global

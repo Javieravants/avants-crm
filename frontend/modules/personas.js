@@ -185,6 +185,8 @@ const PersonasModule = {
 
   // Card visual para propuestas/grabaciones en el historial
   _renderNotaPropuesta(n, txt) {
+    if (!n || !txt) return '';
+    try {
     const fecha = new Date(n.created_at).toLocaleString('es-ES');
     const esGrabacion = txt.includes('GRABACIÓN PÓLIZA');
 
@@ -241,6 +243,7 @@ const PersonasModule = {
         </div>
       </div>
     </div>`;
+    } catch(e) { console.error('Error renderizando propuesta:', e); return ''; }
   },
 
   renderFicha(p) {
@@ -631,7 +634,7 @@ const PersonasModule = {
       const PAGE = 30;
       this._historialItems = items;
       this._historialPage = 1;
-      content.innerHTML = `<div class="tl-wrap" id="tl-wrap">${items.slice(0, PAGE).map(item => this._renderTimelineItem(item)).join('')}</div>
+      content.innerHTML = `<div class="tl-wrap" id="tl-wrap">${items.slice(0, PAGE).map(item => { try { return this._renderTimelineItem(item); } catch(e) { console.error('Timeline render error:', e, item); return ''; } }).join('')}</div>
         ${items.length > PAGE ? `<div id="tl-more" style="text-align:center;padding:12px;"><button onclick="PersonasModule._loadMoreHistorial()" style="padding:8px 20px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Ver ${items.length - PAGE} más</button></div>` : ''}`;
       return;
     }
