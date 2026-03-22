@@ -27,12 +27,13 @@ const PipelineModule = {
     const c = document.getElementById('main-content');
     c.style.padding = '0';
     c.style.overflow = 'hidden';
+    c.style.minWidth = '0';
 
     // Inyectar CSS
     if (!document.getElementById('pl-css')) {
       const st = document.createElement('style'); st.id = 'pl-css';
       st.textContent = `
-        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9;min-width:0;}
+        .pl-wrap{display:flex;flex-direction:column;height:calc(100vh - 60px);overflow:hidden;background:#f4f6f9}
         .pl-toolbar{background:#fff;border-bottom:1px solid #e8edf2;padding:0 20px;display:flex;align-items:center;gap:10px;height:50px;flex-shrink:0}
         .pl-emb-wrap{position:relative}
         .pl-emb-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#0f172a;font-family:inherit}
@@ -56,10 +57,9 @@ const PipelineModule = {
         .pl-edit-btn:hover{background:#f4f6f9}
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
-        .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px 8px;-webkit-overflow-scrolling:touch;}
-        .pl-board-inner{display:table;min-width:max-content;border-spacing:6px 0;}
-        .pl-col{display:table-cell;width:240px;min-width:240px;vertical-align:top;background:#fafbfc;border-radius:10px;}
-        .pl-col.pl-col-empty{width:100px;min-width:100px;}
+        .pl-board{flex:1;overflow-x:auto;overflow-y:hidden;padding:16px 20px;display:flex;gap:12px}
+        .pl-col{width:220px;flex-shrink:0;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;max-height:100%}
+        .pl-col.pl-col-empty{width:120px;}
         .pl-col.pl-col-top{background:#f6f7f9}
         .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
         .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
@@ -279,7 +279,7 @@ const PipelineModule = {
       // Encontrar la columna con más deals para destacarla
       const maxDeals = Math.max(...this.stages.map(s => s.deals.length), 0);
 
-      const cols = this.stages.map((s,i) => {
+      board.innerHTML = this.stages.map((s,i) => {
         const isTop = s.deals.length === maxDeals && maxDeals > 0;
         const isEmpty = s.deals.length === 0;
         return `
@@ -301,8 +301,7 @@ const PipelineModule = {
           ${s.has_more ? `<div style="text-align:center;padding:6px;font-size:11px;font-weight:600;color:#009DDD;cursor:pointer;border-top:1px solid #e8edf2;" onclick="PipelineModule.loadMore(${s.id})">Ver ${s.total_deals - s.deals.length} más</div>` : ''}
           <button class="pl-col-add" onclick="PipelineModule.showNewDeal(${s.id})">+ Añadir</button>
         </div>`;
-      }).join('');
-      board.innerHTML = `<div class="pl-board-inner">${cols}${this.editMode ? '<div class="pl-col-new" style="display:table-cell;width:160px;vertical-align:top;" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</div>' : ''}</div>`;
+      }).join('') + (this.editMode ? '<button class="pl-col-new" onclick="PipelineModule.addStagePrompt()">+ Nueva etapa</button>' : '');
 
       this.initDragDrop();
     } catch(e) {
