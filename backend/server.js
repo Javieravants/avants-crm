@@ -73,6 +73,68 @@ app.use('/api/history', historyRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
+app.post('/webhook/cloudtalk', async (req, res) => {
+  res.json({ success: true }); // Responder rápido
+
+  try {
+    const {
+      call_id, duration_seconds, status,
+      recording_url, agent_extension, agent_name,
+      contact_phone, contact_name
+    } = req.body;
+
+    if (!contact_phone) return;
+
+    // Buscar persona por teléfono (varios formatos)
+    const phone = (contact_phone || '').replace(/\s/g, '');
+    const persona = await pool.query(
+      `SELECT id FROM personas WHERE telefono = $1 OR telefono = $2 OR telefono = $3 LIMIT 1`,
+      [phone, '+34' + phone.replace(/^\+34/, ''), phone.replace(/^\+34/, '')]
+    );
+
+    // Buscar agente por nombre
+    let agenteId = null;
+    if (agent_name) {
+      const agR = await pool.query(
+        'SELECT id FROM users WHERE nombre ILIKE $1 AND activo = true LIMIT 1',
+        ['%' + (agent_name || '').split(' ')[0] + '%']
+      );
+      agenteId = agR.rows[0]?.id || null;
+    }
+
+    const personaId = persona.rows[0]?.id;
+    if (!personaId) {
+      console.log(`[CloudTalk] Persona no encontrada para teléfono: ${phone}`);
+      return;
+    }
+
+    // Registrar en contact_history
+    const { registrarEvento } = require('./routes/history');
+    const subtipo = status === 'answered' ? 'contestada' :
+      status === 'voicemail' ? 'buzon' : 'no_contestada';
+
+    registrarEvento(personaId, 'llamada', {
+      subtipo,
+      titulo: 'Llamada ' + (status === 'answered' ? 'contestada' : 'no contestada'),
+      descripcion: (agent_name || '') + ' → ' + (contact_name || phone),
+      metadata: {
+        cloudtalk_call_id: call_id,
+        duracion_seg: duration_seconds,
+        resultado: status,
+        grabacion_url: recording_url,
+        extension: agent_extension
+      },
+      agente_id: agenteId,
+      origen: 'cloudtalk'
+    });
+
+    console.log(`[CloudTalk] Llamada registrada: ${phone} → persona #${personaId} (${subtipo})`);
+  } catch (err) {
+    console.error('[CloudTalk] Webhook error:', err.message);
+  }
+});
+
 // Health check
 app.get('/api/health', async (req, res) => {
   try {
