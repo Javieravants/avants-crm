@@ -57,8 +57,7 @@ const PipelineModule = {
         .pl-stats{background:#fff;border-bottom:1px solid #e8edf2;padding:7px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;font-size:12px;color:#475569}
         .pl-stat-val{font-weight:700;color:#0f172a}
         .pl-board{display:grid;grid-template-columns:repeat(var(--col-count,10),1fr);gap:8px;padding:16px 20px 8px;width:100%;}
-        .pl-col{min-width:0;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;overflow:hidden;}
-        .pl-col-cards{flex:1;overflow-y:auto;max-height:calc(100vh - 200px);}
+        .pl-col{min-width:0;display:flex;flex-direction:column;background:#fafbfc;border-radius:10px;}
         .pl-col.pl-col-top{background:#f6f7f9}
         .pl-col-hd{padding:16px 14px 12px;border-bottom:1px solid #e8edf2}
         .pl-col-hd-r1{display:flex;align-items:baseline;gap:10px}
