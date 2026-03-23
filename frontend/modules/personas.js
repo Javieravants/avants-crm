@@ -192,7 +192,7 @@ const PersonasModule = {
     const extractLine = (prefix) => {
       const regex = new RegExp(prefix + '\\s*:?\\s*(.+)', 'i');
       const m = txt.match(regex);
-      return m ? m[1].trim() : '';
+      return m ? (m[1] || '').trim() : '';
     };
 
     const producto = extractLine('Producto|POLIZA|Tipo') || extractLine('OPCIÓN 1');
