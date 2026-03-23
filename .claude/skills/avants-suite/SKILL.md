@@ -227,11 +227,33 @@ Buscar, Filtrar, Notificación, Colgar, Subir, Descargar, Arrastrar, Reunión
 9. **Settings** es el panel de configuración — sin tocar código
 10. **Vanilla JS/CSS** — sin frameworks, sin librerías UI
 
+### Pipeline layout — NUNCA cambiar
+```css
+.pl-board {
+  display: grid;
+  grid-template-columns: repeat(var(--col-count,10), 1fr);
+  gap: 8px;
+  padding: 16px 20px 8px;
+  width: 100%;
+}
+.pl-col { min-width: 0; }
+```
+```js
+board.style.setProperty('--col-count', stages.length);
+```
+Las columnas se reparten el ancho disponible automáticamente según el número de columnas del pipeline. NUNCA usar flex para el board, NUNCA usar ancho fijo en columnas, NUNCA añadir overflow-x:auto al board.
+
+### Pipeline cards — NUNCA cambiar
+- `.pl-card-name`: `white-space:normal` con `-webkit-line-clamp:2` — nombres en 2 líneas máximo
+- `.pl-col`: SIN `overflow:hidden` — permite que las cards se vean correctamente
+- `.pl-col-cards`: definida UNA SOLA VEZ (línea ~67). Si aparece duplicada, eliminar la primera.
+
 ### Prohibiciones absolutas
 - **NUNCA usar emojis como iconos en UI** — solo SVGs de avants_icons_v2.html
 - **NUNCA cambiar CSS de Fichate** — usa #ff4a6e como accent propio, no tocar
 - **NUNCA tocar lógica JS de calculadora/grabaciones** — módulos estables, no refactorizar
 - **NUNCA borrar datos** — usar estados (activo/inactivo, abierto/cerrado) en vez de DELETE
+- **NUNCA cambiar el layout CSS del pipeline** — usa CSS Grid dinámico, ver sección anterior
 - **SIEMPRE consultar mockups antes de construir** — ../mockups/ es la fuente de verdad visual
 
 ## Pendientes prioritarios (semana 21-28 marzo 2026)
