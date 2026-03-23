@@ -221,15 +221,18 @@ async function handleDeal(action, data, previous) {
 
     console.log(`[Webhook] Deal #${pipedriveId} actualizado → ${estado}`);
 
-    // Registrar cambio de etapa en historial
-    if (personaId && stageName) {
-      const prevStage = previous?.stage_id ? (await pool.query('SELECT name FROM pipeline_stages WHERE pipedrive_id = $1', [previous.stage_id]).catch(() => ({rows:[]}))).rows[0]?.name : null;
-      registrarEvento(personaId, 'etapa', {
-        deal_id: existing.rows[0]?.id,
-        titulo: prevStage ? `${prevStage} → ${stageName}` : `Movido a ${stageName}`,
-        metadata: { etapa_origen: prevStage || '', etapa_destino: stageName, pipeline_nombre: ownerName },
-        origen: 'pipedrive'
-      });
+    // Registrar cambio de etapa en historial (solo si realmente cambió)
+    if (personaId && stageName && localStageId) {
+      const prevStageId = existing.rows[0] ? (await pool.query('SELECT stage_id FROM deals WHERE id = $1', [existing.rows[0].id]).catch(() => ({rows:[]}))).rows[0]?.stage_id : null;
+      if (prevStageId !== localStageId) {
+        const prevStage = previous?.stage_id ? (await pool.query('SELECT name FROM pipeline_stages WHERE pipedrive_id = $1', [previous.stage_id]).catch(() => ({rows:[]}))).rows[0]?.name : null;
+        registrarEvento(personaId, 'etapa', {
+          deal_id: existing.rows[0]?.id,
+          titulo: prevStage ? `${prevStage} → ${stageName}` : `Movido a ${stageName}`,
+          metadata: { etapa_origen: prevStage || '', etapa_destino: stageName, pipeline_nombre: ownerName },
+          origen: 'pipedrive'
+        });
+      }
     }
 
     // Registrar deal ganado como póliza

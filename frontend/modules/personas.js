@@ -351,13 +351,23 @@ const PersonasModule = {
 
             <!-- Oportunidades -->
             <div style="padding:16px 18px;">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Oportunidades (${dealsAbiertos.length})</div>
-              ${dealsAbiertos.length===0?'<div style="font-size:13px;color:#94a3b8">Sin oportunidades abiertas</div>':''}
-              ${dealsAbiertos.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
-                <span style="display:flex;align-items:center">${_ICO.cierre(16,'var(--accent)')}</span>
-                <div style="flex:1"><div style="font-size:12px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:11px;color:#94a3b8">${d.pipedrive_stage||d.estado||''}</div></div>
-                ${d.prima?`<div style="font-size:13px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
-              </div>`).join('')}
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Deals (${(p.deals||[]).length})</div>
+              ${(p.deals||[]).length===0?'<div style="font-size:13px;color:#94a3b8">Sin deals</div>':''}
+              ${(p.deals||[]).map(d=>{
+                const stCfg = d.pipedrive_status==='won' ? {bg:'#d1fae5',color:'#065f46',label:'Ganado'} : d.pipedrive_status==='lost' ? {bg:'#f1f5f9',color:'#94a3b8',label:'Perdido'} : {bg:'#e6f6fd',color:'#007ab8',label:'Activo'};
+                const plColor = (d.pipeline_nombre||'').includes('DENTAL')?'#10b981':(d.pipeline_nombre||'').includes('MASCOT')?'#f59e0b':(d.pipeline_nombre||'').includes('DECES')?'#94a3b8':'#009DDD';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;${d.pipedrive_status==='lost'?'opacity:.6;':''}">
+                <span style="display:flex;align-items:center">${_ICO.cierre(14,stCfg.color)}</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:12px;font-weight:600;${d.pipedrive_status==='lost'?'text-decoration:line-through;':''}">${this._esc(d.producto||d.compania||'Deal')}</div>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">
+                    ${d.pipeline_nombre?`<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:${plColor}15;color:${plColor};">${d.pipeline_nombre}</span>`:''}
+                    <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;background:${stCfg.bg};color:${stCfg.color};">${stCfg.label}</span>
+                    ${d.etapa_nombre?`<span style="font-size:9px;color:#94a3b8;">${d.etapa_nombre}</span>`:''}
+                  </div>
+                </div>
+                ${d.prima?`<div style="font-size:12px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
+              </div>`;}).join('')}
             </div>
           </div>
 
