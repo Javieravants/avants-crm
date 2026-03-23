@@ -80,7 +80,7 @@ const PipelineModule = {
         .pl-card-row1{display:flex;align-items:center;gap:6px;}
         .pl-card-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
         .pl-card-dot.tri{width:0;height:0;border-radius:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid #f59e0b;}
-        .pl-card-name{font-size:13px;font-weight:700;color:#0f172a;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .pl-card-name{font-size:12px;font-weight:700;color:#0f172a;flex:1;min-width:0;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
         .pl-card-id{font-size:10px;color:#94a3b8;flex-shrink:0;}
         .pl-card-sub{font-size:11px;color:#009DDD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;padding-left:14px;}
         .pl-card-foot{display:flex;align-items:center;gap:6px;padding:6px 10px;border-top:1px solid #f0f2f5;}
