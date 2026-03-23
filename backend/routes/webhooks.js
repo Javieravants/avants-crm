@@ -242,6 +242,19 @@ async function handleDeal(action, data, previous) {
       });
     }
 
+    // Registrar deal perdido
+    if (status === 'lost' && personaId) {
+      const lostReason = data.lost_reason || '';
+      registrarEvento(personaId, 'etapa', {
+        deal_id: existing.rows[0]?.id,
+        subtipo: 'lost',
+        titulo: 'Deal marcado como perdido',
+        descripcion: lostReason,
+        metadata: { motivo: lostReason, pipeline_nombre: ownerName },
+        origen: 'pipedrive'
+      });
+    }
+
   } else if (action === 'deleted') {
     await pool.query(
       "UPDATE deals SET estado = 'eliminado', updated_at = CURRENT_TIMESTAMP WHERE pipedrive_id = $1",

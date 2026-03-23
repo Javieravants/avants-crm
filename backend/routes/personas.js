@@ -98,9 +98,10 @@ router.get('/:id', async (req, res) => {
 
     // Deals / Pólizas
     const dealsResult = await pool.query(`
-      SELECT d.*, u.nombre AS agente_nombre
+      SELECT d.*, u.nombre AS agente_nombre, pl.name AS pipeline_nombre
       FROM deals d
       LEFT JOIN users u ON d.agente_id = u.id
+      LEFT JOIN pipelines pl ON d.pipeline_id = pl.id
       WHERE d.persona_id = $1
       ORDER BY d.created_at DESC
     `, [req.params.id]);

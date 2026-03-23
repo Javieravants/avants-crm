@@ -31,6 +31,7 @@ const cloudtalkRoutes = require('./routes/cloudtalk');
 const searchRoutes = require('./routes/search');
 const documentosRoutes = require('./routes/documentos');
 const historyRoutes = require('./routes/history');
+const tareasRoutes = require('./routes/tareas');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +39,15 @@ const PORT = process.env.PORT || 3000;
 // Middleware global
 app.use(cors());
 app.use(express.json());
+
+// Cache bust: inyectar versión en index.html
+const BUILD_VERSION = Date.now();
+const fs = require('fs');
+app.get('/', (req, res) => {
+  let html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+  html = html.replace(/\?v=[\w]+/g, `?v=${BUILD_VERSION}`);
+  res.send(html);
+});
 
 // Servir frontend estático
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -60,6 +70,7 @@ app.use('/api/cloudtalk', cloudtalkRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/documentos', documentosRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/tareas', tareasRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check
