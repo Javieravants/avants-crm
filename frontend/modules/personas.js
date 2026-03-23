@@ -1004,11 +1004,34 @@ const PersonasModule = {
 
   // === TAB GRABACIONES (pólizas del CRM) ===
   async renderTabGrabaciones(content, p) {
+    // Deals ganados = pólizas desde Pipedrive
+    const dealsGanados = (p.deals || []).filter(d => d.pipedrive_status === 'won' || d.estado === 'poliza_activa');
+
     content.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="font-weight:700;font-size:16px;">Pólizas grabadas</h3>
+        <h3 style="font-weight:700;font-size:16px;">Pólizas</h3>
         <a href="/grabaciones/?persona_id=${p.id}" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none;">+ Grabar póliza</a>
       </div>
+      ${dealsGanados.length > 0 ? `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:8px;">Pólizas activas (Pipedrive)</div>
+          ${dealsGanados.map(d => `<div style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:10px;padding:12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              ${_ICO.polizas(16,'#10b981')}
+              <span style="font-size:14px;font-weight:700;color:#065f46;">${this._esc(d.tipo_poliza || d.producto || 'Póliza')}</span>
+              ${d.prima ? `<span style="margin-left:auto;font-size:14px;font-weight:700;color:#009DDD;">${d.prima}€/mes</span>` : ''}
+            </div>
+            <div style="display:flex;gap:12px;font-size:12px;color:#475569;flex-wrap:wrap;">
+              ${d.poliza ? `<span>Póliza: <strong>${this._esc(d.poliza)}</strong></span>` : '<span style="color:#94a3b8;">Nº póliza pendiente</span>'}
+              ${d.num_solicitud ? `<span>Sol: ${this._esc(d.num_solicitud)}</span>` : ''}
+              ${d.pipeline_nombre ? `<span>${d.pipeline_nombre}</span>` : ''}
+              ${d.fecha_efecto ? `<span>Efecto: ${new Date(d.fecha_efecto).toLocaleDateString('es-ES')}</span>` : ''}
+            </div>
+            ${d.iban ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px;">IBAN: ${this._esc(d.iban)}</div>` : ''}
+          </div>`).join('')}
+        </div>
+      ` : ''}
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:8px;">Grabaciones CRM</div>
       <div id="grabaciones-list"><p class="text-light">Cargando...</p></div>
     `;
 
@@ -1017,7 +1040,9 @@ const PersonasModule = {
       const listEl = document.getElementById('grabaciones-list');
 
       if (!polizas || polizas.length === 0) {
-        listEl.innerHTML = '<p class="text-light">Sin pólizas grabadas en el CRM. Usa "Grabar póliza" para registrar una.</p>';
+        listEl.innerHTML = dealsGanados.length > 0
+          ? '<p class="text-light">Sin grabaciones adicionales en el CRM.</p>'
+          : '<p class="text-light">Sin pólizas. Usa "Grabar póliza" para registrar una.</p>';
         return;
       }
 
