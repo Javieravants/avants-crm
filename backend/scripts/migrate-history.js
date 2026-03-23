@@ -19,13 +19,14 @@ async function main() {
     process.exit(1);
   }
 
-  // Verificar si ya hay datos migrados
+  // Verificar si notas ya se migraron (más de 100 registros = ya se ejecutó)
   const existing = await pool.query('SELECT COUNT(*) as c FROM contact_history');
-  if (parseInt(existing.rows[0].c) > 0) {
-    console.log(`Ya hay ${existing.rows[0].c} registros en contact_history. Saltando migración.`);
+  if (parseInt(existing.rows[0].c) > 100) {
+    console.log(`Ya hay ${existing.rows[0].c} registros. Migración ya ejecutada.`);
     await pool.end();
     return;
   }
+  console.log(`${existing.rows[0].c} registros existentes (webhook). Procediendo con migración...`);
 
   console.log('Migrando persona_notas → contact_history...');
 

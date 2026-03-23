@@ -55,6 +55,8 @@ router.post('/pipedrive', async (req, res) => {
       await handleDeal(normalizedAction, current, previous);
     } else if (entity === 'person') {
       await handlePerson(normalizedAction, current);
+    } else if (entity === 'activity') {
+      await handleActivity(normalizedAction, current);
     }
   } catch (err) {
     console.error('[Webhook] Error procesando:', err.message, err.stack);
@@ -119,8 +121,9 @@ async function handleDeal(action, data, previous) {
     }
   }
 
-  // Owner name
+  // Owner name + agente_id mapping
   let ownerName = '';
+  let agenteId = null;
   const ownerId = data.user_id?.id || data.user_id;
   if (ownerId) {
     try {
@@ -128,7 +131,15 @@ async function handleDeal(action, data, previous) {
         `https://api.pipedrive.com/v1/users/${ownerId}?api_token=${process.env.PIPEDRIVE_API_KEY}`
       );
       const userData = await userRes.json();
-      if (userData.data) ownerName = userData.data.name || '';
+      if (userData.data) {
+        ownerName = userData.data.name || '';
+        // Buscar agente CRM por email del owner de Pipedrive
+        const ownerEmail = userData.data.email || '';
+        if (ownerEmail) {
+          const agR = await pool.query('SELECT id FROM users WHERE email = $1 AND activo = true', [ownerEmail]);
+          if (agR.rows[0]) agenteId = agR.rows[0].id;
+        }
+      }
     } catch {}
   }
 
@@ -159,15 +170,15 @@ async function handleDeal(action, data, previous) {
     await pool.query(
       `INSERT INTO deals (pipedrive_id, persona_id, poliza, producto, prima, fecha_efecto,
        estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra,
-       pipeline_id, stage_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+       pipeline_id, stage_id, agente_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [pipedriveId, personaId, poliza, producto, prima,
        efecto ? new Date(efecto) : null,
        estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra),
-       localPipelineId, localStageId]
+       localPipelineId, localStageId, agenteId]
     );
 
-    console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado} (pipeline: ${localPipelineId})`);
+    console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado} (agente: ${agenteId})`);
 
   } else if (action === 'updated') {
     const existing = await pool.query('SELECT id, estado FROM deals WHERE pipedrive_id = $1', [pipedriveId]);
@@ -177,22 +188,23 @@ async function handleDeal(action, data, previous) {
       await pool.query(
         `INSERT INTO deals (pipedrive_id, persona_id, poliza, producto, prima, fecha_efecto,
          estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra,
-         pipeline_id, stage_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+         pipeline_id, stage_id, agente_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [pipedriveId, personaId, poliza, producto, prima,
          efecto ? new Date(efecto) : null,
          estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra),
-         localPipelineId, localStageId]
+         localPipelineId, localStageId, agenteId]
       );
     } else {
       await pool.query(
         `UPDATE deals SET persona_id = COALESCE($1, persona_id), poliza = COALESCE($2, poliza),
          producto = $3, prima = $4, estado = $5, pipedrive_stage = $6, pipedrive_status = $7,
          pipedrive_owner = $8, datos_extra = $9, pipeline_id = COALESCE($10, pipeline_id),
-         stage_id = COALESCE($11, stage_id), updated_at = CURRENT_TIMESTAMP
-         WHERE pipedrive_id = $12`,
+         stage_id = COALESCE($11, stage_id), agente_id = COALESCE($12, agente_id),
+         updated_at = CURRENT_TIMESTAMP
+         WHERE pipedrive_id = $13`,
         [personaId, poliza, producto, prima, estado, stageName, status, ownerName,
-         JSON.stringify(datosExtra), localPipelineId, localStageId, pipedriveId]
+         JSON.stringify(datosExtra), localPipelineId, localStageId, agenteId, pipedriveId]
       );
 
       // Si cambió a "won" → notificar admins
@@ -306,6 +318,86 @@ function getPhone(arr) {
   if (!arr || !Array.isArray(arr)) return null;
   const p = arr.find((e) => e.primary) || arr[0];
   return p?.value || null;
+}
+
+// =============================================
+// ACTIVITY
+// =============================================
+async function handleActivity(action, data) {
+  if (!data.id) return;
+
+  const tipoMap = { call: 'llamada', note: 'nota', task: 'nota', meeting: 'nota', email: 'email' };
+  const tipo = tipoMap[data.type] || 'nota';
+  const isDone = data.done || false;
+
+  // Buscar persona y deal en CRM
+  const pdPersonId = data.person_id;
+  const pdDealId = data.deal_id;
+  let personaId = null, dealId = null, agenteId = null;
+
+  if (pdPersonId) {
+    const pR = await pool.query('SELECT id FROM personas WHERE pipedrive_person_id = $1', [pdPersonId]);
+    if (pR.rows[0]) personaId = pR.rows[0].id;
+  }
+  if (pdDealId) {
+    const dR = await pool.query('SELECT id FROM deals WHERE pipedrive_id = $1', [pdDealId]);
+    if (dR.rows[0]) dealId = dR.rows[0].id;
+  }
+
+  // Buscar agente por email del user de Pipedrive
+  const pdUserId = data.user_id;
+  if (pdUserId) {
+    try {
+      const uR = await fetch(`https://api.pipedrive.com/v1/users/${pdUserId}?api_token=${process.env.PIPEDRIVE_API_KEY}`);
+      const uD = await uR.json();
+      if (uD.data?.email) {
+        const agR = await pool.query('SELECT id FROM users WHERE email = $1 AND activo = true', [uD.data.email]);
+        if (agR.rows[0]) agenteId = agR.rows[0].id;
+      }
+    } catch {}
+  }
+
+  if (!personaId) return; // Sin persona, no registrar
+
+  // Registrar en contact_history
+  const subtipo = tipo === 'llamada' ? (isDone ? 'contestada' : 'no_contestada') : null;
+  registrarEvento(personaId, tipo, {
+    deal_id: dealId,
+    subtipo,
+    titulo: (data.subject || data.type || '').substring(0, 255),
+    descripcion: data.note || data.public_description || '',
+    metadata: {
+      pipedrive_activity_id: data.id,
+      done: isDone,
+      due_date: data.due_date,
+      due_time: data.due_time,
+      duracion_seg: data.duration
+    },
+    agente_id: agenteId,
+    origen: 'pipedrive'
+  });
+
+  // Gestionar tabla tareas
+  if (action === 'added' && !isDone) {
+    // Nueva tarea pendiente
+    const exists = await pool.query('SELECT id FROM tareas WHERE pipedrive_activity_id = $1', [data.id]);
+    if (exists.rows.length === 0) {
+      await pool.query(
+        `INSERT INTO tareas (persona_id, deal_id, agente_id, tipo, titulo, descripcion, fecha_venc, hora_venc, estado, pipedrive_activity_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente', $9)`,
+        [personaId, dealId, agenteId, data.type || 'task', data.subject || '',
+         data.note || '', data.due_date || null, data.due_time || null, data.id]
+      );
+    }
+  } else if (action === 'updated' && isDone) {
+    // Marcar como hecha
+    await pool.query(
+      "UPDATE tareas SET estado = 'hecha' WHERE pipedrive_activity_id = $1",
+      [data.id]
+    );
+  }
+
+  console.log(`[Webhook] Activity #${data.id} (${tipo}) → persona: ${personaId}`);
 }
 
 module.exports = router;
