@@ -42,5 +42,9 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_tenant ON tickets(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_history_tenant ON contact_history(tenant_id);
 
+-- Actualizar CHECK constraint de roles para incluir superadmin
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_rol_check;
+ALTER TABLE users ADD CONSTRAINT users_rol_check CHECK (rol IN ('superadmin', 'admin', 'supervisor', 'agent'));
+
 -- Rol superadmin para Javier
 UPDATE users SET rol = 'superadmin' WHERE email = 'javier@segurosdesaludonline.es';
