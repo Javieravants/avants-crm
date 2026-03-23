@@ -48,9 +48,9 @@ router.get('/resumen', async (req, res) => {
       baseValues
     );
 
-    // Deals ganados + importe
+    // Deals ganados + importe (filtrar primas corruptas > 1000€/mes del parser)
     const wonQ = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(d.prima), 0) AS importe
+      `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN d.prima > 0 AND d.prima <= 1000 THEN d.prima ELSE 0 END), 0) AS importe
        FROM deals d ${etqJoin}
        WHERE d.pipedrive_status = 'won' AND d.updated_at::date >= $1 AND d.updated_at::date <= $2 ${etqWhere}`,
       baseValues
@@ -71,7 +71,7 @@ router.get('/resumen', async (req, res) => {
     if (pipeline_id) { mrrWhere += ` AND d.pipeline_id = $${mrrIdx++}`; mrrVals.push(parseInt(pipeline_id)); }
     if (etiqueta_id) { mrrWhere += ` AND de2.etiqueta_id = $${mrrIdx++}`; mrrVals.push(parseInt(etiqueta_id)); }
     const mrrQ = await pool.query(
-      `SELECT COALESCE(SUM(d.prima), 0) AS mrr FROM deals d ${etqJoin} WHERE ${mrrWhere}`,
+      `SELECT COALESCE(SUM(CASE WHEN d.prima > 0 AND d.prima <= 1000 THEN d.prima ELSE 0 END), 0) AS mrr FROM deals d ${etqJoin} WHERE ${mrrWhere}`,
       mrrVals
     );
 
@@ -176,9 +176,9 @@ router.get('/deals', async (req, res) => {
 // =============================================
 router.get('/mrr', async (req, res) => {
   try {
-    // MRR total actual
+    // MRR total actual (filtrar primas corruptas > 1000€/mes)
     const totalQ = await pool.query(
-      `SELECT COALESCE(SUM(prima), 0) AS total FROM deals WHERE pipedrive_status = 'won'`
+      `SELECT COALESCE(SUM(prima), 0) AS total FROM deals WHERE pipedrive_status = 'won' AND prima > 0 AND prima <= 1000`
     );
 
     // Desglose por pipeline
@@ -186,7 +186,7 @@ router.get('/mrr', async (req, res) => {
       `SELECT pl.name AS pipeline, COALESCE(SUM(d.prima), 0) AS total
        FROM deals d
        LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
-       WHERE d.pipedrive_status = 'won'
+       WHERE d.pipedrive_status = 'won' AND d.prima > 0 AND d.prima <= 1000
        GROUP BY pl.name
        ORDER BY total DESC`
     );
@@ -198,6 +198,7 @@ router.get('/mrr', async (req, res) => {
               COUNT(*) AS cantidad
        FROM deals d
        WHERE d.pipedrive_status = 'won'
+         AND d.prima > 0 AND d.prima <= 1000
          AND d.updated_at >= NOW() - INTERVAL '12 months'
        GROUP BY mes
        ORDER BY mes`
