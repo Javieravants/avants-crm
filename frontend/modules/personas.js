@@ -212,7 +212,7 @@ const PersonasModule = {
     // Extraer asegurados (buscar líneas numeradas tipo "1. NOMBRE")
     const asegLines = txt.match(/\d+\.\s+[A-ZÁÉÍÓÚÑ][\w\s]+/g) || [];
 
-    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+    return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);cursor:pointer;" onclick="const d=document.getElementById('prop-detail-${n.id}');if(d){d.style.display=d.style.display==='none'?'block':'none';this.querySelector('.prop-arrow').textContent=d.style.display==='none'?'▾':'▴';}">
       <!-- Header -->
       <div style="background:${esGrabacion?'linear-gradient(135deg,#ef4444,#dc2626)':'linear-gradient(135deg,#009DDD,#0088c2)'};padding:14px 18px;display:flex;align-items:center;gap:10px;">
         <div style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;">
@@ -223,9 +223,10 @@ const PersonasModule = {
           <div style="font-size:11px;color:rgba(255,255,255,.8);">${n.user_nombre||''} · ${fecha}</div>
         </div>
         ${producto?`<div style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;">${this._esc(producto.substring(0,30))}</div>`:''}
+        <span class="prop-arrow" style="color:rgba(255,255,255,.8);font-size:14px;">▾</span>
       </div>
       <!-- Body -->
-      <div style="padding:14px 18px;">
+      <div id="prop-detail-${n.id}" style="display:none;padding:14px 18px;border-top:1px solid #e8edf2;cursor:default;" onclick="event.stopPropagation()">
         ${asegLines.length>0?`<div style="margin-bottom:10px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.8px;margin-bottom:6px;">Asegurados (${asegLines.length})</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -237,7 +238,7 @@ const PersonasModule = {
           <span style="font-size:20px;font-weight:800;color:var(--accent);">${this._esc(precio.substring(0,20))}</span>
         </div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          ${puntosNum>0?`<div style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;">🎁 ${puntosNum.toLocaleString('es-ES')} pts</div>`:''}
+          ${puntosNum>0?`<div style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;">Pts: ${puntosNum.toLocaleString('es-ES')}</div>`:''}
           ${regalo?`<div style="background:#ecfdf5;color:#10b981;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;">${regalo}</div>`:''}
         </div>
       </div>
@@ -917,6 +918,18 @@ const PersonasModule = {
       badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${bc.bg};color:${bc.color};">${bc.label}</span>`;
     }
 
+    // Badge tarea por fecha
+    if (meta.done === false && meta.due_date) {
+      const hoy = new Date().toDateString();
+      const fechaT = new Date(meta.due_date).toDateString();
+      const vencida = new Date(meta.due_date) < new Date();
+      if (vencida) badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#fee2e2;color:#991b1b;">Vencida</span>`;
+      else if (fechaT === hoy) badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;">Hoy</span>`;
+      else badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#f3f4f6;color:#6b7280;">Pendiente</span>`;
+    } else if (meta.done === true) {
+      badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#d1fae5;color:#065f46;">Hecha</span>`;
+    }
+
     // Contenido específico por tipo
     let body = '';
     if (h.tipo === 'etapa' && meta.etapa_origen && meta.etapa_destino) {
@@ -930,6 +943,16 @@ const PersonasModule = {
         ${meta.puntos ? `<div style="font-size:11px;color:#7c3aed;margin-top:2px;">${meta.puntos} pts campaña</div>` : ''}`;
     } else if (desc) {
       body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(desc.substring(0, 300))}${desc.length > 300 ? '...' : ''}</div>`;
+    }
+
+    // Grabación de CloudTalk
+    if (h.tipo === 'llamada' && meta.grabacion_url) {
+      body += `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:#f4f6f9;border-radius:8px;">
+        <a href="${this._esc(meta.grabacion_url)}" target="_blank" style="display:flex;align-items:center;gap:6px;color:#009DDD;font-size:12px;font-weight:600;text-decoration:none;">
+          ${_ICO.llamada(14,'#009DDD')} Escuchar grabación
+        </a>
+        ${meta.duracion_seg ? `<span style="font-size:11px;color:#94a3b8;margin-left:auto;">${Math.floor(meta.duracion_seg/60)}:${String(meta.duracion_seg%60).padStart(2,'0')}</span>` : ''}
+      </div>`;
     }
 
     return `<div class="tl-item">

@@ -102,8 +102,17 @@
       </div>
     </div>
 
+    <!-- Topbar con buscador global -->
+    <div id="global-topbar" style="position:absolute;top:0;left:220px;right:0;height:48px;background:#fff;border-bottom:1px solid #e8edf2;display:flex;align-items:center;padding:0 20px;z-index:40;">
+      <div style="display:flex;align-items:center;gap:8px;background:#f4f6f9;border:1px solid #e8edf2;border-radius:8px;padding:6px 12px;width:320px;position:relative;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+        <input id="global-search" type="text" placeholder="Buscar contactos, deals, trámites..." autocomplete="off" style="border:none;outline:none;background:none;font-size:13px;font-family:inherit;color:#0f172a;width:100%;">
+        <div id="global-search-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;width:100%;background:#fff;border:1px solid #e8edf2;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:360px;overflow-y:auto;z-index:100;"></div>
+      </div>
+    </div>
+
     <!-- Main -->
-    <main class="main-content" id="main-content">
+    <main class="main-content" id="main-content" style="margin-top:48px;">
       <!-- Los módulos se cargan aquí dinámicamente -->
     </main>
   </div>
@@ -249,6 +258,35 @@
   document.getElementById('search-input')?.addEventListener('input', (e) => {
     clearTimeout(SearchGlobal.timeout);
     SearchGlobal.timeout = setTimeout(() => SearchGlobal.search(e.target.value), 300);
+  });
+
+  // Global topbar search
+  let _gsTimeout;
+  document.getElementById('global-search')?.addEventListener('input', (e) => {
+    clearTimeout(_gsTimeout);
+    const q = e.target.value;
+    const res = document.getElementById('global-search-results');
+    if (!q || q.length < 3) { res.style.display = 'none'; return; }
+    _gsTimeout = setTimeout(async () => {
+      try {
+        const data = await API.get('/search?q=' + encodeURIComponent(q));
+        let html = '';
+        if (data.personas?.length) {
+          html += '<div style="padding:4px 12px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Contactos</div>';
+          html += data.personas.map(p => `<div style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f4f6f9;" onmousedown="document.getElementById('global-search-results').style.display='none';document.getElementById('global-search').value='';App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.id}),200)"><strong style="flex:1;">${p.nombre||''}</strong><span style="font-size:11px;color:#94a3b8;">${p.telefono||p.email||''}</span></div>`).join('');
+        }
+        if (data.deals?.length) {
+          html += '<div style="padding:4px 12px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Deals</div>';
+          html += data.deals.map(d => `<div style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #f4f6f9;" onmousedown="document.getElementById('global-search-results').style.display='none';document.getElementById('global-search').value='';App.navigate('pipeline');"><strong style="flex:1;">${d.persona_nombre||d.producto||'Deal'}</strong><span style="font-size:11px;color:#94a3b8;">#${d.pipedrive_id||d.id}</span></div>`).join('');
+        }
+        if (!html) html = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:13px;">Sin resultados</div>';
+        res.innerHTML = html;
+        res.style.display = 'block';
+      } catch(e) {}
+    }, 300);
+  });
+  document.getElementById('global-search')?.addEventListener('blur', () => {
+    setTimeout(() => { document.getElementById('global-search-results').style.display = 'none'; }, 200);
   });
 
   // CloudTalk Phone Widget — controlador global
