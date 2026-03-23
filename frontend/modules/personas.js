@@ -342,10 +342,18 @@ const PersonasModule = {
             <div style="border-bottom:1px solid #e8edf2;padding:16px 18px;">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Seguros actuales (${polizasActivas.length})</div>
               ${polizasActivas.length===0?'<div style="font-size:13px;color:#94a3b8">Sin pólizas activas</div>':''}
-              ${polizasActivas.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0">
-                <span style="display:flex;align-items:center">${_ICO.polizas(16,'#475569')}</span>
-                <div style="flex:1"><div style="font-size:12px;font-weight:600">${this._esc(d.compania||'')} · ${this._esc(d.producto||'')}</div><div style="font-size:11px;color:#94a3b8">${d.poliza||'Sin nº póliza'}</div></div>
-                ${d.prima?`<div style="font-size:13px;font-weight:700;color:var(--accent)">${d.prima}€</div>`:''}
+              ${polizasActivas.map(d=>`<div style="padding:8px 0;border-bottom:1px solid #f0f0f0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="display:flex;align-items:center">${_ICO.polizas(14,'#10b981')}</span>
+                  <div style="flex:1;font-size:12px;font-weight:600;">${this._esc(d.tipo_poliza||d.producto||d.compania||'Póliza')}</div>
+                  ${d.prima?`<span style="font-size:12px;font-weight:700;color:var(--accent);">${d.prima}€/mes</span>`:''}
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px;padding-left:22px;font-size:11px;color:#94a3b8;">
+                  ${d.poliza?`<span>Póliza: <strong style="color:#0f172a">${this._esc(d.poliza)}</strong></span>`:''}
+                  ${d.num_solicitud?`<span>Sol: ${this._esc(d.num_solicitud)}</span>`:''}
+                  ${d.pipeline_nombre?`<span>${d.pipeline_nombre}</span>`:''}
+                </div>
+                ${d.fecha_efecto?`<div style="font-size:10px;color:#94a3b8;padding-left:22px;margin-top:2px;">Efecto: ${new Date(d.fecha_efecto).toLocaleDateString('es-ES')}</div>`:''}
               </div>`).join('')}
             </div>
 

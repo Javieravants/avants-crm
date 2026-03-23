@@ -155,7 +155,22 @@ async function handleDeal(action, data, previous) {
     if (pRes.rows.length > 0) personaId = pRes.rows[0].id;
   }
 
-  // Campos extra
+  // Campos dedicados de póliza
+  const tipoPoliza = getField(data, DEAL_FIELDS.tipo_poliza);
+  const numSolicitud = getField(data, DEAL_FIELDS.n_solicitud);
+  const frecPago = getField(data, DEAL_FIELDS.freq_pago);
+  const ibanVal = getField(data, DEAL_FIELDS.iban);
+  const descuentoVal = getField(data, DEAL_FIELDS.descuento);
+  const obsVal = getField(data, DEAL_FIELDS.observaciones);
+
+  // Datos persona del deal
+  const dniTitular = getField(data, DEAL_FIELDS.dni);
+  const fechaNacRaw = getField(data, DEAL_FIELDS.fecha_nac);
+  const direccionVal = getField(data, DEAL_FIELDS.direccion);
+  const cpVal = getField(data, DEAL_FIELDS.cod_postal);
+  const nacVal = getField(data, DEAL_FIELDS.nacionalidad);
+
+  // Campos extra (JSONB completo)
   const datosExtra = {};
   for (const [nombre, key] of Object.entries(DEAL_FIELDS)) {
     const val = getField(data, key);
@@ -256,6 +271,22 @@ async function handleDeal(action, data, previous) {
         metadata: { motivo: lostReason, pipeline_nombre: ownerName },
         origen: 'pipedrive'
       });
+    }
+
+    // Actualizar datos de persona desde campos del deal
+    if (personaId && (dniTitular || fechaNacRaw || direccionVal)) {
+      try {
+        await pool.query(
+          `UPDATE personas SET
+            dni = COALESCE($1, dni),
+            fecha_nacimiento = COALESCE($2::date, fecha_nacimiento),
+            direccion = COALESCE($3, direccion),
+            codigo_postal = COALESCE($4, codigo_postal),
+            nacionalidad = COALESCE($5, nacionalidad)
+          WHERE id = $6`,
+          [dniTitular?.toUpperCase(), fechaNacRaw, direccionVal, cpVal ? cpVal.substring(0, 20) : null, nacVal, personaId]
+        );
+      } catch {}
     }
 
   } else if (action === 'deleted') {
