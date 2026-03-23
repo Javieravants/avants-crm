@@ -30,6 +30,7 @@ const App = {
     if (!Auth.hasRole('admin', 'supervisor')) {
       document.getElementById('nav-import')?.classList.add('hidden');
       document.getElementById('nav-personas')?.classList.add('hidden');
+      document.getElementById('nav-informes')?.classList.add('hidden');
     }
     if (!Auth.hasRole('admin')) {
       document.getElementById('nav-usuarios')?.classList.add('hidden');
@@ -39,7 +40,7 @@ const App = {
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',impagos:'impagos',importar:'importar',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
@@ -128,6 +129,7 @@ const App = {
       grabaciones: () => this.renderGrabacionesList(),
       leads: () => PipelineModule.render(),
       pipeline: () => PipelineModule.render(),
+      informes: () => InformesModule.render(),
       impagos: () => this.renderPlaceholder('Impagos', 'Módulo de impagos — próximamente en Fase 5'),
     };
 

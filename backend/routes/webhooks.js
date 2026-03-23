@@ -177,21 +177,30 @@ async function handleDeal(action, data, previous) {
     if (val) datosExtra[nombre] = val;
   }
 
+  // Sincronizar etiqueta (label) de Pipedrive
+  const pipedriveLabel = data.label;
+
   if (action === 'added') {
     // Nuevo deal
     const existing = await pool.query('SELECT id FROM deals WHERE pipedrive_id = $1', [pipedriveId]);
     if (existing.rows.length > 0) return; // Ya existe
 
-    await pool.query(
+    const insResult = await pool.query(
       `INSERT INTO deals (pipedrive_id, persona_id, poliza, producto, prima, fecha_efecto,
        estado, fuente, pipedrive_stage, pipedrive_status, pipedrive_owner, datos_extra,
        pipeline_id, stage_id, agente_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       RETURNING id`,
       [pipedriveId, personaId, poliza, producto, prima,
        efecto ? new Date(efecto) : null,
        estado, 'pipedrive', stageName, status, ownerName, JSON.stringify(datosExtra),
        localPipelineId, localStageId, agenteId]
     );
+
+    // Vincular etiqueta al deal nuevo
+    if (pipedriveLabel && insResult.rows[0]) {
+      await syncDealLabel(insResult.rows[0].id, pipedriveLabel, personaId);
+    }
 
     console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado} (agente: ${agenteId})`);
 
@@ -232,6 +241,11 @@ async function handleDeal(action, data, previous) {
           await notifyUser(admin.id, null, `Deal #${pipedriveId} "${title}" ganado — póliza: ${poliza || 'sin nº'}`);
         }
       }
+    }
+
+    // Sincronizar etiqueta del deal actualizado
+    if (pipedriveLabel && existing.rows[0]) {
+      await syncDealLabel(existing.rows[0].id, pipedriveLabel, personaId);
     }
 
     console.log(`[Webhook] Deal #${pipedriveId} actualizado → ${estado}`);
@@ -445,6 +459,53 @@ async function handleActivity(action, data) {
   }
 
   console.log(`[Webhook] Activity #${data.id} (${tipo}) → persona: ${personaId}`);
+}
+
+// Sincronizar label de Pipedrive → etiquetas CRM
+async function syncDealLabel(dealId, labelId, personaId) {
+  try {
+    // Obtener nombre del label desde Pipedrive dealFields (cache en memoria)
+    if (!syncDealLabel._labelCache) {
+      const API_TOKEN = process.env.PIPEDRIVE_API_KEY;
+      const res = await fetch(`https://api.pipedrive.com/v1/dealFields?api_token=${API_TOKEN}`);
+      const data = await res.json();
+      const labelField = data.data?.find(f => f.key === 'label');
+      syncDealLabel._labelCache = {};
+      if (labelField?.options) {
+        const colorMap = { green:'#10b981', blue:'#009DDD', red:'#ef4444', yellow:'#f59e0b', purple:'#8b5cf6', gray:'#94a3b8', orange:'#f97316', pink:'#ec4899' };
+        labelField.options.forEach(opt => {
+          syncDealLabel._labelCache[opt.id] = { name: opt.label, color: colorMap[opt.color] || '#009DDD' };
+        });
+      }
+    }
+
+    const labelInfo = syncDealLabel._labelCache[labelId];
+    if (!labelInfo) return;
+
+    // Crear o obtener etiqueta
+    const { rows } = await pool.query(
+      `INSERT INTO etiquetas (nombre, color, origen) VALUES ($1, $2, 'pipedrive')
+       ON CONFLICT (tenant_id, nombre) DO UPDATE SET color = $2 RETURNING id`,
+      [labelInfo.name, labelInfo.color]
+    );
+    const etiquetaId = rows[0].id;
+
+    // Vincular al deal
+    await pool.query(
+      'INSERT INTO deal_etiquetas (deal_id, etiqueta_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [dealId, etiquetaId]
+    );
+
+    // Vincular a persona también
+    if (personaId) {
+      await pool.query(
+        'INSERT INTO persona_etiquetas (persona_id, etiqueta_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [personaId, etiquetaId]
+      );
+    }
+  } catch (err) {
+    console.error('[Webhook] Error sync label:', err.message);
+  }
 }
 
 module.exports = router;

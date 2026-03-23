@@ -48,6 +48,9 @@ const PersonasModule = {
             <option value="en_tramite">En trámite</option>
             <option value="perdido">Perdido</option>
           </select>
+          <select class="form-control filter-select" id="filter-etiqueta" style="max-width:180px;">
+            <option value="">Etiqueta</option>
+          </select>
         </div>
       </div>
 
@@ -97,6 +100,24 @@ const PersonasModule = {
       this.loadPersonas();
     });
 
+    document.getElementById('filter-etiqueta').addEventListener('change', (e) => {
+      this.filters.etiqueta_id = e.target.value;
+      this.currentPage = 1;
+      this.loadPersonas();
+    });
+
+    // Cargar etiquetas para el filtro
+    try {
+      const etqs = await API.get('/etiquetas');
+      const sel = document.getElementById('filter-etiqueta');
+      etqs.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.nombre;
+        sel.appendChild(opt);
+      });
+    } catch {}
+
     document.getElementById('btn-new-persona').addEventListener('click', () => this.showPersonaForm(null));
 
     this.loadPersonas();
@@ -111,6 +132,7 @@ const PersonasModule = {
       if (this.filters.q) query += `&q=${encodeURIComponent(this.filters.q)}`;
       if (this.filters.compania) query += `&compania=${encodeURIComponent(this.filters.compania)}`;
       if (this.filters.estado_poliza) query += `&estado_poliza=${this.filters.estado_poliza}`;
+      if (this.filters.etiqueta_id) query += `&etiqueta_id=${this.filters.etiqueta_id}`;
 
       const data = await API.get(`/personas${query}`);
       const { personas, pagination } = data;
@@ -294,6 +316,17 @@ const PersonasModule = {
           </div>
           ${pipelineName ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">PIPELINE → <strong style="color:var(--accent)">${this._esc(pipelineName)}</strong></div>` : ''}
 
+          <!-- Etiquetas -->
+          <div id="persona-etiquetas" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+            ${(p.etiquetas || []).map(e => `
+              <span class="etiqueta-chip" data-id="${e.id}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;color:#fff;background:${e.color || '#009DDD'};cursor:default;">
+                ${this._esc(e.nombre)}
+                <span class="etiqueta-remove" data-id="${e.id}" style="cursor:pointer;opacity:.7;font-size:13px;margin-left:2px;" title="Quitar">&times;</span>
+              </span>
+            `).join('')}
+            <button id="btn-add-etiqueta" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;color:#009DDD;background:#e6f6fd;border:1px dashed #009DDD;cursor:pointer;font-family:inherit;">+ Etiqueta</button>
+          </div>
+
           <!-- TABS + Acciones derecha -->
           <div style="display:flex;gap:2px;border-top:1px solid #e8edf2;" id="persona-tabs">
             <button class="tab-btn active" data-tab="historial" style="${ts}">${_ICO.historial(14)} Historial</button>
@@ -414,6 +447,76 @@ const PersonasModule = {
       this.render();
     });
     document.getElementById('btn-edit-persona').addEventListener('click', () => this.showPersonaForm(p));
+
+    // Etiquetas — quitar
+    document.querySelectorAll('.etiqueta-remove').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const etqId = btn.dataset.id;
+        try {
+          await API.delete(`/etiquetas/persona/${p.id}/${etqId}`);
+          btn.closest('.etiqueta-chip').remove();
+        } catch {}
+      });
+    });
+
+    // Etiquetas — añadir
+    document.getElementById('btn-add-etiqueta')?.addEventListener('click', async () => {
+      try {
+        const allEtiquetas = await API.get('/etiquetas');
+        const current = (p.etiquetas || []).map(e => e.id);
+        const available = allEtiquetas.filter(e => !current.includes(e.id));
+
+        // Dropdown simple
+        const btn = document.getElementById('btn-add-etiqueta');
+        let dd = document.getElementById('etiqueta-dropdown');
+        if (dd) { dd.remove(); return; }
+
+        dd = document.createElement('div');
+        dd.id = 'etiqueta-dropdown';
+        dd.style.cssText = 'position:absolute;background:#fff;border:1px solid #e8edf2;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:8px;z-index:100;max-height:200px;overflow-y:auto;min-width:180px;';
+        dd.innerHTML = `
+          <input type="text" id="etiqueta-new-input" placeholder="Nueva etiqueta..." style="width:100%;padding:6px 8px;border:1px solid #e8edf2;border-radius:6px;font-size:12px;font-family:inherit;margin-bottom:6px;box-sizing:border-box;">
+          ${available.map(e => `<div class="etq-option" data-id="${e.id}" style="padding:6px 8px;cursor:pointer;font-size:12px;border-radius:4px;display:flex;align-items:center;gap:6px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:${e.color}"></span> ${e.nombre}
+          </div>`).join('')}
+        `;
+        btn.parentElement.style.position = 'relative';
+        btn.parentElement.appendChild(dd);
+
+        // Seleccionar existente
+        dd.querySelectorAll('.etq-option').forEach(opt => {
+          opt.addEventListener('click', async () => {
+            const etqId = opt.dataset.id;
+            await API.post(`/etiquetas/persona/${p.id}`, { etiqueta_id: parseInt(etqId) });
+            dd.remove();
+            this.showFicha(p.id); // Recargar ficha
+          });
+        });
+
+        // Crear nueva
+        dd.querySelector('#etiqueta-new-input').addEventListener('keydown', async (e) => {
+          if (e.key === 'Enter' && e.target.value.trim()) {
+            const newEtq = await API.post('/etiquetas', { nombre: e.target.value.trim() });
+            await API.post(`/etiquetas/persona/${p.id}`, { etiqueta_id: newEtq.id });
+            dd.remove();
+            this.showFicha(p.id);
+          }
+        });
+
+        // Cerrar al hacer click fuera
+        setTimeout(() => {
+          document.addEventListener('click', function closeDD(ev) {
+            if (!dd.contains(ev.target) && ev.target !== btn) {
+              dd.remove();
+              document.removeEventListener('click', closeDD);
+            }
+          });
+        }, 10);
+      } catch (err) {
+        console.error('Error cargando etiquetas:', err);
+      }
+    });
 
     // Tab styling
     const setActiveTab = (btn) => {

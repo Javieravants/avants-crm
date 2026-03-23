@@ -51,6 +51,11 @@ router.get('/', async (req, res) => {
       values.push(parseInt(agente_id));
       idx++;
     }
+    if (req.query.etiqueta_id) {
+      where.push(`EXISTS (SELECT 1 FROM persona_etiquetas pe WHERE pe.persona_id = p.id AND pe.etiqueta_id = $${idx})`);
+      values.push(parseInt(req.query.etiqueta_id));
+      idx++;
+    }
 
     // Contar total
     const countResult = await pool.query(
@@ -141,12 +146,25 @@ router.get('/:id', async (req, res) => {
       ORDER BY n.created_at DESC
     `, [req.params.id]);
 
+    // Etiquetas
+    let etiquetas = [];
+    try {
+      const etqResult = await pool.query(
+        `SELECT e.* FROM etiquetas e
+         JOIN persona_etiquetas pe ON pe.etiqueta_id = e.id
+         WHERE pe.persona_id = $1 ORDER BY e.nombre`,
+        [req.params.id]
+      );
+      etiquetas = etqResult.rows;
+    } catch {}
+
     res.json({
       ...persona,
       deals: dealsResult.rows,
       tickets,
       familiares: familiaresResult.rows,
       notas: notasResult.rows,
+      etiquetas,
     });
   } catch (err) {
     console.error('Error obteniendo persona:', err);
