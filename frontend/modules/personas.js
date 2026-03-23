@@ -185,6 +185,7 @@ const PersonasModule = {
 
   // Card visual para propuestas/grabaciones en el historial
   _renderNotaPropuesta(n, txt) {
+    if (!n || !txt) return '';
     const fecha = new Date(n.created_at).toLocaleString('es-ES');
     const esGrabacion = txt.includes('GRABACIÓN PÓLIZA');
 
