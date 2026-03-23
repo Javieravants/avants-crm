@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/db');
 const { DEAL_FIELDS, PERSON_FIELDS } = require('../utils/pipedrive-sync');
 const { notifyUser } = require('../utils/notifications');
+const { registrarEvento } = require('./history');
 
 const router = express.Router();
 
@@ -207,6 +208,27 @@ async function handleDeal(action, data, previous) {
     }
 
     console.log(`[Webhook] Deal #${pipedriveId} actualizado → ${estado}`);
+
+    // Registrar cambio de etapa en historial
+    if (personaId && stageName) {
+      const prevStage = previous?.stage_id ? (await pool.query('SELECT name FROM pipeline_stages WHERE pipedrive_id = $1', [previous.stage_id]).catch(() => ({rows:[]}))).rows[0]?.name : null;
+      registrarEvento(personaId, 'etapa', {
+        deal_id: existing.rows[0]?.id,
+        titulo: prevStage ? `${prevStage} → ${stageName}` : `Movido a ${stageName}`,
+        metadata: { etapa_origen: prevStage || '', etapa_destino: stageName, pipeline_nombre: ownerName },
+        origen: 'pipedrive'
+      });
+    }
+
+    // Registrar deal ganado como póliza
+    if (status === 'won' && personaId) {
+      registrarEvento(personaId, 'poliza', {
+        deal_id: existing.rows[0]?.id,
+        titulo: `Póliza: ${producto || title}`,
+        metadata: { tipo: producto, compania: datosExtra.etiqueta || '', precio_mensual: prima },
+        origen: 'pipedrive'
+      });
+    }
 
   } else if (action === 'deleted') {
     await pool.query(

@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const requireRole = require('../middleware/roles');
 const { notifyUser } = require('../utils/notifications');
 const { sendPipedriveNote } = require('../utils/pipedrive');
+const { registrarEvento } = require('./history');
 
 const router = express.Router();
 
@@ -252,6 +253,18 @@ router.post('/', async (req, res) => {
       'INSERT INTO activity_logs (user_id, accion, detalle) VALUES ($1, $2, $3)',
       [req.user.id, 'ticket_created', `Ticket #${result.rows[0].id} creado`]
     );
+
+    // Registrar en historial del contacto
+    const ticket = result.rows[0];
+    if (ticket.contacto_id) {
+      registrarEvento(ticket.contacto_id, 'tramite', {
+        titulo: `Trámite #${ticket.id} creado`,
+        descripcion: descripcion,
+        metadata: { ticket_id: ticket.id, compania: empresa },
+        agente_id: req.user.id,
+        origen: 'sistema'
+      });
+    }
 
     res.status(201).json(result.rows[0]);
   } catch (err) {

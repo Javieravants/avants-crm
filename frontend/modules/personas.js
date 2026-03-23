@@ -606,33 +606,7 @@ const PersonasModule = {
     const content = document.getElementById('persona-tab-content');
 
     if (tab === 'historial') {
-      // Timeline unificada: notas + tickets, orden cronológico inverso
-      const items = [];
-      (p.notas || []).forEach(n => {
-        const txt = n.texto || '';
-        let type = 'nota';
-        if (txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA')) type = 'propuesta';
-        else if (txt.startsWith('📅') || txt.startsWith('[task]') || txt.startsWith('[meeting]') || txt.startsWith('[email]')) type = 'actividad';
-        else if (txt.startsWith('[call]') || txt.startsWith('Llamada iniciada a') || txt.includes('CloudTalk number')) type = 'llamada';
-        else if (txt.includes('LEAD DUPLICADO')) type = 'sistema';
-        items.push({ type, data: n, date: new Date(n.created_at) });
-      });
-      (p.tickets || []).forEach(t => {
-        items.push({ type: 'tramite', data: t, date: new Date(t.created_at) });
-      });
-      items.sort((a, b) => b.date - a.date);
-
-      if (items.length === 0) {
-        content.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.historial(32,'#d1d9e0')}<p style="margin-top:8px;">Sin actividad registrada</p></div>`;
-        return;
-      }
-
-      // Paginación: máx 30 items visibles, botón "Ver más"
-      const PAGE = 30;
-      this._historialItems = items;
-      this._historialPage = 1;
-      content.innerHTML = `<div class="tl-wrap" id="tl-wrap">${items.slice(0, PAGE).map(item => this._renderTimelineItem(item)).join('')}</div>
-        ${items.length > PAGE ? `<div id="tl-more" style="text-align:center;padding:12px;"><button onclick="PersonasModule._loadMoreHistorial()" style="padding:8px 20px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Ver ${items.length - PAGE} más</button></div>` : ''}`;
+      this._renderHistorial(content, p);
       return;
     }
 
@@ -707,11 +681,15 @@ const PersonasModule = {
         </div>
         <div id="notas-list">
           ${notas.length === 0 ? `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.nota(32,'#d1d9e0')}<p style="margin-top:8px;">Sin notas</p></div>` : notas.map(n => {
-            return this._tlWrap(
-              { ico: _ICO.nota(14,'#f59e0b'), bg:'#fffbeb', border:'#f59e0b', label:'Nota' },
-              n.created_at,
-              this._renderTlNota(n)
-            );
+            const txt = this._stripHtml(n.texto || '');
+            const time = new Date(n.created_at).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+            return `<div style="background:#fff;border:1px solid #e8edf2;border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <span style="font-size:12px;font-weight:600;color:#0f172a;">${n.user_nombre||'Sistema'}</span>
+                <span style="font-size:11px;color:#94a3b8;">${time}</span>
+              </div>
+              <div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(txt.substring(0,400))}${txt.length>400?'...':''}</div>
+            </div>`;
           }).join('')}
         </div>
       `;
@@ -796,109 +774,160 @@ const PersonasModule = {
     }
   },
 
-  // Historial card renderers
-  // Timeline item dispatcher
-  _renderTimelineItem(item) {
-    const cfg = {
-      llamada:   { ico: _ICO.llamada(14,'#10b981'),  bg: '#f0fdf4', border: '#10b981', label: 'Llamada' },
-      actividad: { ico: _ICO.agendar(14,'#009DDD'),   bg: '#e6f5fc', border: '#009DDD', label: 'Actividad' },
-      propuesta: { ico: _ICO.propuesta(14,'#009DDD'),  bg: '#e6f5fc', border: '#009DDD', label: 'Propuesta' },
-      nota:      { ico: _ICO.nota(14,'#f59e0b'),       bg: '#fffbeb', border: '#f59e0b', label: 'Nota' },
-      tramite:   { ico: _ICO.tramites(14,'#3b82f6'),   bg: '#eff6ff', border: '#3b82f6', label: 'Trámite' },
-      sistema:   { ico: _ICO.historial(14,'#94a3b8'),   bg: '#f4f6f9', border: '#94a3b8', label: 'Sistema' },
-    }[item.type] || { ico: _ICO.nota(14,'#94a3b8'), bg: '#f4f6f9', border: '#94a3b8', label: 'Evento' };
+  // ═══════════════════════════════════════════
+  // HISTORIAL — API contact_history
+  // ═══════════════════════════════════════════
+  _historialFilter: null,
+  _historialOffset: 0,
 
-    if (item.type === 'propuesta') return this._renderNotaPropuesta(item.data, item.data.texto);
-    if (item.type === 'tramite') return this._tlWrap(cfg, item.date, this._renderTlTramite(item.data));
-    if (item.type === 'llamada') return this._tlWrap(cfg, item.date, this._renderTlLlamada(item.data));
-    if (item.type === 'actividad') return this._tlWrap(cfg, item.date, this._renderTlActividad(item.data));
-    if (item.type === 'sistema') return this._tlWrap(cfg, item.date, `<div style="font-size:12px;color:#94a3b8;">${this._stripHtml(item.data.texto)}</div>`);
-    return this._tlWrap(cfg, item.date, this._renderTlNota(item.data));
-  },
+  async _renderHistorial(content, p) {
+    const TIPOS = [
+      { key: null, label: 'Todo' },
+      { key: 'llamada', label: 'Llamadas', ico: _ICO.llamada(12,'#009DDD') },
+      { key: 'nota', label: 'Notas', ico: _ICO.nota(12,'#d97706') },
+      { key: 'etapa', label: 'Etapas', ico: _ICO.historial(12,'#8b5cf6') },
+      { key: 'email', label: 'Emails', ico: _ICO.email(12,'#10b981') },
+      { key: 'tramite', label: 'Trámites', ico: _ICO.tramites(12,'#f97316') },
+      { key: 'propuesta', label: 'Propuestas', ico: _ICO.propuesta(12,'#7c3aed') },
+    ];
 
-  // Timeline wrapper: punto lateral + línea + card
-  _tlWrap(cfg, date, body) {
-    const d = new Date(date);
-    const time = d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-    return `<div class="tl-item">
-      <div class="tl-line"><div class="tl-dot" style="background:${cfg.border};">${cfg.ico}</div></div>
-      <div class="tl-card">
-        <div class="tl-card-head"><span class="tl-card-label" style="color:${cfg.border};">${cfg.label}</span><span class="tl-card-time">${time}</span></div>
-        ${body}
+    this._historialFilter = null;
+    this._historialOffset = 0;
+
+    content.innerHTML = `
+      <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;" id="tl-filters">
+        ${TIPOS.map(t => `<button class="tl-filter-btn ${t.key === null ? 'active' : ''}" data-tipo="${t.key||''}" style="display:flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid #e8edf2;background:${t.key===null?'#009DDD':'#fff'};color:${t.key===null?'#fff':'#475569'};font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">${t.ico||''}${t.label}</button>`).join('')}
       </div>
-    </div>`;
-  },
-
-  _renderTlNota(n) {
-    const txt = this._stripHtml(n.texto || '');
-    return `<div class="tl-card-body">${n.user_nombre ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">${n.user_nombre}</div>` : ''}
-      <div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(txt.substring(0, 300))}${txt.length > 300 ? '...' : ''}</div></div>`;
-  },
-
-  _renderTlLlamada(n) {
-    const txt = n.texto || '';
-    // Parsear datos de llamada CloudTalk o importada
-    let agente = '', duracion = '', resultado = '', grabacion = '';
-    if (txt.startsWith('[call]')) {
-      const lines = txt.split('\n');
-      resultado = lines.find(l => !l.startsWith('[') && !l.startsWith('Fecha') && !l.startsWith('Estado') && !l.startsWith('Contacto') && l.trim())?.trim() || '';
-      const fecha = (lines.find(l => l.startsWith('Fecha:')) || '').replace('Fecha:','').trim();
-      const contacto = (lines.find(l => l.startsWith('Contacto:')) || '').replace('Contacto:','').trim();
-      return `<div class="tl-card-body">
-        ${resultado ? `<div style="font-size:13px;color:#475569;margin-bottom:4px;">${this._esc(resultado)}</div>` : ''}
-        ${contacto ? `<div style="font-size:11px;color:#94a3b8;">${this._esc(contacto)}</div>` : ''}
-      </div>`;
-    }
-    if (txt.includes('Llamada iniciada a')) {
-      const m = txt.match(/Llamada iniciada a (.+?) via CloudTalk · Agente: (.+)/);
-      return `<div class="tl-card-body">
-        <div style="font-size:13px;color:#475569;">Llamada a ${this._esc(m?.[1]||'')}</div>
-        <div style="font-size:11px;color:#94a3b8;">Agente: ${this._esc(m?.[2]||'')}</div>
-      </div>`;
-    }
-    // HTML de CloudTalk/Pipedrive
-    const clean = this._stripHtml(txt);
-    return `<div class="tl-card-body"><div style="font-size:13px;color:#475569;">${this._esc(clean.substring(0, 200))}</div></div>`;
-  },
-
-  _renderTlActividad(n) {
-    const txt = n.texto || '';
-    const clean = txt.replace(/^📅\s*/, '').replace(/^\[(task|email|meeting|call)\]\s*/i, '');
-    const lines = clean.split('\n').filter(l => l.trim());
-    return `<div class="tl-card-body">
-      <div style="font-size:13px;color:#475569;font-weight:600;">${this._esc(lines[0] || 'Actividad')}</div>
-      ${lines.length > 1 ? `<div style="font-size:12px;color:#94a3b8;margin-top:2px;">${this._esc(lines.slice(1).join(' · ').substring(0, 120))}</div>` : ''}
-    </div>`;
-  },
-
-  _renderTlTramite(t) {
-    return `<div class="tl-card-body" style="cursor:pointer;" onclick="typeof TicketsModule!=='undefined'&&TicketsModule.openPanel&&TicketsModule.openPanel(${t.id})">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span style="font-size:13px;font-weight:600;color:#0f172a;">Trámite #${t.id}</span>
-        ${t.tipo_nombre ? `<span style="font-size:11px;color:#94a3b8;">· ${t.tipo_nombre}</span>` : ''}
-        ${this._estadoBadge(t.estado)}
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <textarea id="tl-new-nota" class="form-control" rows="1" placeholder="Añadir nota..." style="flex:1;font-size:13px;resize:none;"></textarea>
+        <button id="tl-add-nota" style="padding:6px 14px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap;">${_ICO.añadir(12,'#fff')} Añadir</button>
       </div>
-      ${t.descripcion ? `<div style="font-size:12px;color:#475569;margin-top:2px;">${this._esc((t.descripcion || '').substring(0, 80))}</div>` : ''}
-    </div>`;
+      <div id="tl-wrap" class="tl-wrap"></div>
+      <div id="tl-more" style="text-align:center;padding:12px;display:none;">
+        <button onclick="PersonasModule._loadMoreHistorial(${p.id})" style="padding:8px 20px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Ver más</button>
+      </div>
+    `;
+
+    // Filtros
+    content.querySelectorAll('.tl-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        content.querySelectorAll('.tl-filter-btn').forEach(b => { b.style.background = '#fff'; b.style.color = '#475569'; });
+        btn.style.background = '#009DDD'; btn.style.color = '#fff';
+        this._historialFilter = btn.dataset.tipo || null;
+        this._historialOffset = 0;
+        this._loadHistorial(p.id);
+      });
+    });
+
+    // Añadir nota
+    document.getElementById('tl-add-nota')?.addEventListener('click', async () => {
+      const input = document.getElementById('tl-new-nota');
+      const texto = input?.value?.trim();
+      if (!texto) return;
+      try {
+        await API.post('/history', { persona_id: p.id, tipo: 'nota', descripcion: texto });
+        input.value = '';
+        this._historialOffset = 0;
+        this._loadHistorial(p.id);
+      } catch (e) { alert('Error: ' + e.message); }
+    });
+
+    // Cargar datos
+    this._loadHistorial(p.id);
   },
 
-  // Lazy loading del historial
-  _loadMoreHistorial() {
-    const PAGE = 30;
-    this._historialPage = (this._historialPage || 1) + 1;
-    const start = (this._historialPage - 1) * PAGE;
-    const items = (this._historialItems || []).slice(start, start + PAGE);
+  async _loadHistorial(personaId) {
     const wrap = document.getElementById('tl-wrap');
     const more = document.getElementById('tl-more');
-    if (wrap) wrap.insertAdjacentHTML('beforeend', items.map(item => this._renderTimelineItem(item)).join(''));
-    const remaining = (this._historialItems || []).length - (start + PAGE);
-    if (more) {
-      if (remaining <= 0) more.remove();
-      else more.querySelector('button').textContent = `Ver ${remaining} más`;
+    if (!wrap) return;
+
+    const qs = `?limit=30&offset=${this._historialOffset}${this._historialFilter ? '&tipo=' + this._historialFilter : ''}`;
+    try {
+      const res = await API.get(`/history/${personaId}${qs}`);
+      const items = res.data || [];
+      const total = res.total || 0;
+
+      if (this._historialOffset === 0) wrap.innerHTML = '';
+
+      if (items.length === 0 && this._historialOffset === 0) {
+        wrap.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.historial(32,'#d1d9e0')}<p style="margin-top:8px;">Sin actividad registrada</p></div>`;
+        more.style.display = 'none';
+        return;
+      }
+
+      wrap.insertAdjacentHTML('beforeend', items.map(h => this._renderHistoryCard(h)).join(''));
+      this._historialOffset += items.length;
+      more.style.display = this._historialOffset < total ? 'block' : 'none';
+    } catch (e) {
+      wrap.innerHTML = `<p style="color:#ef4444;padding:20px;">${e.message}</p>`;
     }
   },
 
-  // Limpiar HTML crudo de Pipedrive/CloudTalk
+  async _loadMoreHistorial(personaId) {
+    await this._loadHistorial(personaId);
+  },
+
+  _renderHistoryCard(h) {
+    const CFG = {
+      llamada:   { ico: _ICO.llamada(18,'#009DDD'),   bg: '#e6f6fd', stroke: '#009DDD' },
+      nota:      { ico: _ICO.nota(18,'#d97706'),        bg: '#fef3c7', stroke: '#d97706' },
+      etapa:     { ico: _ICO.historial(18,'#8b5cf6'),    bg: '#ede9fe', stroke: '#8b5cf6' },
+      email:     { ico: _ICO.email(18,'#10b981'),        bg: '#f0fdf4', stroke: '#10b981' },
+      tramite:   { ico: _ICO.tramites(18,'#f97316'),     bg: '#fff7ed', stroke: '#f97316' },
+      propuesta: { ico: _ICO.gestion(18,'#7c3aed'),      bg: '#faf5ff', stroke: '#7c3aed' },
+      poliza:    { ico: _ICO.polizas(18,'#10b981'),      bg: '#f0fdf4', stroke: '#10b981' },
+      facebook:  { ico: _ICO.llamada(18,'#1d6ef5'),      bg: '#eff6ff', stroke: '#1d6ef5' },
+    };
+    const cfg = CFG[h.tipo] || CFG.nota;
+    const desc = this._stripHtml(h.descripcion || '');
+    const meta = h.metadata || {};
+
+    // Fecha relativa
+    const now = new Date();
+    const d = new Date(h.created_at);
+    const diffH = (now - d) / 3600000;
+    const timeStr = diffH < 1 ? 'hace ' + Math.round(diffH * 60) + 'min'
+      : diffH < 24 ? 'hace ' + Math.round(diffH) + 'h'
+      : d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+
+    // Badge estado llamada
+    let badge = '';
+    if (h.tipo === 'llamada' && h.subtipo) {
+      const badgeCfg = { contestada: { bg:'#d1fae5', color:'#065f46', label:'Contestada' }, no_contestada: { bg:'#fee2e2', color:'#991b1b', label:'No contestó' }, buzon: { bg:'#f3f4f6', color:'#6b7280', label:'Buzón' } };
+      const bc = badgeCfg[h.subtipo] || badgeCfg.buzon;
+      badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${bc.bg};color:${bc.color};">${bc.label}</span>`;
+    }
+
+    // Contenido específico por tipo
+    let body = '';
+    if (h.tipo === 'etapa' && meta.etapa_origen && meta.etapa_destino) {
+      body = `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#fef3c7;color:#92400e;">${this._esc(meta.etapa_origen)}</span>
+        <span style="color:#94a3b8;">→</span>
+        <span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:#e6f6fd;color:#007ab8;">${this._esc(meta.etapa_destino)}</span>
+      </div>`;
+    } else if (h.tipo === 'propuesta' && meta.total_mensual) {
+      body = `<div style="font-size:15px;font-weight:700;color:#0f172a;">${meta.total_mensual}</div>
+        ${meta.puntos ? `<div style="font-size:11px;color:#7c3aed;margin-top:2px;">${meta.puntos} pts campaña</div>` : ''}`;
+    } else if (desc) {
+      body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(desc.substring(0, 300))}${desc.length > 300 ? '...' : ''}</div>`;
+    }
+
+    return `<div class="tl-item">
+      <div class="tl-line">
+        <div class="tl-dot" style="background:${cfg.bg};border:2px solid #fff;">${cfg.ico}</div>
+      </div>
+      <div class="tl-card">
+        <div class="tl-card-head">
+          <span class="tl-card-label" style="color:${cfg.stroke};">${h.titulo || h.tipo}</span>
+          ${badge}
+          <span class="tl-card-time">${timeStr}</span>
+        </div>
+        ${body ? `<div class="tl-card-body">${h.agente_nombre ? `<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">${h.agente_nombre}</div>` : ''}${body}</div>` : ''}
+      </div>
+    </div>`;
+  },
+
   _stripHtml(str) {
     if (!str) return '';
     return str.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\n{3,}/g, '\n\n').trim();
