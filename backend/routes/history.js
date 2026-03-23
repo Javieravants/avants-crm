@@ -1,9 +1,11 @@
 const express = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
+const tenantMiddleware = require('../middleware/tenant');
 
 const router = express.Router();
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 const TIPOS_VALIDOS = ['llamada', 'nota', 'etapa', 'email', 'tramite', 'propuesta', 'poliza', 'facebook'];
 
@@ -13,7 +15,7 @@ router.get('/:persona_id', async (req, res) => {
   const personaId = req.params.persona_id;
 
   try {
-    let where = 'ch.persona_id = $1';
+    let where = 'ch.persona_id = $1 AND ch.tenant_id = ' + req.tenantId;
     const params = [personaId];
     let idx = 2;
 

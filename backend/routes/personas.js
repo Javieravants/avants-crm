@@ -1,9 +1,11 @@
 const express = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
+const tenantMiddleware = require('../middleware/tenant');
 
 const router = express.Router();
 router.use(authMiddleware);
+router.use(tenantMiddleware);
 
 // GET /api/personas — listar con búsqueda y filtros
 router.get('/', async (req, res) => {
@@ -11,9 +13,9 @@ router.get('/', async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    let where = ['1=1'];
-    const values = [];
-    let idx = 1;
+    let where = [`p.tenant_id = $1`];
+    const values = [req.tenantId];
+    let idx = 2;
 
     // Búsqueda general (nombre, DNI, teléfono, email, nº póliza)
     if (q) {

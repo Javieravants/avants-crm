@@ -34,14 +34,14 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa },
+      { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa, tenant_id: user.tenant_id || 1 },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRY || '8h' }
     );
 
     res.json({
       token,
-      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa },
+      user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, empresa: user.empresa, tenant_id: user.tenant_id || 1 },
     });
   } catch (err) {
     console.error('Error en login:', err);

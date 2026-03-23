@@ -32,6 +32,7 @@ const searchRoutes = require('./routes/search');
 const documentosRoutes = require('./routes/documentos');
 const historyRoutes = require('./routes/history');
 const tareasRoutes = require('./routes/tareas');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,6 +72,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/documentos', documentosRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/tareas', tareasRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -392,7 +394,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);
