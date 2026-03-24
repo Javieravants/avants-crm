@@ -75,6 +75,14 @@ const AGENTE_POR_EMAIL = {
   'RL':        'raultelegestioncalahorra@gmail.com',
   'AF':        'ana@segurosdesaludonline.es',
   'NAN':       'nani.historico@avants.internal',
+  'JA':        'javier@segurosdesaludonline.es',
+  'JAV':       'javier@segurosdesaludonline.es',
+  'JH':        'javier@segurosdesaludonline.es',
+  'SI':        'silvia@segurosdesaludonline.es',
+  'P':         'patricia@segurosdesaludonline.es',
+  'CA':        'cristina.historico@avants.internal',
+  'CR-EP':     'eva@segurosdesaludonline.es',
+  'GRACI':     'cristina.historico@avants.internal',
 };
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;
