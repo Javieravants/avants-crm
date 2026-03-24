@@ -1027,10 +1027,18 @@ window.onload = async function() {
     // Precargar datos del contacto si viene de la ficha
     if (personaId) {
         try {
-            let token = null;
-            try { token = window.parent?.localStorage?.getItem('token') || localStorage.getItem('token'); }
-            catch(e) { token = localStorage.getItem('token'); }
-            if (!token) return;
+            // Token JWT: probar localStorage propio y del parent (iframe)
+            let token = localStorage.getItem('token');
+            if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
+            if (!token) {
+                console.warn('[Calculadora] Sin token JWT — no se pueden precargar datos');
+                // Aún así usar los datos de URL params como fallback
+                const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
+                if (titularCard) {
+                    const nombre = urlParams.get('nombre');
+                    if (nombre) { const el = titularCard.querySelector('.asegurado-nombre'); if (el) el.value = nombre; }
+                }
+            }
 
             const res = await fetch('/api/personas/' + personaId, {
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -3318,46 +3326,50 @@ function showStatus(msg, type) {
 
 // === GUARDAR EN CRM (BD del CRM) ===
 async function guardarEnCRM() {
-    const nota = document.getElementById('notaContenido');
-    if (!nota || !nota.value.trim()) {
-        mostrarNota(); // Generar la nota primero
-    }
+    // Generar nota si no existe
+    try { mostrarNota(); } catch(e) {}
     const notaTexto = document.getElementById('notaContenido')?.value || '';
-    if (!notaTexto.trim()) {
-        showStatusMsg('⚠️ Genera la nota primero', 'error');
-        return;
-    }
 
     // Recoger asegurados
     const asegurados = [];
-    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card, i) => {
+    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card) => {
         const nombre = card.querySelector('.asegurado-nombre')?.value || '';
         const fecha = card.querySelector('.asegurado-fecha')?.value || '';
         const sexo = card.querySelector('.asegurado-sexo')?.value || '';
         if (nombre || fecha) asegurados.push({ nombre, fechaNac: fecha, sexo, edad: fecha ? calcularEdad(fecha) : null });
     });
 
-    // Recoger producto salud si está activo
+    // Recoger datos
     const saludProducto = document.getElementById('saludProducto')?.value || '';
     const zona = document.querySelector('.zona-badge')?.textContent?.replace('Z','') || '';
+    const primaMensual = parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
 
-    // Obtener token del CRM (si está en iframe dentro del CRM)
-    let token = null;
-    try {
-        token = window.parent?.localStorage?.getItem('token') || localStorage.getItem('token');
-    } catch(e) {
-        token = localStorage.getItem('token');
-    }
-
-    if (!token) {
-        showStatusMsg('⚠️ No estás logueado en el CRM. Abre la calculadora desde el CRM.', 'error');
+    if (primaMensual === 0 && asegurados.length === 0) {
+        showStatus('⚠️ Selecciona productos y calcula antes de guardar', 'error');
         return;
     }
 
-    try {
-        const personaIdParam = new URLSearchParams(window.location.search).get('persona_id');
-        const personaIdVal = personaIdParam ? parseInt(personaIdParam) : null;
+    // Token JWT
+    let token = localStorage.getItem('token');
+    if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
+    if (!token) {
+        showStatus('⚠️ No estás logueado en el CRM. Abre la calculadora desde el CRM.', 'error');
+        return;
+    }
 
+    const personaIdParam = new URLSearchParams(window.location.search).get('persona_id');
+    const personaIdVal = personaIdParam ? parseInt(personaIdParam) : null;
+
+    // Recoger desglose de productos
+    const desglose = {};
+    if (productosActivos?.salud) desglose['Salud ' + saludProducto] = { mensual: resultadosCalculo?.salud?.mensual || 0, anual: resultadosCalculo?.salud?.anual || 0 };
+    if (productosActivos?.dentalMax) desglose['Dental MAX'] = { mensual: resultadosCalculo?.dentalMax?.mensual || 0, anual: resultadosCalculo?.dentalMax?.anual || 0 };
+    if (productosActivos?.mascotas) desglose['Mascotas'] = { mensual: resultadosCalculo?.mascotas?.mensual || 0, anual: resultadosCalculo?.mascotas?.anual || 0 };
+    if (productosActivos?.decesos) desglose['Decesos'] = { mensual: resultadosCalculo?.decesos?.mensual || 0, anual: resultadosCalculo?.decesos?.anual || 0 };
+
+    showStatus('⏳ Guardando en CRM...', 'info');
+
+    try {
         const res = await fetch('/api/calculadora/propuestas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -3365,22 +3377,24 @@ async function guardarEnCRM() {
                 persona_id: personaIdVal,
                 deal_id: dealId ? parseInt(dealId) : null,
                 compania: 'ADESLAS',
-                producto: saludProducto || 'Presupuesto',
+                producto: saludProducto || Object.keys(desglose)[0] || 'Presupuesto',
                 zona: zona ? parseInt(zona) : null,
-                num_asegurados: asegurados.length,
-                prima_mensual: parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0,
-                prima_anual: parseFloat(document.getElementById('resumenTotalAnual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0,
+                num_asegurados: asegurados.length || 1,
+                prima_mensual: primaMensual,
+                prima_anual: primaMensual * 12,
+                campana_puntos: parseInt(document.getElementById('resumenPuntos')?.textContent?.replace(/[^0-9]/g,'')) || 0,
                 forma_pago: 'mensual',
                 asegurados_data: asegurados,
+                desglose: desglose,
                 nota_contenido: notaTexto,
                 pipedrive_deal_id: dealId ? parseInt(dealId) : null
             })
         });
         const data = await res.json();
         if (res.ok) {
-            showStatusMsg('✅ Guardado en CRM (ID: ' + data.id + ')', 'success');
+            showStatus('✅ Propuesta guardada' + (data.pdf_url ? ' con PDF' : '') + ' (ID: ' + data.id + ')', 'success');
 
-            // Actualizar datos del contacto con los datos del titular
+            // Actualizar datos del contacto
             if (personaIdVal) {
                 const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
                 if (titularCard) {
@@ -3402,19 +3416,24 @@ async function guardarEnCRM() {
                         }).catch(() => {});
                     }
                 }
+
+                // Notificar al parent (iframe) que se guardó
+                try {
+                    window.parent?.postMessage?.({ type: 'propuesta-guardada', persona_id: personaIdVal, propuesta_id: data.id }, '*');
+                } catch(e) {}
             }
         } else {
-            showStatusMsg('❌ Error CRM: ' + (data.error || 'desconocido'), 'error');
+            showStatus('❌ Error: ' + (data.error || 'desconocido'), 'error');
         }
     } catch(e) {
-        showStatusMsg('❌ Error conexión CRM: ' + e.message, 'error');
+        showStatus('❌ Error conexión: ' + e.message, 'error');
     }
 }
 
 // === GENERAR PDF CON PLANTILLA PROFESIONAL ===
 async function generarPDFPropuesta() {
     if (typeof PDFPropuesta === 'undefined') {
-        showStatusMsg('Error: Carga la calculadora desde el CRM para generar PDF', 'error');
+        showStatus('Error: Carga la calculadora desde el CRM para generar PDF', 'error');
         // Fallback al PDF antiguo
         generarPDF();
         return;
@@ -3422,7 +3441,7 @@ async function generarPDFPropuesta() {
 
     const resumenEl = document.getElementById('resumenProductos');
     if (!resumenEl || !resumenEl.innerHTML.trim()) {
-        showStatusMsg('Selecciona productos y calcula antes de generar PDF', 'error');
+        showStatus('Selecciona productos y calcula antes de generar PDF', 'error');
         return;
     }
 
@@ -3480,7 +3499,7 @@ async function generarPDFPropuesta() {
     const clienteNombre = aseguradosList[0]?.nombre || document.getElementById('dealInfo')?.textContent || 'Cliente';
 
     try {
-        showStatusMsg('Generando PDF...', 'info');
+        showStatus('Generando PDF...', 'info');
         await PDFPropuesta.download({
             fecha: new Date().toLocaleDateString('es-ES'),
             clienteNombre: clienteNombre,
@@ -3492,9 +3511,9 @@ async function generarPDFPropuesta() {
             puntos: totalPuntos,
             regalo: regalo
         });
-        showStatusMsg('PDF descargado', 'success');
+        showStatus('PDF descargado', 'success');
     } catch(e) {
-        showStatusMsg('Error generando PDF: ' + e.message, 'error');
+        showStatus('Error generando PDF: ' + e.message, 'error');
     }
 }
 
