@@ -19,3 +19,28 @@ UPDATE polizas SET agente_id = (
 UPDATE polizas SET agente_id = (
   SELECT id FROM users WHERE email = 'eva@segurosdesaludonline.es'
 ) WHERE agente_nombre = 'CR-EP' AND agente_id IS NULL;
+
+-- Pólizas con nombres largos que quedaron sin agente_id
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'nani.historico@avants.internal'
+) WHERE UPPER(agente_nombre) = 'NANI' AND agente_id IS NULL;
+
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'montse@segurosdesaludonline.es'
+) WHERE UPPER(agente_nombre) = 'MONTSE' AND agente_id IS NULL;
+
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'cristina.historico@avants.internal'
+) WHERE UPPER(agente_nombre) = 'CRISTINA' AND agente_id IS NULL;
+
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'marisa@segurosdesaludonline.es'
+) WHERE UPPER(agente_nombre) = 'MARISA' AND agente_id IS NULL;
+
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'sol.historico@avants.internal'
+) WHERE UPPER(agente_nombre) = 'SOL' AND agente_id IS NULL;
+
+UPDATE polizas SET agente_id = (
+  SELECT id FROM users WHERE email = 'raultelegestioncalahorra@gmail.com'
+) WHERE UPPER(agente_nombre) = 'RAUL' AND agente_id IS NULL;
