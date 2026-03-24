@@ -27,12 +27,12 @@ const App = {
     document.getElementById('user-role').textContent = user.rol;
 
     // Visibilidad por rol
-    if (!Auth.hasRole('admin', 'supervisor')) {
+    if (!Auth.hasRole('admin', 'superadmin', 'supervisor')) {
       document.getElementById('nav-import')?.classList.add('hidden');
       document.getElementById('nav-personas')?.classList.add('hidden');
       document.getElementById('nav-informes')?.classList.add('hidden');
     }
-    if (!Auth.hasRole('admin')) {
+    if (!Auth.hasRole('admin', 'superadmin')) {
       document.getElementById('nav-usuarios')?.classList.add('hidden');
       document.getElementById('nav-settings')?.classList.add('hidden');
       document.getElementById('nav-assistant')?.classList.add('hidden');
