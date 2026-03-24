@@ -5,7 +5,7 @@ const auth = require('../middleware/auth');
 
 router.use(auth);
 
-function isAdmin(req) { return req.user.rol === 'admin' || req.user.rol === 'supervisor'; }
+function isAdmin(req) { return req.user.rol === 'admin' || req.user.rol === 'superadmin' || req.user.rol === 'supervisor'; }
 
 // ══════════════════════════════════════════════
 // PIPELINES
