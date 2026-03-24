@@ -92,7 +92,7 @@ router.get('/leads', async (req, res) => {
     // Tab "agentes" — grupo especial
     if (tab === 'agentes') {
       const q = await pool.query(
-        `SELECT u.id, u.nombre, u.avatar_color,
+        `SELECT u.id, u.nombre,
            COUNT(d.id) AS total_deals,
            COUNT(CASE WHEN d.pipedrive_status = 'won' THEN 1 END) AS ganados,
            COUNT(CASE WHEN d.pipedrive_status = 'lost' THEN 1 END) AS perdidos,
@@ -100,7 +100,7 @@ router.get('/leads', async (req, res) => {
            COALESCE(SUM(CASE WHEN d.pipedrive_status = 'won' AND ${PRIMA_FILTER} THEN d.prima ELSE 0 END), 0) AS prima_ganada
          FROM deals d ${joins}
          WHERE ${where}
-         GROUP BY u.id, u.nombre, u.avatar_color
+         GROUP BY u.id, u.nombre
          HAVING u.nombre IS NOT NULL
          ORDER BY ganados DESC, total_deals DESC`,
         values
@@ -149,7 +149,7 @@ router.get('/leads', async (req, res) => {
          d.prima, d.created_at, d.updated_at,
          p.nombre AS contacto, p.telefono, p.email, p.dni, p.direccion, p.codigo_postal,
          p.id AS persona_id,
-         u.nombre AS agente_nombre, u.avatar_color,
+         u.nombre AS agente_nombre,
          pi.name AS pipeline_nombre, pi.color AS pipeline_color,
          e.nombre AS etiqueta_nombre, e.color AS etiqueta_color
        FROM deals d ${joins}
@@ -271,7 +271,7 @@ router.get('/exportar', async (req, res) => {
 router.get('/filtros', async (req, res) => {
   try {
     const [agentes, pipelines, etiquetas] = await Promise.all([
-      pool.query('SELECT id, nombre, avatar_color FROM users WHERE activo = true ORDER BY nombre'),
+      pool.query('SELECT id, nombre FROM users WHERE activo = true ORDER BY nombre'),
       pool.query('SELECT id, name, color FROM pipelines WHERE active = true ORDER BY orden'),
       pool.query('SELECT id, nombre, color FROM etiquetas ORDER BY nombre'),
     ]);
