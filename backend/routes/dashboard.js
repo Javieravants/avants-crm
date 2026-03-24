@@ -64,15 +64,18 @@ router.get('/', async (req, res) => {
        LIMIT 10`
     );
 
-    // Agenda hoy: notas con actividades programadas para hoy
+    // Agenda hoy: tareas pendientes con fecha de hoy o futuras
     const agenda = await pool.query(
-      `SELECT pn.id, pn.texto, pn.created_at, p.id as persona_id, p.nombre as persona_nombre
-       FROM persona_notas pn
-       JOIN personas p ON pn.persona_id = p.id
-       WHERE pn.texto LIKE '%programada:%'
-         AND pn.texto LIKE '%${new Date().toISOString().split('T')[0]}%'
-       ORDER BY pn.created_at DESC
-       LIMIT 15`
+      `SELECT t.id, t.tipo, t.titulo, t.descripcion, t.fecha_venc, t.hora_venc, t.estado,
+              p.id as persona_id, p.nombre as persona_nombre, p.telefono
+       FROM tareas t
+       LEFT JOIN personas p ON p.id = t.persona_id
+       WHERE t.estado = 'pendiente'
+         AND t.fecha_venc::date >= CURRENT_DATE
+         ${!isAdmin ? 'AND t.agente_id = $1' : ''}
+       ORDER BY t.fecha_venc::date ASC, t.hora_venc ASC NULLS LAST
+       LIMIT 20`,
+      !isAdmin ? [userId] : []
     );
 
     // Ventas por día esta semana

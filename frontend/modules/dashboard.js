@@ -260,13 +260,19 @@ const DashboardModule = {
           <div class="dash-card-body" id="dash-agenda">
             ${d.agenda.length === 0 ? '<div class="dash-empty">Sin actividades programadas hoy</div>' :
               d.agenda.map(a => {
-                const hora = (a.texto.match(/(\d{2}:\d{2})/) || [''])[0] || '';
-                const tipo = a.texto.includes('Cierre') ? 'cierre' : a.texto.includes('Seguimiento') ? 'seguimiento' : 'llamada';
-                return `<div class="dash-ag-item" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${a.persona_id}),300)" style="cursor:pointer;">
-                  <div class="dash-ag-hora">${hora || '--:--'}</div>
-                  <div class="dash-ag-av" style="background:hsl(${hu(a.persona_id)},55%,55%)">${ini(a.persona_nombre)}</div>
-                  <div class="dash-ag-info"><div class="dash-ag-name">${this._esc(a.persona_nombre)}</div></div>
+                const hora = a.hora_venc ? a.hora_venc.substring(0,5) : '';
+                const tipo = (a.tipo || 'llamada').toLowerCase();
+                const esHoy = a.fecha_venc && new Date(a.fecha_venc).toDateString() === new Date().toDateString();
+                return `<div class="dash-ag-item" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <div class="dash-ag-hora" style="min-width:42px;text-align:center;font-size:11px;font-weight:700;${esHoy ? 'color:#009DDD' : 'color:#94a3b8'}">${hora || (esHoy ? 'HOY' : new Date(a.fecha_venc).toLocaleDateString('es-ES',{day:'numeric',month:'short'}))}</div>
+                  <div class="dash-ag-av" style="background:hsl(${hu(a.persona_id||0)},55%,55%)">${ini(a.persona_nombre||'?')}</div>
+                  <div class="dash-ag-info" style="flex:1;min-width:0;" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${a.persona_id}),300)">
+                    <div class="dash-ag-name">${this._esc(a.persona_nombre||a.titulo||'Sin contacto')}</div>
+                    ${a.titulo ? `<div style="font-size:10px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._esc(a.titulo)}</div>` : ''}
+                  </div>
                   <span class="dash-ag-tag t-${tipo}">${tipo}</span>
+                  ${a.telefono && tipo === 'llamada' ? `<button onclick="event.stopPropagation();window.cloudtalkDial?.('${a.telefono}')" style="padding:3px 8px;border-radius:6px;border:none;background:#10b981;color:#fff;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Llamar</button>` : ''}
+                  <button onclick="event.stopPropagation();DashboardModule._completarTarea(${a.id})" style="padding:3px 8px;border-radius:6px;border:1px solid #e8edf2;background:#fff;color:#475569;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Hecho</button>
                 </div>`;
               }).join('')}
           </div>
@@ -367,6 +373,12 @@ const DashboardModule = {
     }).join('');
   },
 
+  async _completarTarea(id) {
+    try {
+      await API.patch(`/tareas/${id}`, { estado: 'hecha' });
+      this.render();
+    } catch (e) { alert('Error: ' + e.message); }
+  },
   _esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; },
 
   _getStyles() {

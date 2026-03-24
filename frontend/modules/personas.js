@@ -720,7 +720,7 @@ const PersonasModule = {
       renderCal();
     });
 
-    // Event: guardar
+    // Event: guardar — crear tarea real + nota informativa
     popup.querySelector('#act-btn-save').addEventListener('click', async () => {
       if (!selectedSlot) return alert('Selecciona una hora en el calendario');
       const cfg = tipoConfig[selectedTipo];
@@ -728,8 +728,14 @@ const PersonasModule = {
       const d = currentDate;
       const fechaStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       try {
-        await API.post(`/personas/${personaId}/notas`, {
-          texto: `📅 ${cfg.label} programada: ${fechaStr} ${selectedSlot.hora}\n${nota}`
+        // Crear tarea real en tabla tareas
+        await API.post('/tareas', {
+          persona_id: personaId,
+          tipo: selectedTipo,
+          titulo: `${cfg.label} — ${nombre}`,
+          descripcion: nota || null,
+          fecha_venc: fechaStr,
+          hora_venc: selectedSlot.hora + ':00',
         });
         overlay.remove();
         if (this._fichaPersona) this.showFicha(personaId);

@@ -31,6 +31,33 @@ router.get('/', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/tareas — crear tarea nueva
+router.post('/', async (req, res) => {
+  const { persona_id, deal_id, tipo, titulo, descripcion, fecha_venc, hora_venc } = req.body;
+  if (!titulo && !tipo) return res.status(400).json({ error: 'Título o tipo obligatorio' });
+
+  try {
+    const r = await pool.query(
+      `INSERT INTO tareas (persona_id, deal_id, agente_id, tipo, titulo, descripcion, fecha_venc, hora_venc, estado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente') RETURNING *`,
+      [persona_id || null, deal_id || null, req.user.id,
+       tipo || 'llamada', titulo || tipo || 'Tarea',
+       descripcion || null, fecha_venc || null, hora_venc || null]
+    );
+
+    // Registrar en historial si hay persona
+    if (persona_id) {
+      await pool.query(
+        `INSERT INTO contact_history (persona_id, deal_id, tipo, titulo, descripcion, agente_id, origen)
+         VALUES ($1, $2, 'tarea', $3, $4, $5, 'sistema')`,
+        [persona_id, deal_id || null, `Tarea: ${titulo || tipo}`, descripcion || '', req.user.id]
+      );
+    }
+
+    res.status(201).json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // PATCH /api/tareas/:id — marcar como hecha/cancelada
 router.patch('/:id', async (req, res) => {
   const { estado } = req.body;
