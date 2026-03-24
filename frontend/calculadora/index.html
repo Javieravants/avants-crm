@@ -3350,9 +3350,12 @@ function showStatus(msg, type) {
 
 // === GUARDAR EN CRM (BD del CRM) ===
 async function guardarEnCRM() {
-    // Generar nota si no existe
-    try { mostrarNota(); } catch(e) {}
-    const notaTexto = document.getElementById('notaContenido')?.value || '';
+    // Generar nota en background (sin abrir modal)
+    try {
+        const nota = generarNota();
+        document.getElementById('notaContenido').textContent = nota;
+    } catch(e) {}
+    const notaTexto = document.getElementById('notaContenido')?.textContent || '';
 
     // Recoger asegurados de todos los cards
     const asegurados = [];
