@@ -621,7 +621,7 @@ router.post('/grabar-poliza', async (req, res) => {
     await client.query(
       `INSERT INTO tickets (contacto_id, pipedrive_deal_id, tipo, compania,
          descripcion, estado, agente_id, created_by, prioridad)
-       VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $6, 'normal')`,
+       VALUES ($1, $2, $3, $4, $5, 'nuevo', $6, $6, 'normal')`,
       [persona_id, String(dealIdFinal), 'Alta nueva póliza',
        compania || 'ADESLAS', descripcionTicket, req.user.id]
     );
