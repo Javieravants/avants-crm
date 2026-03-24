@@ -307,7 +307,6 @@ const PersonasModule = {
               ${p.telefono ? `<button id="btn-llamar-ct" onclick="PersonasModule._clickToCall('${p.telefono}',${p.id},'${(p.nombre||'').replace(/'/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
               ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
               ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Email">${_ICO.email(16,'#475569')} Email</button>` : ''}
-              <button onclick="PersonasModule._openCalculadora(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Calculadora">${typeof Icons !== 'undefined' ? Icons.calculadora(16,'#475569') : ''} Calculadora</button>
             </div>
             <div style="width:1px;height:24px;background:#e8edf2"></div>
             <button id="btn-edit-persona" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:12px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.editar(14,'#475569')} Editar</button>
@@ -336,6 +335,7 @@ const PersonasModule = {
             <button class="tab-btn" data-tab="tramites" style="${ts}">${_ICO.tramites(14)} Trámites (${tickets.length})</button>
             <button class="tab-btn" data-tab="notas" style="${ts}">${_ICO.nota(14)} Notas (${notas.length})</button>
             <button class="tab-btn" data-tab="documentos" style="${ts}">${_ICO.propuesta(14)} Documentos</button>
+            <button class="tab-btn" data-tab="calculadora" style="${ts}">${typeof Icons !== 'undefined' ? Icons.calculadora(14) : ''} Calculadora</button>
             <div style="flex:1"></div>
             <div style="display:flex;gap:6px;align-items:center;padding:4px 0;">
               <button onclick="PersonasModule._showAddActivity(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.agendar(16,'#475569')} Actividad</button>
@@ -763,6 +763,11 @@ const PersonasModule = {
       return;
     }
 
+    if (tab === 'calculadora') {
+      this._openCalculadora(p.id);
+      return;
+    }
+
     if (tab === 'tramites') {
       const tickets = p.tickets || [];
       content.innerHTML = `
@@ -1133,20 +1138,24 @@ const PersonasModule = {
     }
   },
 
-  // === Grabar póliza — formulario con precarga de propuestas ===
+  // === Grabar póliza — formulario completo con 3 secciones ===
   _openGrabarInline() {
     const p = this._fichaPersona;
     if (!p) return;
     const content = document.getElementById('persona-tab-content');
     const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
+    const lbl = 'font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;';
+    const sec = 'font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px;display:flex;align-items:center;gap:6px;';
 
-    // Propuestas previas (de notas que tienen datos de presupuesto)
+    // Propuestas previas
     const propuestas = (p.notas || []).filter(n => {
       const txt = n.texto || '';
       return txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA') || txt.includes('OPCIÓN');
     });
 
-    // Desactivar tabs
+    // Familiares precargados como asegurados
+    const familiares = p.familiares || [];
+
     document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => {
       b.style.color = '#94a3b8'; b.style.borderBottomColor = 'transparent';
     });
@@ -1154,41 +1163,147 @@ const PersonasModule = {
     content.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
         <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${_ICO.grabar(20,'#ef4444')} Grabar Póliza</span>
-        <button id="btn-volver-grabar" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver</button>
+        <button id="btn-grabar-iframe" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Abrir grabaciones</button>
+        <button id="btn-volver-grabar" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver</button>
       </div>
 
       ${propuestas.length > 0 ? `
-        <div style="background:#e6f6fd;border:1px solid #b3e0f7;border-radius:10px;padding:12px;margin-bottom:16px;">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#007ab8;margin-bottom:8px;">Cargar desde propuesta (${propuestas.length})</div>
+        <div style="background:#e6f6fd;border:1px solid #b3e0f7;border-radius:10px;padding:12px;margin-bottom:14px;">
+          <div style="${lbl}margin-bottom:8px;">Cargar desde propuesta</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${propuestas.map((pr, i) => {
               const txt = pr.texto || '';
               const prod = (txt.match(/Producto[:\s]*(.+)/i) || txt.match(/OPCIÓN\s*\d+[:\s]*(.+)/i) || ['',''])[1].trim().substring(0,30);
-              const fecha = pr.created_at ? new Date(pr.created_at).toLocaleDateString('es-ES') : '';
-              return `<button class="btn-cargar-prop" data-idx="${i}" style="padding:6px 12px;border-radius:8px;border:1px solid #009DDD;background:#fff;color:#009DDD;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">${prod || 'Propuesta'} · ${fecha}</button>`;
+              return `<button class="btn-cargar-prop" data-idx="${i}" style="padding:5px 12px;border-radius:8px;border:1px solid #009DDD;background:#fff;color:#009DDD;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">${prod || 'Propuesta ' + (i+1)}</button>`;
             }).join('')}
           </div>
         </div>
       ` : ''}
 
-      <div class="card" style="padding:20px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Tipo de póliza</label><input type="text" class="form-control" id="grab-tipo" value="${this._esc(activeDeal?.tipo_poliza || activeDeal?.producto || '')}"></div>
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Compañía</label>
-            <select class="form-control" id="grab-compania"><option value="ADESLAS">ADESLAS</option><option value="DKV">DKV</option></select>
-          </div>
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Prima mensual (€)</label><input type="number" step="0.01" class="form-control" id="grab-prima" value="${activeDeal?.prima && activeDeal.prima <= 1000 ? activeDeal.prima : ''}"></div>
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Póliza</label><input type="text" class="form-control" id="grab-poliza" value="${this._esc(activeDeal?.poliza || '')}"></div>
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Solicitud</label><input type="text" class="form-control" id="grab-solicitud" value="${this._esc(activeDeal?.num_solicitud || '')}"></div>
-          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Fecha efecto</label><input type="date" class="form-control" id="grab-efecto" value="${activeDeal?.fecha_efecto ? activeDeal.fecha_efecto.split('T')[0] : ''}"></div>
-          <div class="form-group" style="grid-column:1/-1;"><label style="font-size:11px;font-weight:700;color:#94a3b8;">IBAN</label><input type="text" class="form-control" id="grab-iban" value="${this._esc(activeDeal?.iban || '')}"></div>
+      <!-- SECCIÓN A: Tomador -->
+      <div class="card" style="padding:16px;margin-bottom:14px;">
+        <div style="${sec}">${_ICO.nota(16,'#009DDD')} Datos del tomador</div>
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="grab-empresa"> Póliza de empresa (CIF)
+        </label>
+        <div id="grab-tomador-persona" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label style="${lbl}">Nombre</label><input class="form-control" id="grab-nombre" value="${this._esc(p.nombre||'')}"></div>
+          <div><label style="${lbl}">DNI/NIE</label><input class="form-control" id="grab-dni" value="${this._esc(p.dni||'')}"></div>
+          <div><label style="${lbl}">F. nacimiento</label><input type="date" class="form-control" id="grab-fnac" value="${p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : ''}"></div>
+          <div><label style="${lbl}">Sexo</label><select class="form-control" id="grab-sexo"><option value="">—</option><option value="H" ${p.sexo==='H'?'selected':''}>Hombre</option><option value="M" ${p.sexo==='M'?'selected':''}>Mujer</option></select></div>
+          <div><label style="${lbl}">Dirección</label><input class="form-control" id="grab-dir" value="${this._esc(p.direccion||'')}"></div>
+          <div><label style="${lbl}">CP</label><input class="form-control" id="grab-cp" value="${this._esc(p.codigo_postal||'')}"></div>
+          <div><label style="${lbl}">Provincia</label><input class="form-control" id="grab-prov" value="${this._esc(p.provincia||'')}"></div>
+          <div><label style="${lbl}">Localidad</label><input class="form-control" id="grab-loc" value="${this._esc(p.localidad||'')}"></div>
+          <div><label style="${lbl}">Teléfono</label><input class="form-control" id="grab-tel" value="${this._esc(p.telefono||'')}"></div>
+          <div><label style="${lbl}">Email</label><input class="form-control" id="grab-email" value="${this._esc(p.email||'')}"></div>
+          <div style="grid-column:1/-1;"><label style="${lbl}">IBAN</label><input class="form-control" id="grab-iban" value="${this._esc(activeDeal?.iban||p.iban||'')}"></div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
-          <button id="btn-grabar-iframe" style="padding:8px 16px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Abrir grabaciones completa</button>
-          <button id="btn-grabar-save" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">Guardar póliza ganada</button>
+        <div id="grab-tomador-empresa" style="display:none;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label style="${lbl}">CIF</label><input class="form-control" id="grab-cif"></div>
+          <div><label style="${lbl}">Nombre empresa</label><input class="form-control" id="grab-empresa-nombre"></div>
+          <div><label style="${lbl}">Representante legal</label><input class="form-control" id="grab-representante"></div>
+          <div><label style="${lbl}">Dirección fiscal</label><input class="form-control" id="grab-dir-fiscal"></div>
+          <div><label style="${lbl}">CP</label><input class="form-control" id="grab-cp-emp"></div>
+          <div><label style="${lbl}">Provincia</label><input class="form-control" id="grab-prov-emp"></div>
+          <div><label style="${lbl}">Teléfono</label><input class="form-control" id="grab-tel-emp"></div>
+          <div><label style="${lbl}">Email</label><input class="form-control" id="grab-email-emp"></div>
+          <div style="grid-column:1/-1;"><label style="${lbl}">IBAN</label><input class="form-control" id="grab-iban-emp"></div>
         </div>
       </div>
+
+      <!-- SECCIÓN B: Asegurados -->
+      <div class="card" style="padding:16px;margin-bottom:14px;">
+        <div style="${sec}">${_ICO.añadir(16,'#10b981')} Asegurados</div>
+        <div id="grab-asegurados">
+          <div class="aseg-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
+            <div><label style="${lbl}">Nombre</label><input class="form-control aseg-nombre" value="${this._esc(p.nombre||'')}"></div>
+            <div><label style="${lbl}">DNI</label><input class="form-control aseg-dni" value="${this._esc(p.dni||'')}"></div>
+            <div><label style="${lbl}">F. nac.</label><input type="date" class="form-control aseg-fnac" value="${p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : ''}"></div>
+            <div><label style="${lbl}">Sexo</label><select class="form-control aseg-sexo"><option value="">—</option><option value="H" ${p.sexo==='H'?'selected':''}>H</option><option value="M" ${p.sexo==='M'?'selected':''}>M</option></select></div>
+            <div><label style="${lbl}">Parentesco</label><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
+            <div></div>
+          </div>
+          ${familiares.map(f => `
+            <div class="aseg-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
+              <div><input class="form-control aseg-nombre" value="${this._esc(f.nombre||'')}"></div>
+              <div><input class="form-control aseg-dni" value="${this._esc(f.dni||'')}"></div>
+              <div><input type="date" class="form-control aseg-fnac" value="${f.fecha_nacimiento ? f.fecha_nacimiento.split('T')[0] : ''}"></div>
+              <div><select class="form-control aseg-sexo"><option value="">—</option><option value="H">H</option><option value="M">M</option></select></div>
+              <div><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option selected>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
+              <button class="aseg-remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0;" title="Quitar">×</button>
+            </div>
+          `).join('')}
+        </div>
+        <button id="btn-add-aseg" style="padding:6px 12px;border-radius:8px;border:1px dashed #009DDD;background:#e6f6fd;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin-top:4px;">+ Añadir asegurado</button>
+      </div>
+
+      <!-- SECCIÓN C: Datos póliza -->
+      <div class="card" style="padding:16px;margin-bottom:14px;">
+        <div style="${sec}">${_ICO.polizas(16,'#10b981')} Datos de la póliza</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label style="${lbl}">Tipo de póliza</label><input class="form-control" id="grab-tipo" value="${this._esc(activeDeal?.tipo_poliza||activeDeal?.producto||'')}"></div>
+          <div><label style="${lbl}">Compañía</label>
+            <select class="form-control" id="grab-compania">
+              <option value="ADESLAS" ${(activeDeal?.compania||'').includes('ADESLAS')?'selected':''}>ADESLAS</option>
+              <option value="DKV" ${(activeDeal?.compania||'').includes('DKV')?'selected':''}>DKV</option>
+              <option value="ADESLAS DENTAL">ADESLAS DENTAL</option>
+              <option value="ADESLAS DECESOS">ADESLAS DECESOS</option>
+              <option value="ADESLAS MASCOTAS">ADESLAS MASCOTAS</option>
+            </select>
+          </div>
+          <div><label style="${lbl}">Prima mensual (€)</label><input type="number" step="0.01" class="form-control" id="grab-prima" value="${activeDeal?.prima && activeDeal.prima <= 1000 ? activeDeal.prima : ''}"></div>
+          <div><label style="${lbl}">Prima anual (auto)</label><input type="text" class="form-control" id="grab-prima-anual" readonly style="background:#f4f6f9;"></div>
+          <div><label style="${lbl}">Nº Póliza</label><input class="form-control" id="grab-poliza" value="${this._esc(activeDeal?.poliza||'')}"></div>
+          <div><label style="${lbl}">Nº Solicitud</label><input class="form-control" id="grab-solicitud" value="${this._esc(activeDeal?.num_solicitud||'')}"></div>
+          <div><label style="${lbl}">Fecha efecto</label><input type="date" class="form-control" id="grab-efecto" value="${activeDeal?.fecha_efecto ? activeDeal.fecha_efecto.split('T')[0] : ''}"></div>
+          <div><label style="${lbl}">Campaña / Puntos</label><input class="form-control" id="grab-campana" value=""></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="btn-grabar-save" style="padding:10px 28px;border-radius:9px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;">${_ICO.guardar(18,'#fff')} Guardar póliza</button>
+      </div>
     `;
+
+    // Toggle persona / empresa
+    document.getElementById('grab-empresa')?.addEventListener('change', (e) => {
+      document.getElementById('grab-tomador-persona').style.display = e.target.checked ? 'none' : 'grid';
+      document.getElementById('grab-tomador-empresa').style.display = e.target.checked ? 'grid' : 'none';
+    });
+
+    // Auto-calcular prima anual
+    const primaInput = document.getElementById('grab-prima');
+    const anualInput = document.getElementById('grab-prima-anual');
+    const calcAnual = () => {
+      const v = parseFloat(primaInput.value);
+      anualInput.value = v ? (v * 12).toFixed(2) + ' €' : '';
+    };
+    primaInput.addEventListener('input', calcAnual);
+    calcAnual();
+
+    // Añadir asegurado
+    document.getElementById('btn-add-aseg').addEventListener('click', () => {
+      const container = document.getElementById('grab-asegurados');
+      const row = document.createElement('div');
+      row.className = 'aseg-row';
+      row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;';
+      row.innerHTML = `
+        <div><input class="form-control aseg-nombre" placeholder="Nombre"></div>
+        <div><input class="form-control aseg-dni" placeholder="DNI"></div>
+        <div><input type="date" class="form-control aseg-fnac"></div>
+        <div><select class="form-control aseg-sexo"><option value="">—</option><option value="H">H</option><option value="M">M</option></select></div>
+        <div><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
+        <button class="aseg-remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0;">×</button>
+      `;
+      container.appendChild(row);
+      row.querySelector('.aseg-remove').addEventListener('click', () => row.remove());
+    });
+
+    // Quitar asegurado existente
+    content.querySelectorAll('.aseg-remove').forEach(btn => {
+      btn.addEventListener('click', () => btn.closest('.aseg-row').remove());
+    });
 
     // Cargar propuesta
     content.querySelectorAll('.btn-cargar-prop').forEach(btn => {
@@ -1201,12 +1316,12 @@ const PersonasModule = {
         if (prod) document.getElementById('grab-tipo').value = prod;
         if (precio) {
           const n = parseFloat(precio.replace(/[€\s]/g, '').replace(',', '.'));
-          if (!isNaN(n)) document.getElementById('grab-prima').value = n;
+          if (!isNaN(n)) { primaInput.value = n; calcAnual(); }
         }
       });
     });
 
-    // Abrir grabaciones completa en iframe
+    // Abrir grabaciones iframe
     document.getElementById('btn-grabar-iframe').addEventListener('click', () => {
       const params = new URLSearchParams();
       if (activeDeal?.pipedrive_deal_id) params.set('deal_id', activeDeal.pipedrive_deal_id);
@@ -1222,28 +1337,64 @@ const PersonasModule = {
       document.getElementById('btn-volver-grabar2').addEventListener('click', () => this._openGrabarInline());
     });
 
-    // Guardar póliza
+    // GUARDAR — flujo completo
     document.getElementById('btn-grabar-save').addEventListener('click', async () => {
+      const saveBtn = document.getElementById('btn-grabar-save');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Guardando...';
+
+      // Recoger asegurados
+      const asegurados = [];
+      document.querySelectorAll('.aseg-row').forEach(row => {
+        const nombre = row.querySelector('.aseg-nombre')?.value?.trim();
+        if (!nombre) return;
+        asegurados.push({
+          nombre,
+          dni: row.querySelector('.aseg-dni')?.value?.trim() || null,
+          fecha_nac: row.querySelector('.aseg-fnac')?.value || null,
+          sexo: row.querySelector('.aseg-sexo')?.value || null,
+          parentesco: row.querySelector('.aseg-parentesco')?.value || 'Titular',
+        });
+      });
+
       const data = {
         persona_id: p.id,
-        tipo_poliza: document.getElementById('grab-tipo').value,
-        compania: document.getElementById('grab-compania').value,
-        prima: parseFloat(document.getElementById('grab-prima').value) || null,
-        poliza: document.getElementById('grab-poliza').value || null,
-        num_solicitud: document.getElementById('grab-solicitud').value || null,
-        fecha_efecto: document.getElementById('grab-efecto').value || null,
-        iban: document.getElementById('grab-iban').value || null,
-        pipedrive_status: 'won',
-        estado: 'poliza_activa',
+        deal_id: activeDeal?.id || null,
+        // Tomador
+        nombre: document.getElementById('grab-nombre')?.value || p.nombre,
+        dni: document.getElementById('grab-dni')?.value || null,
+        fecha_nacimiento: document.getElementById('grab-fnac')?.value || null,
+        sexo: document.getElementById('grab-sexo')?.value || null,
+        direccion: document.getElementById('grab-dir')?.value || null,
+        codigo_postal: document.getElementById('grab-cp')?.value || null,
+        provincia: document.getElementById('grab-prov')?.value || null,
+        localidad: document.getElementById('grab-loc')?.value || null,
+        telefono: document.getElementById('grab-tel')?.value || null,
+        email: document.getElementById('grab-email')?.value || null,
+        iban: document.getElementById('grab-iban')?.value || null,
+        // Empresa
+        es_empresa: document.getElementById('grab-empresa')?.checked || false,
+        cif: document.getElementById('grab-cif')?.value || null,
+        nombre_empresa: document.getElementById('grab-empresa-nombre')?.value || null,
+        representante: document.getElementById('grab-representante')?.value || null,
+        // Póliza
+        tipo_poliza: document.getElementById('grab-tipo')?.value || null,
+        compania: document.getElementById('grab-compania')?.value || 'ADESLAS',
+        prima: parseFloat(document.getElementById('grab-prima')?.value) || null,
+        poliza: document.getElementById('grab-poliza')?.value || null,
+        num_solicitud: document.getElementById('grab-solicitud')?.value || null,
+        fecha_efecto: document.getElementById('grab-efecto')?.value || null,
+        campana: document.getElementById('grab-campana')?.value || null,
+        // Asegurados
+        asegurados,
       };
+
       try {
-        if (activeDeal?.id) {
-          await API.patch(`/pipeline/deals/${activeDeal.id}`, data);
-        } else {
-          await API.post('/pipeline/deals', data);
-        }
+        await API.post('/pipeline/grabar-poliza', data);
         this.showFicha(p.id);
       } catch (err) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Guardar póliza';
         alert('Error: ' + err.message);
       }
     });

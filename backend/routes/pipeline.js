@@ -486,4 +486,160 @@ router.post('/cleanup-stale-deals', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════
+// GRABAR PÓLIZA — flujo completo
+// ══════════════════════════════════════════════
+router.post('/grabar-poliza', async (req, res) => {
+  const {
+    persona_id, deal_id,
+    // Datos tomador
+    nombre, dni, fecha_nacimiento, sexo, direccion, codigo_postal,
+    provincia, localidad, telefono, email, iban,
+    es_empresa, cif, nombre_empresa, representante,
+    // Datos póliza
+    tipo_poliza, compania, prima, poliza, num_solicitud,
+    fecha_efecto, campana,
+    // Asegurados
+    asegurados,
+  } = req.body;
+
+  if (!persona_id) return res.status(400).json({ error: 'persona_id obligatorio' });
+  if (!tipo_poliza && !compania) return res.status(400).json({ error: 'Tipo póliza o compañía obligatorio' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. ACTUALIZAR DATOS TOMADOR en personas
+    await client.query(
+      `UPDATE personas SET
+         dni = COALESCE(NULLIF($1, ''), dni),
+         nombre = COALESCE(NULLIF($2, ''), nombre),
+         fecha_nacimiento = COALESCE($3::date, fecha_nacimiento),
+         sexo = COALESCE(NULLIF($4, ''), sexo),
+         direccion = COALESCE(NULLIF($5, ''), direccion),
+         codigo_postal = COALESCE(NULLIF($6, ''), codigo_postal),
+         provincia = COALESCE(NULLIF($7, ''), provincia),
+         localidad = COALESCE(NULLIF($8, ''), localidad),
+         telefono = COALESCE(NULLIF($9, ''), telefono),
+         email = COALESCE(NULLIF($10, ''), email),
+         iban = COALESCE(NULLIF($11, ''), iban),
+         updated_at = NOW()
+       WHERE id = $12`,
+      [dni, nombre, fecha_nacimiento || null, sexo, direccion, codigo_postal,
+       provincia, localidad, telefono, email, iban, persona_id]
+    );
+
+    // 2. CREAR o ACTUALIZAR DEAL
+    let dealIdFinal = deal_id ? parseInt(deal_id) : null;
+    const primaVal = prima ? parseFloat(String(prima).replace(',', '.')) : null;
+
+    if (dealIdFinal) {
+      // Actualizar deal existente → marcar como ganado
+      await client.query(
+        `UPDATE deals SET
+           tipo_poliza = COALESCE(NULLIF($1, ''), tipo_poliza),
+           compania = COALESCE(NULLIF($2, ''), compania),
+           prima = COALESCE($3, prima),
+           poliza = COALESCE(NULLIF($4, ''), poliza),
+           num_solicitud = COALESCE(NULLIF($5, ''), num_solicitud),
+           fecha_efecto = COALESCE($6::date, fecha_efecto),
+           iban = COALESCE(NULLIF($7, ''), iban),
+           pipedrive_status = 'won',
+           estado = 'poliza_activa',
+           updated_at = NOW()
+         WHERE id = $8`,
+        [tipo_poliza, compania, primaVal, poliza, num_solicitud,
+         fecha_efecto || null, iban, dealIdFinal]
+      );
+    } else {
+      // Crear nuevo deal como ganado
+      const r = await client.query(
+        `INSERT INTO deals (persona_id, tipo_poliza, compania, prima, poliza,
+           num_solicitud, fecha_efecto, iban, pipedrive_status, estado, agente_id,
+           pipeline_id, producto)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, 'won', 'poliza_activa', $9,
+           (SELECT id FROM pipelines WHERE active = true ORDER BY orden LIMIT 1),
+           $2)
+         RETURNING id`,
+        [persona_id, tipo_poliza, compania || 'ADESLAS', primaVal, poliza,
+         num_solicitud, fecha_efecto || null, iban, req.user.id]
+      );
+      dealIdFinal = r.rows[0].id;
+    }
+
+    // 3. GUARDAR ASEGURADOS
+    if (Array.isArray(asegurados) && asegurados.length > 0) {
+      // Limpiar asegurados anteriores de este deal
+      await client.query('DELETE FROM asegurados WHERE deal_id = $1', [dealIdFinal]);
+      for (const a of asegurados) {
+        if (!a.nombre) continue;
+        await client.query(
+          `INSERT INTO asegurados (persona_id, deal_id, nombre, dni, fecha_nac, sexo, parentesco)
+           VALUES ($1, $2, $3, $4, $5::date, $6, $7)`,
+          [persona_id, dealIdFinal, a.nombre, a.dni || null,
+           a.fecha_nac || null, a.sexo || null, a.parentesco || 'Titular']
+        );
+      }
+    }
+
+    // 4. CREAR TICKET de alta
+    const asegListText = (asegurados || []).filter(a => a.nombre).map(a => `  - ${a.nombre} (${a.parentesco || 'Titular'})`).join('\n');
+    const descripcionTicket = [
+      `ALTA PÓLIZA: ${tipo_poliza || ''}`,
+      `Compañía: ${compania || 'ADESLAS'}`,
+      `Prima: ${primaVal ? primaVal + '€/mes' : 'pendiente'}`,
+      `Tomador: ${nombre || ''} — DNI: ${dni || 'pendiente'}`,
+      asegListText ? `Asegurados:\n${asegListText}` : '',
+      iban ? `IBAN: ${iban}` : '',
+      poliza ? `Nº póliza: ${poliza}` : '',
+      num_solicitud ? `Nº solicitud: ${num_solicitud}` : '',
+      fecha_efecto ? `Fecha efecto: ${fecha_efecto}` : '',
+    ].filter(Boolean).join('\n');
+
+    await client.query(
+      `INSERT INTO tickets (contacto_id, pipedrive_deal_id, tipo, compania,
+         descripcion, estado, agente_id, created_by, prioridad)
+       VALUES ($1, $2, $3, $4, $5, 'pendiente', $6, $6, 'normal')`,
+      [persona_id, String(dealIdFinal), 'Alta nueva póliza',
+       compania || 'ADESLAS', descripcionTicket, req.user.id]
+    );
+
+    // 5. REGISTRAR EN HISTORIAL
+    await client.query(
+      `INSERT INTO contact_history (persona_id, deal_id, tipo, titulo, descripcion, agente_id, origen)
+       VALUES ($1, $2, 'poliza', $3, $4, $5, 'sistema')`,
+      [persona_id, dealIdFinal,
+       `Póliza grabada: ${tipo_poliza || compania || ''} — ${primaVal ? primaVal + '€/mes' : ''}`,
+       descripcionTicket, req.user.id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      deal_id: dealIdFinal,
+      message: 'Póliza grabada correctamente',
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[Grabar póliza] Error:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/pipeline/asegurados/:dealId
+router.get('/asegurados/:dealId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM asegurados WHERE deal_id = $1 ORDER BY id', [req.params.dealId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
