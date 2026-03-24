@@ -1026,14 +1026,27 @@ window.onload = async function() {
 
     // Precargar datos del contacto si viene de la ficha
     if (personaId) {
-        // Token JWT: también puede venir por URL param (para iframes)
-        let token = urlParams.get('token') || localStorage.getItem('token');
+        // Debug: verificar estado de localStorage
+        console.log('[Calculadora] personaId:', personaId);
+        console.log('[Calculadora] localStorage keys:', Object.keys(localStorage));
+        console.log('[Calculadora] token from localStorage:', localStorage.getItem('token') ? 'OK (' + localStorage.getItem('token').length + ' chars)' : 'MISSING');
+
+        // Token: localStorage (mismo origen), URL param, o parent
+        let token = localStorage.getItem('token');
+        if (!token) token = urlParams.get('token');
+        if (!token) try { token = window.parent?.Auth?.getToken?.(); } catch(e) {}
         if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
 
+        console.log('[Calculadora] token final:', token ? 'OK' : 'MISSING');
+
         if (!token) {
-            console.warn('[Calculadora] Sin token — precarga desde URL params');
+            console.error('[Calculadora] NO HAY TOKEN — la precarga no funcionará');
+            // Fallback: usar datos de URL params
             const tc = document.querySelector('#aseguradosContainer .asegurado-card');
-            if (tc && urlParams.get('nombre')) tc.querySelector('.asegurado-nombre').value = urlParams.get('nombre');
+            if (tc) {
+                const nombre = urlParams.get('nombre');
+                if (nombre) { const el = tc.querySelector('.asegurado-nombre'); if (el) el.value = nombre; }
+            }
         }
 
         if (token) {
@@ -3378,9 +3391,12 @@ async function guardarEnCRM() {
         return;
     }
 
-    // Token JWT
-    let token = new URLSearchParams(window.location.search).get('token') || localStorage.getItem('token');
+    // Token JWT — mismo mecanismo que precarga
+    let token = localStorage.getItem('token');
+    if (!token) token = new URLSearchParams(window.location.search).get('token');
+    if (!token) try { token = window.parent?.Auth?.getToken?.(); } catch(e) {}
     if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
+    console.log('[Guardar CRM] token:', token ? 'OK' : 'MISSING');
     if (!token) { showStatus('No estás logueado en el CRM', 'error'); return; }
 
     const personaIdVal = new URLSearchParams(window.location.search).get('persona_id');
