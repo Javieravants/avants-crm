@@ -9,7 +9,7 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   const userId = req.user.id;
   const rol = req.user.rol;
-  const isAdmin = rol === 'admin' || rol === 'supervisor';
+  const isAdmin = rol === 'admin' || rol === 'superadmin' || rol === 'supervisor';
 
   try {
     // KPIs: ventas hoy (deals won hoy)
