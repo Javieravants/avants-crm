@@ -2,11 +2,12 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
+const { generarPDFPropuesta } = require('../utils/pdf-generator');
 
 // Todas las rutas requieren autenticación
 router.use(auth);
 
-// POST /api/calculadora/propuestas — Guardar propuesta
+// POST /api/calculadora/propuestas — Guardar propuesta + generar PDF
 router.post('/propuestas', async (req, res) => {
   try {
     const {
@@ -42,7 +43,27 @@ router.post('/propuestas', async (req, res) => {
       nota_contenido || null, pipedrive_deal_id || null
     ]);
 
-    res.status(201).json(result.rows[0]);
+    const propuesta = result.rows[0];
+
+    // Generar PDF
+    try {
+      let personaData = {};
+      if (persona_id) {
+        const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [persona_id]);
+        personaData = pRes.rows[0] || {};
+      }
+      propuesta._persona = personaData;
+      propuesta.desglose = desglose || {};
+      propuesta.asegurados_data = asegurados_data || [];
+
+      const pdfUrl = await generarPDFPropuesta(propuesta);
+      await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [pdfUrl, propuesta.id]);
+      propuesta.pdf_url = pdfUrl;
+    } catch (pdfErr) {
+      console.error('Error generando PDF propuesta:', pdfErr.message);
+    }
+
+    res.status(201).json(propuesta);
   } catch (err) {
     console.error('Error guardando propuesta:', err);
     res.status(500).json({ error: 'Error al guardar propuesta' });

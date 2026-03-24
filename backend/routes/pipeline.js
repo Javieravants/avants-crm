@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
+const { generarPDFGrabacion } = require('../utils/pdf-generator');
 
 router.use(auth);
 
@@ -504,6 +505,9 @@ router.post('/run-migration-grabar', async (req, res) => {
     // Estado póliza en deals
     await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS num_poliza_definitivo VARCHAR(100)");
     await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS estado_poliza VARCHAR(30) DEFAULT 'pendiente'");
+    // PDF urls
+    await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS grabacion_pdf_url VARCHAR(500)");
+    await pool.query("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS grabacion_pdf_url VARCHAR(500)");
     res.json({ success: true, message: 'Migración ejecutada' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -627,12 +631,31 @@ router.post('/grabar-poliza', async (req, res) => {
       fecha_efecto ? `Fecha efecto: ${fecha_efecto}` : '',
     ].filter(Boolean).join('\n');
 
+    // 4b. GENERAR PDF GRABACIÓN
+    let grabacionPdfUrl = null;
+    try {
+      const agenteRes = await client.query('SELECT nombre FROM users WHERE id = $1', [req.user.id]);
+      grabacionPdfUrl = await generarPDFGrabacion({
+        deal_id: dealIdFinal, tipo_poliza, compania, prima: primaVal,
+        fecha_efecto, num_solicitud, poliza, campana,
+        nombre, dni, fecha_nacimiento, sexo, telefono, email,
+        direccion, codigo_postal, provincia, localidad, iban,
+        agente_nombre: agenteRes.rows[0]?.nombre || '',
+        asegurados: Array.isArray(asegurados) ? asegurados : [],
+        datos_especificos,
+      });
+      await client.query('UPDATE deals SET grabacion_pdf_url = $1 WHERE id = $2', [grabacionPdfUrl, dealIdFinal]);
+    } catch (pdfErr) {
+      console.error('[Grabar póliza] Error PDF:', pdfErr.message);
+    }
+
+    // 4c. CREAR TICKET con PDF adjunto
     await client.query(
       `INSERT INTO tickets (contacto_id, pipedrive_deal_id, tipo, compania,
-         descripcion, estado, agente_id, created_by, prioridad)
-       VALUES ($1, $2, $3, $4, $5, 'nuevo', $6, $6, 'normal')`,
+         descripcion, estado, agente_id, created_by, prioridad, grabacion_pdf_url)
+       VALUES ($1, $2, $3, $4, $5, 'nuevo', $6, $6, 'normal', $7)`,
       [persona_id, String(dealIdFinal), 'Alta nueva póliza',
-       compania || 'ADESLAS', descripcionTicket, req.user.id]
+       compania || 'ADESLAS', descripcionTicket, req.user.id, grabacionPdfUrl]
     );
 
     // 5. REGISTRAR EN HISTORIAL
@@ -649,6 +672,7 @@ router.post('/grabar-poliza', async (req, res) => {
     res.json({
       success: true,
       deal_id: dealIdFinal,
+      pdf_url: grabacionPdfUrl,
       message: 'Póliza grabada correctamente',
     });
   } catch (err) {

@@ -380,6 +380,18 @@ const TicketsModule = {
           <p>${this.escapeHtml(ticket.descripcion || 'Sin descripción').replace(/\n/g, '<br>')}</p>
         </div>
 
+        ${ticket.grabacion_pdf_url ? `
+        <div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:12px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.6" stroke-linecap="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:#065f46;">Grabación de póliza (PDF)</div>
+            <div style="font-size:11px;color:#94a3b8;">Documento adjunto con todos los datos de la grabación</div>
+          </div>
+          <a href="${ticket.grabacion_pdf_url}" target="_blank" style="padding:6px 14px;border-radius:8px;border:none;background:#10b981;color:#fff;text-decoration:none;font-size:12px;font-weight:600;font-family:inherit;">Ver PDF</a>
+          <a href="${ticket.grabacion_pdf_url}" download style="padding:6px 14px;border-radius:8px;border:1px solid #d1fae5;background:#fff;color:#065f46;text-decoration:none;font-size:12px;font-weight:600;font-family:inherit;">Descargar</a>
+        </div>
+        ` : ''}
+
         ${ticket.pipedrive_deal_id ? `
         <div style="background:#f4f6f9;border-radius:10px;padding:14px;margin-bottom:14px;">
           <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Estado de la póliza</div>
