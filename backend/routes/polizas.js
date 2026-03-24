@@ -13,14 +13,29 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-const SHEET_ID = '1XI3kWE45k8d-ZPrDpTYDzQf2ZS_GnsRXJPERPdyXswk';
-
-const HOJAS = [
-  'ENERO 2025', 'FEBRERO 2025', 'MARZO 2025', 'ABRIL 2025',
-  'MAYO 2025', 'JUNIO 2025', 'JULIO 2025', 'AGOSTO 2025',
-  'SEPTIEMBRE 2025', 'OCTUBRE 2025', 'NOVIEMBRE 2025', 'DICIEMBRE 2025',
-  'ENERO 2026'
-];
+// Sheets configurables — cada uno con su ID y pestañas
+const SHEETS = {
+  '2025': {
+    id: '1XI3kWE45k8d-ZPrDpTYDzQf2ZS_GnsRXJPERPdyXswk',
+    hojas: [
+      'ENERO 2025', 'FEBRERO 2025', 'MARZO 2025', 'ABRIL 2025',
+      'MAYO 2025', 'JUNIO 2025', 'JULIO 2025', 'AGOSTO 2025',
+      'SEPTIEMBRE 2025', 'OCTUBRE 2025', 'NOVIEMBRE 2025', 'DICIEMBRE 2025',
+      'ENERO 2026'
+    ],
+  },
+  '2024': {
+    id: '1Tz6isCk3OJUDXIwzPhLX-YpwbTzT-sckGjmxm543PwI',
+    hojas: [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL',
+      'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+      'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ],
+  },
+};
+// Alias para compatibilidad
+const SHEET_ID = SHEETS['2025'].id;
+const HOJAS = SHEETS['2025'].hojas;
 
 // =============================================
 // HELPERS
@@ -29,10 +44,12 @@ const HOJAS = [
 // Cache de agentes
 let agentesCache = null;
 // Mapeo alias Sheet → email del usuario en BD (match exacto, sin ambigüedad)
+// Incluye nombres largos (Sheet 2025) y códigos cortos (Sheet 2024)
 const AGENTE_POR_EMAIL = {
+  // Nombres largos (Sheet 2025)
   'ANDY':      'andrea@segurosdesaludonline.es',
   'EVA POLO':  'eva@segurosdesaludonline.es',
-  'EVO POLO':  'eva@segurosdesaludonline.es',       // typo común en el Sheet
+  'EVO POLO':  'eva@segurosdesaludonline.es',       // typo común
   'EVA MORA':  'evamora@segurosdesaludonline.es',
   'SILVIA':    'silvia@segurosdesaludonline.es',
   'MARISA':    'marisa@segurosdesaludonline.es',
@@ -41,6 +58,23 @@ const AGENTE_POR_EMAIL = {
   'SOL':       'sol.historico@avants.internal',
   'CRISTINA':  'cristina.historico@avants.internal',
   'NANI':      'nani.historico@avants.internal',
+  // Códigos cortos (Sheet 2024)
+  'EP':        'eva@segurosdesaludonline.es',
+  'EM':        'evamora@segurosdesaludonline.es',
+  'S':         'silvia@segurosdesaludonline.es',
+  'ML':        'marisa@segurosdesaludonline.es',
+  'MM':        'montse@segurosdesaludonline.es',
+  'MO':        'montse@segurosdesaludonline.es',
+  'AD':        'andrea@segurosdesaludonline.es',
+  'CR':        'cristina.historico@avants.internal',
+  'JOS':       'javier@segurosdesaludonline.es',
+  'DR':        'diego@segurosdesaludonline.es',
+  'BS':        'beatrizdkvhealth@gmail.com',
+  'MR':        'raquel@segurosdesaludonline.es',
+  'PC':        'patricia@segurosdesaludonline.es',
+  'RL':        'raultelegestioncalahorra@gmail.com',
+  'AF':        'ana@segurosdesaludonline.es',
+  'NAN':       'nani.historico@avants.internal',
 };
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;
@@ -514,7 +548,15 @@ router.post('/importar-csv', upload.single('archivo'), async (req, res) => {
 router.post('/importar-sheet', async (req, res) => {
   agentesCache = null;
 
+  // Seleccionar Sheet por año: POST { year: "2024" } o sin body para 2025
+  const year = req.body?.year || '2025';
+  const sheetConfig = SHEETS[year];
+  if (!sheetConfig) {
+    return res.status(400).json({ error: `Año "${year}" no configurado. Disponibles: ${Object.keys(SHEETS).join(', ')}` });
+  }
+
   const informe = {
+    sheet: `ADESLAS VENTAS ${year}`,
     personas_vinculadas_por_dni: 0,
     personas_vinculadas_por_telefono: 0,
     personas_vinculadas_por_email: 0,
@@ -528,10 +570,10 @@ router.post('/importar-sheet', async (req, res) => {
   };
 
   try {
-    for (const hoja of HOJAS) {
+    for (const hoja of sheetConfig.hojas) {
       let rows;
       try {
-        rows = await fetchSheet(hoja);
+        rows = await fetchSheet(hoja, sheetConfig.id);
       } catch (err) {
         informe.errores.push(`Error leyendo ${hoja}: ${err.message}`);
         continue;
@@ -579,8 +621,9 @@ router.post('/importar-sheet', async (req, res) => {
 });
 
 // Leer pestaña Google Sheet via gviz (solo funciona si el Sheet es público)
-async function fetchSheet(hoja) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(hoja)}`;
+async function fetchSheet(hoja, sheetId) {
+  const id = sheetId || SHEET_ID;
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(hoja)}`;
   const res = await fetch(url);
   const text = await res.text();
   const jsonStr = text.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
