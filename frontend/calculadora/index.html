@@ -3376,17 +3376,17 @@ async function guardarEnCRM() {
     // Recoger productos activos con su prima individual
     const productos = [];
     const saludProducto = document.getElementById('saludProducto')?.value || '';
-    if (productosActivos?.salud && resultadosCalculo?.salud?.mensual > 0) {
-        productos.push({ tipo: 'SALUD', nombre: saludProducto, mensual: resultadosCalculo.salud.mensual, anual: resultadosCalculo.salud.anual || 0, puntos: resultadosCalculo.salud.puntos || 0 });
+    if (productosActivos?.salud && resultados?.salud?.prima > 0) {
+        productos.push({ tipo: 'SALUD', nombre: saludProducto, mensual: resultados.salud.prima, anual: (resultados.salud.prima || 0) * 12, puntos: resultados.salud.puntos || 0 });
     }
-    if (productosActivos?.dentalMax && resultadosCalculo?.dentalMax?.mensual > 0) {
-        productos.push({ tipo: 'DENTAL', nombre: 'Dental MAX', mensual: resultadosCalculo.dentalMax.mensual, anual: resultadosCalculo.dentalMax.anual || 0, puntos: resultadosCalculo.dentalMax.puntos || 0 });
+    if (productosActivos?.dentalMax && resultados?.dentalMax?.prima > 0) {
+        productos.push({ tipo: 'DENTAL', nombre: 'Dental MAX', mensual: resultados.dentalMax.prima, anual: (resultados.dentalMax.prima || 0) * 12, puntos: resultados.dentalMax.puntos || 0 });
     }
-    if (productosActivos?.mascotas && resultadosCalculo?.mascotas?.mensual > 0) {
-        productos.push({ tipo: 'MASCOTAS', nombre: 'Mascotas', mensual: resultadosCalculo.mascotas.mensual, anual: resultadosCalculo.mascotas.anual || 0, puntos: resultadosCalculo.mascotas.puntos || 0 });
+    if (productosActivos?.mascotas && resultados?.mascotas?.prima > 0) {
+        productos.push({ tipo: 'MASCOTAS', nombre: 'Mascotas', mensual: resultados.mascotas.prima, anual: (resultados.mascotas.prima || 0) * 12, puntos: resultados.mascotas.puntos || 0 });
     }
-    if (productosActivos?.decesos && resultadosCalculo?.decesos?.mensual > 0) {
-        productos.push({ tipo: 'DECESOS', nombre: 'Decesos', mensual: resultadosCalculo.decesos.mensual, anual: resultadosCalculo.decesos.anual || 0, puntos: resultadosCalculo.decesos.puntos || 0 });
+    if (productosActivos?.decesos && resultados?.decesos?.prima > 0) {
+        productos.push({ tipo: 'DECESOS', nombre: 'Decesos', mensual: resultados.decesos.prima, anual: (resultados.decesos.prima || 0) * 12, puntos: resultados.decesos.puntos || 0 });
     }
 
     if (productos.length === 0 && asegurados.length === 0) {
