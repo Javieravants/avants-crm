@@ -1290,14 +1290,18 @@ const PersonasModule = {
       document.getElementById('grab-tomador-empresa').style.display = e.target.checked ? 'grid' : 'none';
     });
 
-    // Toggle asegurados / mascotas según compañía
+    // Toggle asegurados / mascotas según compañía o tipo
     const companiaSelect = document.getElementById('grab-compania');
+    const tipoInput = document.getElementById('grab-tipo');
     const toggleSeccionB = () => {
-      const isMascotas = companiaSelect.value.includes('MASCOTAS');
+      const comp = (companiaSelect.value || '').toUpperCase();
+      const tipo = (tipoInput.value || '').toUpperCase();
+      const isMascotas = comp.includes('MASCOTAS') || tipo.includes('MASCOTA');
       document.getElementById('grab-panel-asegurados').style.display = isMascotas ? 'none' : 'block';
       document.getElementById('grab-panel-mascotas').style.display = isMascotas ? 'block' : 'none';
     };
     companiaSelect.addEventListener('change', toggleSeccionB);
+    tipoInput.addEventListener('input', toggleSeccionB);
     toggleSeccionB();
 
     // Añadir mascota

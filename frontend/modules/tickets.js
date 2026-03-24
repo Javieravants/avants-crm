@@ -377,8 +377,37 @@ const TicketsModule = {
 
         <div class="panel-desc-box">
           <strong>Descripción</strong>
-          <p>${this.escapeHtml(ticket.descripcion || 'Sin descripción')}</p>
+          <p>${this.escapeHtml(ticket.descripcion || 'Sin descripción').replace(/\n/g, '<br>')}</p>
         </div>
+
+        ${ticket.pipedrive_deal_id ? `
+        <div style="background:#f4f6f9;border-radius:10px;padding:14px;margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Estado de la póliza</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <span class="poliza-step" data-step="pendiente" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:${!ticket.num_solicitud ? '#009DDD' : '#e8edf2'};color:${!ticket.num_solicitud ? '#fff' : '#94a3b8'};">Pendiente subir</span>
+            <span style="color:#94a3b8;">→</span>
+            <span class="poliza-step" data-step="solicitud" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:${ticket.num_solicitud && !ticket.num_poliza ? '#f59e0b' : ticket.num_solicitud ? '#e8edf2' : '#f4f6f9'};color:${ticket.num_solicitud && !ticket.num_poliza ? '#fff' : '#94a3b8'};">${ticket.num_solicitud ? 'Solicitud: ' + ticket.num_solicitud : 'Solicitud enviada'}</span>
+            <span style="color:#94a3b8;">→</span>
+            <span class="poliza-step" data-step="activa" style="padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;background:${ticket.num_poliza ? '#10b981' : '#f4f6f9'};color:${ticket.num_poliza ? '#fff' : '#94a3b8'};">${ticket.num_poliza ? 'Póliza: ' + ticket.num_poliza : 'Póliza activa'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Solicitud</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" class="form-control" id="panel-num-solicitud" value="${ticket.num_solicitud || ''}" style="font-size:13px;">
+                <button id="btn-save-solicitud" style="padding:4px 12px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;font-family:inherit;">Guardar</button>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Póliza definitivo</label>
+              <div style="display:flex;gap:6px;">
+                <input type="text" class="form-control" id="panel-num-poliza-def" value="${ticket.num_poliza || ''}" style="font-size:13px;">
+                <button id="btn-save-poliza-def" style="padding:4px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;font-family:inherit;">Guardar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
 
         <div class="panel-section-title">Historial de comunicaciones</div>
         <div class="panel-comm-list" id="panel-comm-list">${commHtml}</div>
@@ -425,6 +454,36 @@ const TicketsModule = {
     document.getElementById('panel-close').addEventListener('click', closePanel);
     document.getElementById('btn-panel-cerrar').addEventListener('click', closePanel);
     overlay.querySelector('.tramite-panel-backdrop').addEventListener('click', closePanel);
+
+    // Guardar Nº Solicitud → actualizar deal y ticket
+    document.getElementById('btn-save-solicitud')?.addEventListener('click', async () => {
+      const val = document.getElementById('panel-num-solicitud')?.value?.trim();
+      if (!val) return;
+      try {
+        await API.patch(`/pipeline/deals/${ticket.pipedrive_deal_id}/estado-poliza`, {
+          num_solicitud: val, estado_poliza: 'solicitud_enviada'
+        });
+        await API.patch(`/tickets/${ticket.id}`, { estado: 'en_gestion', num_solicitud: val });
+        showStatusMsg?.('Nº solicitud guardado');
+        closePanel();
+        this.loadTickets();
+      } catch (err) { alert('Error: ' + err.message); }
+    });
+
+    // Guardar Nº Póliza definitivo → actualizar deal y resolver ticket
+    document.getElementById('btn-save-poliza-def')?.addEventListener('click', async () => {
+      const val = document.getElementById('panel-num-poliza-def')?.value?.trim();
+      if (!val) return;
+      try {
+        await API.patch(`/pipeline/deals/${ticket.pipedrive_deal_id}/estado-poliza`, {
+          num_poliza_definitivo: val, estado_poliza: 'poliza_activa'
+        });
+        await API.patch(`/tickets/${ticket.id}`, { estado: 'resuelto', num_poliza: val });
+        showStatusMsg?.('Póliza activada');
+        closePanel();
+        this.loadTickets();
+      } catch (err) { alert('Error: ' + err.message); }
+    });
 
     // Tabs de mensaje
     let msgTipo = 'email', msgDest = 'compania';

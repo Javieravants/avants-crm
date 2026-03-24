@@ -1009,18 +1009,91 @@ function validarEdadesSalud(producto, edades) {
     return null;
 }
 
-window.onload = function() {
+window.onload = async function() {
     const urlParams = new URLSearchParams(window.location.search);
     dealId = urlParams.get('deal_id');
-    
+    const personaId = urlParams.get('persona_id');
+
     addAsegurado(true); // Titular
     actualizarRegalos(0);
     onTipoDecesosChange(); // Inicializar panel Decesos con tipo Plus
-    
+
     if (dealId) {
         cargarDatosDeal(dealId);
     } else {
         calcularTodo();
+    }
+
+    // Precargar datos del contacto si viene de la ficha
+    if (personaId) {
+        try {
+            let token = null;
+            try { token = window.parent?.localStorage?.getItem('token') || localStorage.getItem('token'); }
+            catch(e) { token = localStorage.getItem('token'); }
+            if (!token) return;
+
+            const res = await fetch('/api/personas/' + personaId, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (!res.ok) return;
+            const persona = await res.json();
+
+            // Precargar titular (primer asegurado)
+            const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
+            if (titularCard) {
+                if (persona.nombre) {
+                    const nombreInput = titularCard.querySelector('.asegurado-nombre');
+                    if (nombreInput) nombreInput.value = persona.nombre;
+                }
+                if (persona.fecha_nacimiento) {
+                    const fechaInput = titularCard.querySelector('.asegurado-fecha');
+                    if (fechaInput) {
+                        fechaInput.value = persona.fecha_nacimiento.split('T')[0];
+                        calcularTodo();
+                    }
+                }
+                if (persona.provincia) {
+                    const provSelect = titularCard.querySelector('.asegurado-provincia');
+                    if (provSelect) {
+                        provSelect.value = persona.provincia;
+                        onProvinciaChange(provSelect, true);
+                        if (persona.localidad) {
+                            setTimeout(() => {
+                                const locSelect = titularCard.querySelector('.asegurado-localidad');
+                                if (locSelect) locSelect.value = persona.localidad;
+                            }, 500);
+                        }
+                    }
+                }
+            }
+
+            // Mostrar banner de contacto vinculado
+            const header = document.querySelector('.header');
+            if (header && persona.nombre) {
+                const badge = document.createElement('div');
+                badge.style.cssText = 'background:#e6f6fd;color:#007ab8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;';
+                badge.innerHTML = '👤 ' + persona.nombre + (persona.telefono ? ' · ' + persona.telefono : '');
+                header.appendChild(badge);
+            }
+
+            // Cargar propuestas previas
+            const propRes = await fetch('/api/calculadora/propuestas/persona/' + personaId, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (propRes.ok) {
+                const propuestas = await propRes.json();
+                if (propuestas.length > 0) {
+                    const header2 = document.querySelector('.header');
+                    const propBadge = document.createElement('div');
+                    propBadge.style.cssText = 'background:#ecfdf5;color:#065f46;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;';
+                    propBadge.textContent = '📋 ' + propuestas.length + ' propuesta' + (propuestas.length > 1 ? 's' : '') + ' previas';
+                    propBadge.title = 'Click para ver propuestas anteriores';
+                    header2.appendChild(propBadge);
+                }
+            }
+        } catch(e) {
+            console.warn('Error precargando datos contacto:', e.message);
+        }
     }
 };
 
@@ -3282,11 +3355,14 @@ async function guardarEnCRM() {
     }
 
     try {
+        const personaIdParam = new URLSearchParams(window.location.search).get('persona_id');
+        const personaIdVal = personaIdParam ? parseInt(personaIdParam) : null;
+
         const res = await fetch('/api/calculadora/propuestas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({
-                persona_id: (() => { const u = new URLSearchParams(window.location.search); return u.get('persona_id') ? parseInt(u.get('persona_id')) : null; })(),
+                persona_id: personaIdVal,
                 deal_id: dealId ? parseInt(dealId) : null,
                 compania: 'ADESLAS',
                 producto: saludProducto || 'Presupuesto',
@@ -3303,6 +3379,30 @@ async function guardarEnCRM() {
         const data = await res.json();
         if (res.ok) {
             showStatusMsg('✅ Guardado en CRM (ID: ' + data.id + ')', 'success');
+
+            // Actualizar datos del contacto con los datos del titular
+            if (personaIdVal) {
+                const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
+                if (titularCard) {
+                    const patchData = {};
+                    const nombre = titularCard.querySelector('.asegurado-nombre')?.value;
+                    const fecha = titularCard.querySelector('.asegurado-fecha')?.value;
+                    const prov = titularCard.querySelector('.asegurado-provincia')?.value;
+                    const loc = titularCard.querySelector('.asegurado-localidad')?.value;
+                    if (nombre) patchData.nombre = nombre;
+                    if (fecha) patchData.fecha_nacimiento = fecha;
+                    if (prov) patchData.provincia = prov;
+                    if (loc) patchData.localidad = loc;
+
+                    if (Object.keys(patchData).length > 0) {
+                        fetch('/api/personas/' + personaIdVal, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify(patchData)
+                        }).catch(() => {});
+                    }
+                }
+            }
         } else {
             showStatusMsg('❌ Error CRM: ' + (data.error || 'desconocido'), 'error');
         }
