@@ -486,6 +486,27 @@ router.post('/cleanup-stale-deals', async (req, res) => {
   }
 });
 
+// Ejecutar migración de grabar-poliza (temporal)
+router.post('/run-migration-grabar', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Solo admin' });
+  try {
+    await pool.query('ALTER TABLE personas ADD COLUMN IF NOT EXISTS provincia VARCHAR(100)');
+    await pool.query('ALTER TABLE personas ADD COLUMN IF NOT EXISTS localidad VARCHAR(100)');
+    await pool.query('ALTER TABLE personas ADD COLUMN IF NOT EXISTS iban VARCHAR(34)');
+    await pool.query(`CREATE TABLE IF NOT EXISTS asegurados (
+      id SERIAL PRIMARY KEY, persona_id INTEGER REFERENCES personas(id) ON DELETE CASCADE,
+      deal_id INTEGER REFERENCES deals(id) ON DELETE SET NULL, tenant_id INTEGER DEFAULT 1,
+      nombre VARCHAR(255) NOT NULL, dni VARCHAR(20), fecha_nac DATE,
+      sexo VARCHAR(10), parentesco VARCHAR(50), created_at TIMESTAMP DEFAULT NOW()
+    )`);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_asegurados_persona ON asegurados(persona_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_asegurados_deal ON asegurados(deal_id)');
+    res.json({ success: true, message: 'Migración ejecutada' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ══════════════════════════════════════════════
 // GRABAR PÓLIZA — flujo completo
 // ══════════════════════════════════════════════
