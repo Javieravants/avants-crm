@@ -1,526 +1,376 @@
-// === Módulo Informes ===
+// === Módulo Informes — Rediseño completo ===
 
 const InformesModule = {
-  activeTab: 'resumen',
-  filters: {
-    desde: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    hasta: new Date().toISOString().split('T')[0],
-  },
+  tab: 'todos',
+  page: 1,
+  filters: {},
+  filterOptions: null,
 
   async render() {
-    const container = document.getElementById('main-content');
-    container.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <h1 class="page-title" style="margin-bottom:0;">Informes</h1>
-      </div>
+    const now = new Date();
+    this.filters = {
+      desde: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+      hasta: now.toISOString().split('T')[0],
+    };
+    this.tab = 'todos';
+    this.page = 1;
 
-      <!-- Tabs -->
-      <div class="card" style="padding:0;margin-bottom:16px;">
-        <div id="informes-tabs" style="display:flex;border-bottom:1px solid #e8edf2;overflow-x:auto;">
-          <button class="inf-tab active" data-tab="resumen" style="padding:12px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--accent);white-space:nowrap;font-family:inherit;">Resumen</button>
-          <button class="inf-tab" data-tab="deals" style="padding:12px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#94a3b8;white-space:nowrap;font-family:inherit;">Ganados / Perdidos</button>
-          <button class="inf-tab" data-tab="mrr" style="padding:12px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#94a3b8;white-space:nowrap;font-family:inherit;">MRR — Primas</button>
-          <button class="inf-tab" data-tab="agentes" style="padding:12px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#94a3b8;white-space:nowrap;font-family:inherit;">Actividad agentes</button>
-          <button class="inf-tab" data-tab="exportar" style="padding:12px 20px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#94a3b8;white-space:nowrap;font-family:inherit;">Exportar / Importar</button>
+    const c = document.getElementById('main-content');
+    c.innerHTML = `
+      <h1 class="page-title" style="margin-bottom:16px;">Informes</h1>
+
+      <!-- FILTROS -->
+      <div class="card" style="margin-bottom:14px;padding:14px 16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="date" id="inf-desde" class="form-control" style="max-width:150px;font-size:12px;" value="${this.filters.desde}">
+          <input type="date" id="inf-hasta" class="form-control" style="max-width:150px;font-size:12px;" value="${this.filters.hasta}">
+          <div style="display:flex;gap:3px;" id="inf-periods"></div>
+          <select class="form-control" id="inf-agente" style="max-width:170px;font-size:12px;"><option value="">Agente</option></select>
+          <select class="form-control" id="inf-pipeline" style="max-width:150px;font-size:12px;"><option value="">Pipeline</option></select>
+          <select class="form-control" id="inf-etiqueta" style="max-width:150px;font-size:12px;"><option value="">Etiqueta</option></select>
+          <select class="form-control" id="inf-status" style="max-width:130px;font-size:12px;">
+            <option value="">Estado</option>
+            <option value="won">Ganados</option>
+            <option value="lost">Perdidos</option>
+            <option value="open">Activos</option>
+          </select>
         </div>
       </div>
 
-      <!-- Filtros globales -->
-      <div class="card" style="margin-bottom:16px;" id="informes-filters">
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">Desde</label>
-            <input type="date" id="inf-desde" class="form-control" style="max-width:160px;" value="${this.filters.desde}">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <label style="font-size:12px;font-weight:600;color:#475569;">Hasta</label>
-            <input type="date" id="inf-hasta" class="form-control" style="max-width:160px;" value="${this.filters.hasta}">
-          </div>
-          <select class="form-control" id="inf-agente" style="max-width:180px;">
-            <option value="">Todos los agentes</option>
-          </select>
-          <select class="form-control" id="inf-pipeline" style="max-width:180px;">
-            <option value="">Todos los pipelines</option>
-          </select>
-          <select class="form-control" id="inf-etiqueta" style="max-width:180px;">
-            <option value="">Todas las etiquetas</option>
-          </select>
-          <!-- Atajos de periodo -->
-          <div style="display:flex;gap:4px;">
-            <button class="inf-period" data-period="today" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#475569;">Hoy</button>
-            <button class="inf-period" data-period="week" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#475569;">Semana</button>
-            <button class="inf-period" data-period="month" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#e6f6fd;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#009DDD;">Mes</button>
-            <button class="inf-period" data-period="year" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#475569;">Año</button>
-          </div>
-        </div>
+      <!-- KPIs -->
+      <div id="inf-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;"></div>
+
+      <!-- TABS -->
+      <div class="card" style="padding:0;margin-bottom:14px;">
+        <div id="inf-tabs" style="display:flex;border-bottom:1px solid #e8edf2;overflow-x:auto;"></div>
       </div>
 
-      <!-- Contenido del tab -->
-      <div id="informes-content"></div>
+      <!-- TABLA -->
+      <div class="card" style="padding:14px 16px;">
+        <div id="inf-table-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"></div>
+        <div id="inf-table-body"></div>
+        <div id="inf-pagination" style="display:flex;justify-content:center;gap:6px;margin-top:14px;"></div>
+      </div>
     `;
 
-    // Cargar opciones de filtros
-    this._loadFilterOptions();
+    this._renderPeriods();
+    this._renderTabs();
+    this._bindFilters();
+    await this._loadFilterOptions();
+    this._refresh();
+  },
 
-    // Event listeners
-    document.getElementById('informes-tabs').addEventListener('click', (e) => {
+  _renderPeriods() {
+    const periods = [
+      { key: 'today', label: 'Hoy' },
+      { key: 'week', label: 'Semana' },
+      { key: 'month', label: 'Mes', active: true },
+      { key: 'year', label: 'Año' },
+    ];
+    document.getElementById('inf-periods').innerHTML = periods.map(p =>
+      `<button class="inf-per" data-p="${p.key}" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;background:${p.active ? '#e6f6fd' : '#fff'};color:${p.active ? '#009DDD' : '#475569'};">${p.label}</button>`
+    ).join('');
+
+    document.getElementById('inf-periods').addEventListener('click', (e) => {
+      const btn = e.target.closest('.inf-per');
+      if (!btn) return;
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      let desde = today;
+      if (btn.dataset.p === 'week') { const d = new Date(now); d.setDate(d.getDate() - d.getDay() + 1); desde = d.toISOString().split('T')[0]; }
+      else if (btn.dataset.p === 'month') { desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; }
+      else if (btn.dataset.p === 'year') { desde = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]; }
+      this.filters.desde = desde; this.filters.hasta = today;
+      document.getElementById('inf-desde').value = desde;
+      document.getElementById('inf-hasta').value = today;
+      document.querySelectorAll('.inf-per').forEach(b => { b.style.background = '#fff'; b.style.color = '#475569'; });
+      btn.style.background = '#e6f6fd'; btn.style.color = '#009DDD';
+      this.page = 1; this._refresh();
+    });
+  },
+
+  _renderTabs() {
+    const tabs = [
+      { key: 'todos', label: 'Todos los leads' },
+      { key: 'ganados', label: 'Ganados' },
+      { key: 'perdidos', label: 'Perdidos' },
+      { key: 'activos', label: 'Activos' },
+      { key: 'mrr', label: 'MRR-Primas' },
+      { key: 'agentes', label: 'Por agente' },
+    ];
+    document.getElementById('inf-tabs').innerHTML = tabs.map(t =>
+      `<button class="inf-tab" data-tab="${t.key}" style="padding:11px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid ${t.key === this.tab ? 'var(--accent)' : 'transparent'};color:${t.key === this.tab ? 'var(--accent)' : '#94a3b8'};white-space:nowrap;font-family:inherit;">${t.label}</button>`
+    ).join('');
+
+    document.getElementById('inf-tabs').addEventListener('click', (e) => {
       const btn = e.target.closest('.inf-tab');
       if (!btn) return;
-      document.querySelectorAll('.inf-tab').forEach(b => {
-        b.style.color = '#94a3b8';
-        b.style.borderBottomColor = 'transparent';
-      });
-      btn.style.color = 'var(--accent)';
-      btn.style.borderBottomColor = 'var(--accent)';
-      this.activeTab = btn.dataset.tab;
-      this._renderTab();
+      this.tab = btn.dataset.tab;
+      this.page = 1;
+      document.querySelectorAll('.inf-tab').forEach(b => { b.style.color = '#94a3b8'; b.style.borderBottomColor = 'transparent'; });
+      btn.style.color = 'var(--accent)'; btn.style.borderBottomColor = 'var(--accent)';
+      this._loadTable();
     });
+  },
 
-    // Filtros de fecha
-    document.getElementById('inf-desde').addEventListener('change', (e) => { this.filters.desde = e.target.value; this._renderTab(); });
-    document.getElementById('inf-hasta').addEventListener('change', (e) => { this.filters.hasta = e.target.value; this._renderTab(); });
-    document.getElementById('inf-agente').addEventListener('change', (e) => { this.filters.agente_id = e.target.value; this._renderTab(); });
-    document.getElementById('inf-pipeline').addEventListener('change', (e) => { this.filters.pipeline_id = e.target.value; this._renderTab(); });
-    document.getElementById('inf-etiqueta').addEventListener('change', (e) => { this.filters.etiqueta_id = e.target.value; this._renderTab(); });
-
-    // Atajos de periodo
-    document.querySelectorAll('.inf-period').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
-        let desde = today;
-
-        if (btn.dataset.period === 'week') {
-          const d = new Date(now);
-          d.setDate(d.getDate() - d.getDay() + 1);
-          desde = d.toISOString().split('T')[0];
-        } else if (btn.dataset.period === 'month') {
-          desde = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        } else if (btn.dataset.period === 'year') {
-          desde = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-        }
-
-        this.filters.desde = desde;
-        this.filters.hasta = today;
-        document.getElementById('inf-desde').value = desde;
-        document.getElementById('inf-hasta').value = today;
-
-        document.querySelectorAll('.inf-period').forEach(b => {
-          b.style.background = '#fff'; b.style.color = '#475569';
-        });
-        btn.style.background = '#e6f6fd'; btn.style.color = '#009DDD';
-
-        this._renderTab();
-      });
-    });
-
-    this._renderTab();
+  _bindFilters() {
+    const refresh = () => { this.page = 1; this._refresh(); };
+    document.getElementById('inf-desde').addEventListener('change', (e) => { this.filters.desde = e.target.value; refresh(); });
+    document.getElementById('inf-hasta').addEventListener('change', (e) => { this.filters.hasta = e.target.value; refresh(); });
+    document.getElementById('inf-agente').addEventListener('change', (e) => { this.filters.agente_id = e.target.value; refresh(); });
+    document.getElementById('inf-pipeline').addEventListener('change', (e) => { this.filters.pipeline_id = e.target.value; refresh(); });
+    document.getElementById('inf-etiqueta').addEventListener('change', (e) => { this.filters.etiqueta_id = e.target.value; refresh(); });
+    document.getElementById('inf-status').addEventListener('change', (e) => { this.filters.status = e.target.value; refresh(); });
   },
 
   async _loadFilterOptions() {
     try {
-      const [users, pipelines, etiquetas] = await Promise.all([
-        API.get('/auth/users'),
-        API.get('/pipeline/pipelines'),
-        API.get('/etiquetas'),
-      ]);
-
+      const data = await API.get('/informes/filtros');
+      this.filterOptions = data;
       const agSel = document.getElementById('inf-agente');
-      users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.id; opt.textContent = u.nombre;
-        agSel.appendChild(opt);
-      });
-
-      const plSel = document.getElementById('inf-pipeline');
-      const plList = Array.isArray(pipelines) ? pipelines : (pipelines?.pipelines || []);
-      plList.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id; opt.textContent = p.nombre || p.name;
-        plSel.appendChild(opt);
-      });
-
-      const etqSel = document.getElementById('inf-etiqueta');
-      etiquetas.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.id; opt.textContent = e.nombre;
-        etqSel.appendChild(opt);
-      });
+      data.agentes.forEach(a => { const o = document.createElement('option'); o.value = a.id; o.textContent = a.nombre; agSel.appendChild(o); });
+      const piSel = document.getElementById('inf-pipeline');
+      data.pipelines.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; piSel.appendChild(o); });
+      const etSel = document.getElementById('inf-etiqueta');
+      data.etiquetas.forEach(e => { const o = document.createElement('option'); o.value = e.id; o.textContent = e.nombre; etSel.appendChild(o); });
     } catch {}
   },
 
   _qs() {
-    let q = `desde=${this.filters.desde}&hasta=${this.filters.hasta}`;
+    let q = '';
+    if (this.filters.desde) q += `&desde=${this.filters.desde}`;
+    if (this.filters.hasta) q += `&hasta=${this.filters.hasta}`;
     if (this.filters.agente_id) q += `&agente_id=${this.filters.agente_id}`;
     if (this.filters.pipeline_id) q += `&pipeline_id=${this.filters.pipeline_id}`;
     if (this.filters.etiqueta_id) q += `&etiqueta_id=${this.filters.etiqueta_id}`;
-    return q;
+    if (this.filters.status) q += `&status=${this.filters.status}`;
+    return q.substring(1);
   },
 
-  async _renderTab() {
-    const el = document.getElementById('informes-content');
-    el.innerHTML = '<div class="card"><p class="text-light">Cargando...</p></div>';
+  async _refresh() {
+    this._loadKPIs();
+    this._loadTable();
+  },
 
+  // =============================================
+  // KPIs
+  // =============================================
+  async _loadKPIs() {
+    const el = document.getElementById('inf-kpis');
     try {
-      switch (this.activeTab) {
-        case 'resumen': await this._renderResumen(el); break;
-        case 'deals': await this._renderDeals(el); break;
-        case 'mrr': await this._renderMRR(el); break;
-        case 'agentes': await this._renderAgentes(el); break;
-        case 'exportar': this._renderExportar(el); break;
-      }
+      const d = await API.get(`/informes/kpis?${this._qs()}`);
+      const kpis = [
+        { label: 'Leads recibidos', val: d.leads.toLocaleString('es-ES'), color: '#009DDD' },
+        { label: 'Ganados', val: d.ganados.toLocaleString('es-ES'), color: '#10b981' },
+        { label: 'Perdidos', val: d.perdidos.toLocaleString('es-ES'), color: '#ef4444' },
+        { label: 'Conversión', val: d.conversion + '%', color: '#8b5cf6' },
+        { label: 'Prima ganada', val: this._money(d.prima_total), color: '#10b981' },
+      ];
+      el.innerHTML = kpis.map(k => `
+        <div class="card" style="text-align:center;padding:16px 10px;">
+          <div style="font-size:24px;font-weight:800;color:${k.color};">${k.val}</div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:3px;">${k.label}</div>
+        </div>
+      `).join('');
     } catch (err) {
-      el.innerHTML = `<div class="card"><p style="color:#ef4444">${err.message}</p></div>`;
+      el.innerHTML = `<div class="card" style="grid-column:1/-1;color:#ef4444;font-size:13px;">Error: ${err.message}</div>`;
     }
   },
 
-  // === TAB 1: Resumen ===
-  async _renderResumen(el) {
-    const data = await API.get(`/informes/resumen?${this._qs()}`);
+  // =============================================
+  // TABLA
+  // =============================================
+  async _loadTable() {
+    const header = document.getElementById('inf-table-header');
+    const body = document.getElementById('inf-table-body');
+    const pag = document.getElementById('inf-pagination');
+    body.innerHTML = '<p class="text-light" style="font-size:13px;">Cargando...</p>';
 
-    const kpis = [
-      { label: 'Leads recibidos', value: data.leads, color: '#009DDD', icon: 'pipeline' },
-      { label: 'Deals ganados', value: data.ganados, color: '#10b981', icon: 'polizas' },
-      { label: 'Importe ganado', value: this._money(data.importe_ganado), color: '#10b981', icon: null },
-      { label: 'Deals perdidos', value: data.perdidos, color: '#ef4444', icon: null },
-      { label: 'Tasa conversión', value: data.tasa_conversion + '%', color: '#8b5cf6', icon: null },
-      { label: 'MRR activo', value: this._money(data.mrr), color: '#009DDD', icon: 'informes' },
-      { label: 'Llamadas', value: data.llamadas, color: '#f59e0b', icon: 'llamada' },
-    ];
+    try {
+      const data = await API.get(`/informes/leads?${this._qs()}&tab=${this.tab}&page=${this.page}&limit=50`);
 
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
-        ${kpis.map(k => `
-          <div class="card" style="text-align:center;padding:20px 14px;">
-            ${k.icon && typeof Icons !== 'undefined' && Icons[k.icon] ? `<div style="margin-bottom:8px;opacity:.5;">${Icons[k.icon](28, k.color)}</div>` : ''}
-            <div style="font-size:28px;font-weight:800;color:${k.color};">${k.value}</div>
-            <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-top:4px;">${k.label}</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  },
+      if (data.type === 'agentes') return this._renderAgentes(data.rows, header, body, pag);
+      if (data.type === 'mrr') return this._renderMRR(data.rows, header, body, pag);
 
-  // === TAB 2: Ganados / Perdidos ===
-  async _renderDeals(el) {
-    const wonData = await API.get(`/informes/deals?status=won&${this._qs()}&limit=50`);
-    const lostData = await API.get(`/informes/deals?status=lost&${this._qs()}&limit=50`);
+      const { rows, totals, pagination } = data;
+      const activeFilters = this._describeFilters();
 
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <!-- Ganados -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <span style="width:10px;height:10px;border-radius:50%;background:#10b981"></span>
-            <strong style="font-size:14px;">Ganados (${wonData.pagination.total})</strong>
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead><tr><th>Fecha</th><th>Contacto</th><th>Pipeline</th><th>Prima</th><th>Agente</th></tr></thead>
-              <tbody>
-                ${wonData.deals.length === 0 ? '<tr><td colspan="5" class="text-center text-light">Sin deals ganados</td></tr>' :
-                  wonData.deals.map(d => `
-                    <tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),200)">
-                      <td style="font-size:12px;">${this._date(d.updated_at)}</td>
-                      <td><strong>${this._esc(d.contacto || '—')}</strong></td>
-                      <td><span style="font-size:11px;color:#94a3b8;">${this._esc(d.pipeline || '')}</span></td>
-                      <td style="font-weight:700;color:#10b981;">${d.prima ? parseFloat(d.prima).toFixed(2) + ' €' : '—'}</td>
-                      <td style="font-size:12px;">${this._esc(d.agente || '—')}</td>
-                    </tr>
-                  `).join('')}
-              </tbody>
-            </table>
-          </div>
+      // Header
+      header.innerHTML = `
+        <div style="font-size:13px;color:#94a3b8;">${pagination.total.toLocaleString('es-ES')} resultados${activeFilters ? ' · ' + activeFilters : ''}</div>
+        <div style="display:flex;gap:6px;">
+          <button id="btn-exp-csv" style="padding:5px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#475569;">Exportar CSV</button>
+          <button id="btn-exp-xlsx" style="padding:5px 12px;border-radius:8px;border:none;background:#10b981;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#fff;">Exportar Excel</button>
         </div>
+      `;
+      document.getElementById('btn-exp-csv').addEventListener('click', () => this._export('csv'));
+      document.getElementById('btn-exp-xlsx').addEventListener('click', () => this._export('xlsx'));
 
-        <!-- Perdidos -->
-        <div class="card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <span style="width:10px;height:10px;border-radius:50%;background:#ef4444"></span>
-            <strong style="font-size:14px;">Perdidos (${lostData.pagination.total})</strong>
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead><tr><th>Fecha</th><th>Contacto</th><th>Pipeline</th><th>Prima</th><th>Agente</th></tr></thead>
-              <tbody>
-                ${lostData.deals.length === 0 ? '<tr><td colspan="5" class="text-center text-light">Sin deals perdidos</td></tr>' :
-                  lostData.deals.map(d => `
-                    <tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),200)">
-                      <td style="font-size:12px;">${this._date(d.updated_at)}</td>
-                      <td><strong>${this._esc(d.contacto || '—')}</strong></td>
-                      <td><span style="font-size:11px;color:#94a3b8;">${this._esc(d.pipeline || '')}</span></td>
-                      <td style="font-size:12px;">${d.prima ? parseFloat(d.prima).toFixed(2) + ' €' : '—'}</td>
-                      <td style="font-size:12px;">${this._esc(d.agente || '—')}</td>
-                    </tr>
-                  `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-  },
+      if (rows.length === 0) {
+        body.innerHTML = '<p class="text-light" style="text-align:center;padding:32px;font-size:13px;">Sin resultados para estos filtros</p>';
+        pag.innerHTML = '';
+        return;
+      }
 
-  // === TAB 3: MRR ===
-  async _renderMRR(el) {
-    const data = await API.get('/informes/mrr');
-
-    // Gráfico de barras simple con CSS
-    const maxVal = Math.max(...data.mensual.map(m => parseFloat(m.total)), 1);
-
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-        <div class="card" style="text-align:center;">
-          <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:8px;">MRR Total (Primas activas)</div>
-          <div style="font-size:32px;font-weight:800;color:#009DDD;">${this._money(data.mrr_total)}</div>
-        </div>
-        <div class="card">
-          <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">Desglose por pipeline</div>
-          ${data.por_pipeline.map(p => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f4f6f9;">
-              <span style="font-size:13px;font-weight:600;">${this._esc(p.pipeline || 'Sin pipeline')}</span>
-              <span style="font-size:13px;font-weight:700;color:#009DDD;">${this._money(parseFloat(p.total))}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- Gráfico de barras mensual -->
-      <div class="card">
-        <div style="font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:14px;">Primas mensuales (últimos 12 meses)</div>
-        <div style="display:flex;align-items:flex-end;gap:6px;height:200px;padding-top:10px;">
-          ${data.mensual.map(m => {
-            const pct = (parseFloat(m.total) / maxVal) * 100;
-            const mes = m.mes.split('-')[1];
-            const meses = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-            return `
-              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
-                <div style="font-size:10px;font-weight:700;color:#009DDD;">${this._money(parseFloat(m.total), true)}</div>
-                <div style="width:100%;background:#009DDD;border-radius:4px 4px 0 0;height:${Math.max(pct, 2)}%;min-height:4px;transition:height .3s;" title="${m.cantidad} deals · ${this._money(parseFloat(m.total))}"></div>
-                <div style="font-size:10px;color:#94a3b8;font-weight:600;">${meses[parseInt(mes)]}</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  },
-
-  // === TAB 4: Actividad agentes ===
-  async _renderAgentes(el) {
-    const data = await API.get(`/informes/agentes?desde=${this.filters.desde}&hasta=${this.filters.hasta}`);
-
-    el.innerHTML = `
-      <div class="card">
+      // Tabla
+      body.innerHTML = `
         <div class="table-wrapper">
-          <table>
+          <table style="font-size:12px;">
             <thead>
               <tr>
-                <th>Agente</th>
-                <th style="text-align:center;">Llamadas</th>
-                <th style="text-align:center;">Notas</th>
-                <th style="text-align:center;">Propuestas</th>
-                <th style="text-align:center;">Ganados</th>
-                <th style="text-align:center;">Puntos</th>
+                <th>Contacto</th><th>Teléfono</th><th>Email</th><th>Agente</th>
+                <th>Pipeline</th><th>Etiqueta</th><th>Estado</th><th>Tipo póliza</th>
+                <th style="text-align:right">Prima</th><th>Fecha</th>
               </tr>
             </thead>
             <tbody>
-              ${data.agentes.length === 0 ? '<tr><td colspan="6" class="text-center text-light">Sin datos</td></tr>' :
-                data.agentes.map(a => `
-                  <tr>
-                    <td>
-                      <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="width:28px;height:28px;border-radius:50%;background:${a.avatar_color || '#009DDD'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">
-                          ${(a.nombre || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
-                        </div>
-                        <strong style="font-size:13px;">${this._esc(a.nombre)}</strong>
-                      </div>
-                    </td>
-                    <td style="text-align:center;font-weight:600;">${a.llamadas}</td>
-                    <td style="text-align:center;">${a.notas}</td>
-                    <td style="text-align:center;">${a.propuestas}</td>
-                    <td style="text-align:center;font-weight:700;color:#10b981;">${a.ganados}</td>
-                    <td style="text-align:center;">
-                      ${parseInt(a.puntos) > 0 ? `<span style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;">${parseInt(a.puntos).toLocaleString('es-ES')} pts</span>` : '<span class="text-light">0</span>'}
-                    </td>
-                  </tr>
-                `).join('')}
+              ${rows.map(r => `
+                <tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${r.persona_id}),200)">
+                  <td><strong>${this._esc(r.contacto || '—')}</strong></td>
+                  <td>${r.telefono || '<span class="text-light">—</span>'}</td>
+                  <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;">${r.email || '<span class="text-light">—</span>'}</td>
+                  <td>${r.agente_nombre ? `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:18px;height:18px;border-radius:50%;background:${r.avatar_color || '#009DDD'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;">${this._initials(r.agente_nombre)}</span>${this._esc(r.agente_nombre)}</span>` : '<span class="text-light">—</span>'}</td>
+                  <td>${r.pipeline_nombre ? `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${r.pipeline_color || '#94a3b8'}"></span>${this._esc(r.pipeline_nombre)}</span>` : '<span class="text-light">—</span>'}</td>
+                  <td>${r.etiqueta_nombre ? `<span style="background:#f4f6f9;color:#475569;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;">${this._esc(r.etiqueta_nombre)}</span>` : ''}</td>
+                  <td>${this._statusBadge(r.status)}</td>
+                  <td>${this._esc(r.tipo_poliza || r.producto || '—')}</td>
+                  <td style="text-align:right;font-weight:600;${r.prima > 0 && r.prima <= 1000 ? 'color:#10b981' : ''}">${r.prima > 0 && r.prima <= 1000 ? parseFloat(r.prima).toFixed(2) + ' €' : '<span class="text-light">—</span>'}</td>
+                  <td style="white-space:nowrap;">${r.created_at ? new Date(r.created_at).toLocaleDateString('es-ES') : '—'}</td>
+                </tr>
+              `).join('')}
             </tbody>
+            <tfoot>
+              <tr style="font-weight:700;background:#f4f6f9;">
+                <td colspan="6">Total</td>
+                <td>${parseInt(totals.ganados)} ganados · ${parseInt(totals.perdidos)} perdidos</td>
+                <td></td>
+                <td style="text-align:right;color:#10b981;">${this._money(parseFloat(totals.prima_ganada))}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
+      `;
+
+      // Paginación
+      this._renderPagination(pag, pagination);
+    } catch (err) {
+      body.innerHTML = `<p style="color:#ef4444;font-size:13px;">${err.message}</p>`;
+    }
+  },
+
+  _renderAgentes(rows, header, body, pag) {
+    header.innerHTML = `<div style="font-size:13px;color:#94a3b8;">${rows.length} agentes</div><div></div>`;
+    pag.innerHTML = '';
+    body.innerHTML = `
+      <div class="table-wrapper">
+        <table style="font-size:12px;">
+          <thead><tr><th>Agente</th><th style="text-align:center">Total</th><th style="text-align:center">Ganados</th><th style="text-align:center">Perdidos</th><th style="text-align:center">Activos</th><th style="text-align:right">Prima ganada</th></tr></thead>
+          <tbody>
+            ${rows.map(a => `
+              <tr>
+                <td><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:24px;height:24px;border-radius:50%;background:${a.avatar_color || '#009DDD'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;">${this._initials(a.nombre)}</span><strong>${this._esc(a.nombre)}</strong></span></td>
+                <td style="text-align:center">${a.total_deals}</td>
+                <td style="text-align:center;color:#10b981;font-weight:700;">${a.ganados}</td>
+                <td style="text-align:center;color:#ef4444;">${a.perdidos}</td>
+                <td style="text-align:center;color:#009DDD;">${a.activos}</td>
+                <td style="text-align:right;font-weight:700;color:#10b981;">${this._money(parseFloat(a.prima_ganada))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     `;
   },
 
-  // === TAB 5: Exportar / Importar ===
-  _renderExportar(el) {
-    el.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <!-- EXPORTAR -->
-        <div class="card">
-          <h3 style="font-size:16px;font-weight:700;margin-bottom:14px;">Exportar datos</h3>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <select class="form-control" id="exp-tipo">
-              <option value="contactos">Contactos</option>
-              <option value="ganados">Deals ganados</option>
-              <option value="perdidos">Deals perdidos</option>
-              <option value="todos">Todos los deals</option>
-            </select>
-            <div style="display:flex;gap:8px;">
-              <button id="btn-export-csv" class="btn btn-primary" style="flex:1;">Descargar CSV</button>
-              <button id="btn-export-xlsx" class="btn btn-primary" style="flex:1;background:#10b981;">Descargar Excel</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- IMPORTAR -->
-        <div class="card">
-          <h3 style="font-size:16px;font-weight:700;margin-bottom:14px;">Importar contactos</h3>
-          <div id="import-zone" style="border:2px dashed #e8edf2;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s;">
-            <div style="font-size:13px;color:#94a3b8;margin-bottom:8px;">Arrastra un archivo CSV o Excel aquí</div>
-            <div style="font-size:11px;color:#94a3b8;">o haz click para seleccionar</div>
-            <input type="file" id="import-file" accept=".csv,.xlsx,.xls" style="display:none;">
-          </div>
-          <div id="import-preview" style="display:none;margin-top:12px;"></div>
-          <div id="import-result" style="display:none;margin-top:12px;"></div>
-        </div>
+  _renderMRR(rows, header, body, pag) {
+    const total = rows.reduce((s, r) => s + parseFloat(r.prima_total), 0);
+    header.innerHTML = `<div style="font-size:13px;color:#94a3b8;">MRR total: <strong style="color:#10b981;">${this._money(total)}</strong></div><div></div>`;
+    pag.innerHTML = '';
+    body.innerHTML = `
+      <div class="table-wrapper">
+        <table style="font-size:12px;">
+          <thead><tr><th>Pipeline</th><th style="text-align:center">Pólizas</th><th style="text-align:right">Prima total</th><th style="text-align:right">Prima media</th></tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:${r.color || '#94a3b8'}"></span><strong>${this._esc(r.pipeline || 'Sin pipeline')}</strong></span></td>
+                <td style="text-align:center">${r.total}</td>
+                <td style="text-align:right;font-weight:700;color:#10b981;">${this._money(parseFloat(r.prima_total))}</td>
+                <td style="text-align:right">${this._money(parseFloat(r.prima_media || 0))}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     `;
+  },
 
-    // Export buttons
-    document.getElementById('btn-export-csv')?.addEventListener('click', () => this._doExport('csv'));
-    document.getElementById('btn-export-xlsx')?.addEventListener('click', () => this._doExport('xlsx'));
-
-    // Import zone
-    const zone = document.getElementById('import-zone');
-    const fileInput = document.getElementById('import-file');
-
-    zone?.addEventListener('click', () => fileInput.click());
-    zone?.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.borderColor = '#009DDD'; });
-    zone?.addEventListener('dragleave', () => { zone.style.borderColor = '#e8edf2'; });
-    zone?.addEventListener('drop', (e) => {
-      e.preventDefault();
-      zone.style.borderColor = '#e8edf2';
-      if (e.dataTransfer.files[0]) this._handleImportFile(e.dataTransfer.files[0]);
-    });
-    fileInput?.addEventListener('change', (e) => {
-      if (e.target.files[0]) this._handleImportFile(e.target.files[0]);
+  _renderPagination(el, p) {
+    if (p.pages <= 1) { el.innerHTML = ''; return; }
+    let html = '';
+    if (p.page > 1) html += `<button class="inf-page" data-p="${p.page - 1}" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">Anterior</button>`;
+    const start = Math.max(1, p.page - 2);
+    const end = Math.min(p.pages, p.page + 2);
+    for (let i = start; i <= end; i++) {
+      html += `<button class="inf-page" data-p="${i}" style="padding:4px 10px;border-radius:6px;border:1px solid ${i === p.page ? '#009DDD' : '#e8edf2'};background:${i === p.page ? '#009DDD' : '#fff'};color:${i === p.page ? '#fff' : '#475569'};font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">${i}</button>`;
+    }
+    if (p.page < p.pages) html += `<button class="inf-page" data-p="${p.page + 1}" style="padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;">Siguiente</button>`;
+    el.innerHTML = html;
+    el.querySelectorAll('.inf-page').forEach(btn => {
+      btn.addEventListener('click', () => { this.page = parseInt(btn.dataset.p); this._loadTable(); });
     });
   },
 
-  async _doExport(formato) {
-    const tipo = document.getElementById('exp-tipo')?.value || 'contactos';
-    const url = `/informes/exportar?tipo=${tipo}&formato=${formato}&${this._qs()}`;
-
+  // =============================================
+  // EXPORTAR
+  // =============================================
+  async _export(formato) {
     try {
       const token = Auth.getToken();
-      const response = await fetch(`/api${url}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!response.ok) throw new Error('Error exportando');
-      const blob = await response.blob();
+      const url = `/api/informes/exportar?${this._qs()}&tab=${this.tab}&formato=${formato}`;
+      const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Error'); }
+      const blob = await resp.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `export.csv`;
+      a.download = `informes_export.${formato === 'xlsx' ? 'xlsx' : 'csv'}`;
       a.click();
+      URL.revokeObjectURL(a.href);
     } catch (err) {
       alert('Error exportando: ' + err.message);
     }
   },
 
-  async _handleImportFile(file) {
-    const preview = document.getElementById('import-preview');
-    const result = document.getElementById('import-result');
-    preview.style.display = 'block';
-    preview.innerHTML = '<p class="text-light">Analizando archivo...</p>';
-    result.style.display = 'none';
-
-    try {
-      // Previsualización
-      const fd = new FormData();
-      fd.append('file', file);
-      const token = Auth.getToken();
-      const previewRes = await fetch('/api/informes/importar/preview', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: fd,
-      });
-      const previewData = await previewRes.json();
-      if (!previewRes.ok) throw new Error(previewData.error);
-
-      // Mostrar previsualización con mapeo de columnas
-      preview.innerHTML = `
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px;">${previewData.total} filas detectadas</div>
-        <div style="margin-bottom:10px;">
-          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:4px;">Mapeo de columnas:</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${previewData.headers.map((h, i) => `
-              <select class="form-control col-map" data-idx="${i}" style="max-width:150px;font-size:11px;">
-                <option value="">— Ignorar —</option>
-                <option value="nombre" ${/nombre|name|contacto/i.test(h) ? 'selected' : ''}>${h} → Nombre</option>
-                <option value="telefono" ${/telefono|phone|tel/i.test(h) ? 'selected' : ''}>${h} → Teléfono</option>
-                <option value="email" ${/email|correo/i.test(h) ? 'selected' : ''}>${h} → Email</option>
-                <option value="dni" ${/dni|nif/i.test(h) ? 'selected' : ''}>${h} → DNI</option>
-              </select>
-            `).join('')}
-          </div>
-        </div>
-        <div class="table-wrapper" style="max-height:150px;overflow-y:auto;">
-          <table style="font-size:11px;">
-            <thead><tr>${previewData.headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-            <tbody>${previewData.rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
-          </table>
-        </div>
-        <button id="btn-confirm-import" class="btn btn-primary" style="margin-top:10px;width:100%;">Importar ${previewData.total} contactos</button>
-      `;
-
-      // Guardar archivo para importación real
-      this._pendingFile = file;
-
-      document.getElementById('btn-confirm-import')?.addEventListener('click', async () => {
-        // Recoger mapeo de columnas
-        const colMap = {};
-        document.querySelectorAll('.col-map').forEach(sel => {
-          if (sel.value) colMap[sel.value] = parseInt(sel.dataset.idx);
-        });
-
-        const importFd = new FormData();
-        importFd.append('file', this._pendingFile);
-        importFd.append('column_map', JSON.stringify(colMap));
-
-        preview.innerHTML = '<p class="text-light">Importando...</p>';
-
-        const impRes = await fetch('/api/informes/importar', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: importFd,
-        });
-        const impData = await impRes.json();
-
-        preview.style.display = 'none';
-        result.style.display = 'block';
-        result.innerHTML = `
-          <div class="card" style="background:#ecfdf5;border:1px solid #10b981;">
-            <div style="font-size:14px;font-weight:700;color:#10b981;margin-bottom:8px;">Importación completada</div>
-            <div style="font-size:13px;display:flex;gap:16px;">
-              <span><strong>${impData.imported}</strong> importados</span>
-              <span><strong>${impData.duplicates}</strong> duplicados</span>
-              <span><strong>${impData.errors}</strong> errores</span>
-            </div>
-          </div>
-        `;
-      });
-    } catch (err) {
-      preview.innerHTML = `<p style="color:#ef4444;font-size:13px;">${err.message}</p>`;
-    }
+  // =============================================
+  // HELPERS
+  // =============================================
+  _statusBadge(s) {
+    if (s === 'won') return '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">Ganado</span>';
+    if (s === 'lost') return '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">Perdido</span>';
+    return '<span style="background:#e6f6fd;color:#007ab8;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;">Activo</span>';
   },
 
-  // Helpers
+  _describeFilters() {
+    const parts = [];
+    if (this.filters.agente_id) {
+      const a = this.filterOptions?.agentes?.find(a => a.id == this.filters.agente_id);
+      if (a) parts.push(a.nombre);
+    }
+    if (this.filters.pipeline_id) {
+      const p = this.filterOptions?.pipelines?.find(p => p.id == this.filters.pipeline_id);
+      if (p) parts.push(p.name);
+    }
+    if (this.filters.status) {
+      parts.push({ won: 'Ganados', lost: 'Perdidos', open: 'Activos' }[this.filters.status] || this.filters.status);
+    }
+    return parts.join(' · ');
+  },
+
+  _initials(n) { return (n || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(); },
   _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; },
-  _date(d) { return d ? new Date(d).toLocaleDateString('es-ES') : '—'; },
-  _money(n, short) {
+  _money(n) {
     if (!n || isNaN(n)) return '0 €';
-    if (short && n >= 1000) return (n / 1000).toFixed(1) + 'k €';
     return parseFloat(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   },
 };

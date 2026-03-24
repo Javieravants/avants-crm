@@ -1,465 +1,286 @@
 const express = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const ExcelJS = require('exceljs');
 
 const router = express.Router();
 router.use(authMiddleware);
 
-// Upload para importar
-const upload = multer({
-  dest: path.join(__dirname, '../../uploads/imports'),
-  limits: { fileSize: 10 * 1024 * 1024 },
-});
+// Filtro prima: excluir valores corruptos del parser de Pipedrive
+const PRIMA_FILTER = 'd.prima > 0 AND d.prima <= 1000';
 
-// =============================================
-// TAB 1 — Resumen general (KPIs)
-// =============================================
-router.get('/resumen', async (req, res) => {
-  const { desde, hasta, agente_id, pipeline_id, etiqueta_id } = req.query;
-  const desdeDate = desde || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const hastaDate = hasta || new Date().toISOString().split('T')[0];
+// Construir WHERE dinámico con filtros
+function buildFilters(query) {
+  const where = [];
+  const values = [];
+  let idx = 1;
+  let joins = `LEFT JOIN personas p ON p.id = d.persona_id
+               LEFT JOIN users u ON u.id = d.agente_id
+               LEFT JOIN pipelines pi ON pi.id = d.pipeline_id
+               LEFT JOIN deal_etiquetas de ON de.deal_id = d.id
+               LEFT JOIN etiquetas e ON e.id = de.etiqueta_id`;
 
-  try {
-    let etqJoin = '';
-    let etqWhere = '';
-    const baseValues = [desdeDate, hastaDate];
-    let idx = 3;
-
-    if (agente_id) {
-      etqWhere += ` AND d.agente_id = $${idx++}`;
-      baseValues.push(parseInt(agente_id));
-    }
-    if (pipeline_id) {
-      etqWhere += ` AND d.pipeline_id = $${idx++}`;
-      baseValues.push(parseInt(pipeline_id));
-    }
-    if (etiqueta_id) {
-      etqJoin = ' JOIN deal_etiquetas de2 ON de2.deal_id = d.id';
-      etqWhere += ` AND de2.etiqueta_id = $${idx++}`;
-      baseValues.push(parseInt(etiqueta_id));
-    }
-
-    // Total leads (deals creados en periodo)
-    const leadsQ = await pool.query(
-      `SELECT COUNT(*) AS total FROM deals d ${etqJoin} WHERE d.created_at::date >= $1 AND d.created_at::date <= $2 ${etqWhere}`,
-      baseValues
-    );
-
-    // Deals ganados + importe (filtrar primas corruptas > 1000€/mes del parser)
-    const wonQ = await pool.query(
-      `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN d.prima > 0 AND d.prima <= 1000 THEN d.prima ELSE 0 END), 0) AS importe
-       FROM deals d ${etqJoin}
-       WHERE d.pipedrive_status = 'won' AND d.updated_at::date >= $1 AND d.updated_at::date <= $2 ${etqWhere}`,
-      baseValues
-    );
-
-    // Deals perdidos
-    const lostQ = await pool.query(
-      `SELECT COUNT(*) AS total FROM deals d ${etqJoin}
-       WHERE d.pipedrive_status = 'lost' AND d.updated_at::date >= $1 AND d.updated_at::date <= $2 ${etqWhere}`,
-      baseValues
-    );
-
-    // MRR (prima mensual activa — todos los deals won, sin filtro de fecha)
-    let mrrWhere = "d.pipedrive_status = 'won'";
-    const mrrVals = [];
-    let mrrIdx = 1;
-    if (agente_id) { mrrWhere += ` AND d.agente_id = $${mrrIdx++}`; mrrVals.push(parseInt(agente_id)); }
-    if (pipeline_id) { mrrWhere += ` AND d.pipeline_id = $${mrrIdx++}`; mrrVals.push(parseInt(pipeline_id)); }
-    if (etiqueta_id) { mrrWhere += ` AND de2.etiqueta_id = $${mrrIdx++}`; mrrVals.push(parseInt(etiqueta_id)); }
-    const mrrQ = await pool.query(
-      `SELECT COALESCE(SUM(CASE WHEN d.prima > 0 AND d.prima <= 1000 THEN d.prima ELSE 0 END), 0) AS mrr FROM deals d ${etqJoin} WHERE ${mrrWhere}`,
-      mrrVals
-    );
-
-    // Llamadas en periodo
-    const callsQ = await pool.query(
-      `SELECT COUNT(*) AS total FROM contact_history
-       WHERE tipo = 'llamada' AND created_at::date >= $1 AND created_at::date <= $2`,
-      [desdeDate, hastaDate]
-    );
-
-    const won = parseInt(wonQ.rows[0].total);
-    const lost = parseInt(lostQ.rows[0].total);
-    const totalClosed = won + lost;
-
-    res.json({
-      leads: parseInt(leadsQ.rows[0].total),
-      ganados: won,
-      importe_ganado: parseFloat(wonQ.rows[0].importe),
-      perdidos: lost,
-      tasa_conversion: totalClosed > 0 ? Math.round((won / totalClosed) * 100) : 0,
-      mrr: parseFloat(mrrQ.rows[0].mrr),
-      llamadas: parseInt(callsQ.rows[0].total),
-      periodo: { desde: desdeDate, hasta: hastaDate },
-    });
-  } catch (err) {
-    console.error('Error resumen informes:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// =============================================
-// TAB 2 — Ganados / Perdidos
-// =============================================
-router.get('/deals', async (req, res) => {
-  const { status, desde, hasta, agente_id, pipeline_id, etiqueta_id, page = 1, limit = 50 } = req.query;
-  const offset = (parseInt(page) - 1) * parseInt(limit);
-  const desdeDate = desde || '2020-01-01';
-  const hastaDate = hasta || new Date().toISOString().split('T')[0];
-
-  try {
-    let where = [`d.updated_at::date >= $1`, `d.updated_at::date <= $2`];
-    const values = [desdeDate, hastaDate];
-    let idx = 3;
-    let joins = `LEFT JOIN personas p ON p.id = d.persona_id
-                 LEFT JOIN users u ON u.id = d.agente_id
-                 LEFT JOIN pipelines pl ON pl.id = d.pipeline_id`;
-
-    if (status) {
+  if (query.desde) { where.push(`d.created_at::date >= $${idx++}`); values.push(query.desde); }
+  if (query.hasta) { where.push(`d.created_at::date <= $${idx++}`); values.push(query.hasta); }
+  if (query.agente_id) { where.push(`d.agente_id = $${idx++}`); values.push(parseInt(query.agente_id)); }
+  if (query.pipeline_id) { where.push(`d.pipeline_id = $${idx++}`); values.push(parseInt(query.pipeline_id)); }
+  if (query.etiqueta_id) { where.push(`de.etiqueta_id = $${idx++}`); values.push(parseInt(query.etiqueta_id)); }
+  if (query.status && query.status !== 'all') {
+    if (query.status === 'open') {
+      where.push(`d.pipedrive_status = 'open'`);
+    } else {
       where.push(`d.pipedrive_status = $${idx++}`);
-      values.push(status);
+      values.push(query.status);
     }
-    if (agente_id) {
-      where.push(`d.agente_id = $${idx++}`);
-      values.push(parseInt(agente_id));
-    }
-    if (pipeline_id) {
-      where.push(`d.pipeline_id = $${idx++}`);
-      values.push(parseInt(pipeline_id));
-    }
-    if (etiqueta_id) {
-      joins += ' JOIN deal_etiquetas de2 ON de2.deal_id = d.id';
-      where.push(`de2.etiqueta_id = $${idx++}`);
-      values.push(parseInt(etiqueta_id));
-    }
+  }
 
-    const countQ = await pool.query(
-      `SELECT COUNT(*) AS total FROM deals d ${joins} WHERE ${where.join(' AND ')}`, values
-    );
+  return { where: where.length ? where.join(' AND ') : '1=1', values, idx, joins };
+}
 
-    values.push(parseInt(limit));
-    values.push(offset);
-    const dataQ = await pool.query(
-      `SELECT d.id, d.pipedrive_id, d.producto, d.prima, d.pipedrive_status, d.estado,
-              d.updated_at, d.created_at,
-              p.nombre AS contacto, p.id AS persona_id,
-              u.nombre AS agente,
-              pl.name AS pipeline
+// =============================================
+// GET /api/informes/kpis
+// =============================================
+router.get('/kpis', async (req, res) => {
+  try {
+    const { where, values, joins } = buildFilters(req.query);
+
+    const q = await pool.query(
+      `SELECT
+         COUNT(DISTINCT d.id) AS leads,
+         COUNT(CASE WHEN d.pipedrive_status = 'won' THEN 1 END) AS ganados,
+         COUNT(CASE WHEN d.pipedrive_status = 'lost' THEN 1 END) AS perdidos,
+         ROUND(
+           COUNT(CASE WHEN d.pipedrive_status = 'won' THEN 1 END)::numeric /
+           NULLIF(COUNT(CASE WHEN d.pipedrive_status IN ('won','lost') THEN 1 END), 0) * 100, 1
+         ) AS conversion,
+         COALESCE(SUM(CASE WHEN d.pipedrive_status = 'won' AND ${PRIMA_FILTER} THEN d.prima ELSE 0 END), 0) AS prima_total
        FROM deals d ${joins}
-       WHERE ${where.join(' AND ')}
-       ORDER BY d.updated_at DESC
-       LIMIT $${idx++} OFFSET $${idx++}`,
+       WHERE ${where}`,
       values
     );
 
+    const r = q.rows[0];
     res.json({
-      deals: dataQ.rows,
-      pagination: {
-        total: parseInt(countQ.rows[0].total),
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(parseInt(countQ.rows[0].total) / parseInt(limit)),
-      },
+      leads: parseInt(r.leads),
+      ganados: parseInt(r.ganados),
+      perdidos: parseInt(r.perdidos),
+      conversion: parseFloat(r.conversion) || 0,
+      prima_total: parseFloat(r.prima_total),
     });
   } catch (err) {
-    console.error('Error deals informes:', err);
+    console.error('Error KPIs:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // =============================================
-// TAB 3 — MRR (Primas activas por mes)
+// GET /api/informes/leads — tabla paginada
 // =============================================
-router.get('/mrr', async (req, res) => {
+router.get('/leads', async (req, res) => {
   try {
-    // MRR total actual (filtrar primas corruptas > 1000€/mes)
-    const totalQ = await pool.query(
-      `SELECT COALESCE(SUM(prima), 0) AS total FROM deals WHERE pipedrive_status = 'won' AND prima > 0 AND prima <= 1000`
+    const { page = 1, limit = 50, tab } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const filters = { ...req.query };
+
+    // Tab override
+    if (tab === 'ganados') filters.status = 'won';
+    else if (tab === 'perdidos') filters.status = 'lost';
+    else if (tab === 'activos') filters.status = 'open';
+
+    const { where, values, idx: nextIdx, joins } = buildFilters(filters);
+
+    // Tab "agentes" — grupo especial
+    if (tab === 'agentes') {
+      const q = await pool.query(
+        `SELECT u.id, u.nombre, u.avatar_color,
+           COUNT(d.id) AS total_deals,
+           COUNT(CASE WHEN d.pipedrive_status = 'won' THEN 1 END) AS ganados,
+           COUNT(CASE WHEN d.pipedrive_status = 'lost' THEN 1 END) AS perdidos,
+           COUNT(CASE WHEN d.pipedrive_status = 'open' THEN 1 END) AS activos,
+           COALESCE(SUM(CASE WHEN d.pipedrive_status = 'won' AND ${PRIMA_FILTER} THEN d.prima ELSE 0 END), 0) AS prima_ganada
+         FROM deals d ${joins}
+         WHERE ${where}
+         GROUP BY u.id, u.nombre, u.avatar_color
+         HAVING u.nombre IS NOT NULL
+         ORDER BY ganados DESC, total_deals DESC`,
+        values
+      );
+      return res.json({ type: 'agentes', rows: q.rows });
+    }
+
+    // Tab "mrr" — grupo por pipeline
+    if (tab === 'mrr') {
+      const q = await pool.query(
+        `SELECT pi.name AS pipeline, pi.color,
+           COUNT(d.id) AS total,
+           COALESCE(SUM(CASE WHEN ${PRIMA_FILTER} THEN d.prima ELSE 0 END), 0) AS prima_total,
+           ROUND(AVG(CASE WHEN ${PRIMA_FILTER} THEN d.prima ELSE NULL END)::numeric, 2) AS prima_media
+         FROM deals d ${joins}
+         WHERE ${where} AND d.pipedrive_status = 'won'
+         GROUP BY pi.name, pi.color
+         ORDER BY prima_total DESC`,
+        values
+      );
+      return res.json({ type: 'mrr', rows: q.rows });
+    }
+
+    // Conteo total
+    const countQ = await pool.query(
+      `SELECT COUNT(DISTINCT d.id) AS total FROM deals d ${joins} WHERE ${where}`, values
+    );
+    const total = parseInt(countQ.rows[0].total);
+
+    // Totales de la selección (para fila de pie)
+    const totalsQ = await pool.query(
+      `SELECT
+         COUNT(CASE WHEN d.pipedrive_status = 'won' THEN 1 END) AS ganados,
+         COUNT(CASE WHEN d.pipedrive_status = 'lost' THEN 1 END) AS perdidos,
+         COALESCE(SUM(CASE WHEN d.pipedrive_status = 'won' AND ${PRIMA_FILTER} THEN d.prima ELSE 0 END), 0) AS prima_ganada
+       FROM deals d ${joins} WHERE ${where}`,
+      values
     );
 
-    // Desglose por pipeline
-    const byPipelineQ = await pool.query(
-      `SELECT pl.name AS pipeline, COALESCE(SUM(d.prima), 0) AS total
-       FROM deals d
-       LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
-       WHERE d.pipedrive_status = 'won' AND d.prima > 0 AND d.prima <= 1000
-       GROUP BY pl.name
-       ORDER BY total DESC`
-    );
-
-    // Últimos 12 meses — deals ganados por mes
-    const monthlyQ = await pool.query(
-      `SELECT TO_CHAR(d.updated_at, 'YYYY-MM') AS mes,
-              COALESCE(SUM(d.prima), 0) AS total,
-              COUNT(*) AS cantidad
-       FROM deals d
-       WHERE d.pipedrive_status = 'won'
-         AND d.prima > 0 AND d.prima <= 1000
-         AND d.updated_at >= NOW() - INTERVAL '12 months'
-       GROUP BY mes
-       ORDER BY mes`
+    // Datos paginados
+    const dataValues = [...values, parseInt(limit), offset];
+    const dataQ = await pool.query(
+      `SELECT DISTINCT ON (d.id)
+         d.id AS deal_id, d.pipedrive_status AS status,
+         d.producto, d.tipo_poliza, d.poliza, d.num_solicitud,
+         d.prima, d.created_at, d.updated_at,
+         p.nombre AS contacto, p.telefono, p.email, p.dni, p.direccion, p.codigo_postal,
+         p.id AS persona_id,
+         u.nombre AS agente_nombre, u.avatar_color,
+         pi.name AS pipeline_nombre, pi.color AS pipeline_color,
+         e.nombre AS etiqueta_nombre, e.color AS etiqueta_color
+       FROM deals d ${joins}
+       WHERE ${where}
+       ORDER BY d.id, d.created_at DESC
+       LIMIT $${nextIdx} OFFSET $${nextIdx + 1}`,
+      dataValues
     );
 
     res.json({
-      mrr_total: parseFloat(totalQ.rows[0].total),
-      por_pipeline: byPipelineQ.rows,
-      mensual: monthlyQ.rows,
+      type: 'leads',
+      rows: dataQ.rows,
+      totals: totalsQ.rows[0],
+      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
     });
   } catch (err) {
-    console.error('Error MRR informes:', err);
+    console.error('Error leads:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // =============================================
-// TAB 4 — Actividad agentes
-// =============================================
-router.get('/agentes', async (req, res) => {
-  const { desde, hasta } = req.query;
-  const desdeDate = desde || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-  const hastaDate = hasta || new Date().toISOString().split('T')[0];
-
-  try {
-    const agentesQ = await pool.query(
-      `SELECT u.id, u.nombre, u.avatar_color,
-        (SELECT COUNT(*) FROM contact_history ch WHERE ch.agente_id = u.id AND ch.tipo = 'llamada' AND ch.created_at::date >= $1 AND ch.created_at::date <= $2) AS llamadas,
-        (SELECT COUNT(*) FROM contact_history ch WHERE ch.agente_id = u.id AND ch.tipo = 'nota' AND ch.created_at::date >= $1 AND ch.created_at::date <= $2) AS notas,
-        (SELECT COUNT(*) FROM propuestas pr WHERE pr.deal_id IN (SELECT id FROM deals WHERE agente_id = u.id) AND pr.created_at::date >= $1 AND pr.created_at::date <= $2) AS propuestas,
-        (SELECT COUNT(*) FROM deals d WHERE d.agente_id = u.id AND d.pipedrive_status = 'won' AND d.updated_at::date >= $1 AND d.updated_at::date <= $2) AS ganados,
-        (SELECT COALESCE(SUM(pr2.puntos), 0) FROM propuestas pr2 WHERE pr2.deal_id IN (SELECT id FROM deals WHERE agente_id = u.id) AND pr2.created_at::date >= $1 AND pr2.created_at::date <= $2) AS puntos
-       FROM users u
-       WHERE u.activo = true
-       ORDER BY ganados DESC, llamadas DESC`,
-      [desdeDate, hastaDate]
-    );
-
-    res.json({ agentes: agentesQ.rows, periodo: { desde: desdeDate, hasta: hastaDate } });
-  } catch (err) {
-    console.error('Error agentes informes:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// =============================================
-// TAB 5 — Exportar
+// GET /api/informes/exportar — CSV o Excel sin paginación
 // =============================================
 router.get('/exportar', async (req, res) => {
-  const { tipo, formato, desde, hasta, agente_id, pipeline_id, etiqueta_id } = req.query;
-  const desdeDate = desde || '2020-01-01';
-  const hastaDate = hasta || new Date().toISOString().split('T')[0];
-
   try {
-    let rows = [];
-    let filename = 'export';
+    const { formato, tab } = req.query;
+    const filters = { ...req.query };
+    if (tab === 'ganados') filters.status = 'won';
+    else if (tab === 'perdidos') filters.status = 'lost';
+    else if (tab === 'activos') filters.status = 'open';
 
-    if (tipo === 'contactos') {
-      const q = await pool.query(
-        `SELECT p.nombre, p.dni, p.telefono, p.email, p.provincia, p.localidad, p.created_at
-         FROM personas p ORDER BY p.nombre LIMIT 10000`
-      );
-      rows = q.rows;
-      filename = 'contactos';
-    } else if (tipo === 'ganados') {
-      let where = [`d.pipedrive_status = 'won'`, `d.updated_at::date >= $1`, `d.updated_at::date <= $2`];
-      const vals = [desdeDate, hastaDate];
-      let i = 3;
-      if (agente_id) { where.push(`d.agente_id = $${i++}`); vals.push(parseInt(agente_id)); }
-      if (pipeline_id) { where.push(`d.pipeline_id = $${i++}`); vals.push(parseInt(pipeline_id)); }
+    const { where, values, joins } = buildFilters(filters);
 
-      const q = await pool.query(
-        `SELECT p.nombre AS contacto, p.dni, p.telefono, p.email,
-                d.producto, d.prima, d.poliza, d.pipedrive_stage AS etapa,
-                pl.name AS pipeline, u.nombre AS agente, d.updated_at AS fecha
-         FROM deals d
-         LEFT JOIN personas p ON p.id = d.persona_id
-         LEFT JOIN users u ON u.id = d.agente_id
-         LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
-         WHERE ${where.join(' AND ')}
-         ORDER BY d.updated_at DESC LIMIT 10000`,
-        vals
-      );
-      rows = q.rows;
-      filename = 'deals_ganados';
-    } else if (tipo === 'perdidos') {
-      let where = [`d.pipedrive_status = 'lost'`, `d.updated_at::date >= $1`, `d.updated_at::date <= $2`];
-      const vals = [desdeDate, hastaDate];
-      let i = 3;
-      if (agente_id) { where.push(`d.agente_id = $${i++}`); vals.push(parseInt(agente_id)); }
+    const q = await pool.query(
+      `SELECT DISTINCT ON (d.id)
+         p.nombre, p.telefono, p.email, p.dni, p.direccion, p.codigo_postal,
+         u.nombre AS agente,
+         pi.name AS pipeline,
+         e.nombre AS etiqueta,
+         d.pipedrive_status AS estado,
+         d.tipo_poliza, d.prima AS prima_mensual,
+         d.poliza AS n_poliza, d.num_solicitud,
+         d.fecha_efecto AS fecha_alta,
+         d.created_at AS fecha_creacion
+       FROM deals d ${joins}
+       WHERE ${where}
+       ORDER BY d.id, d.created_at DESC`,
+      values
+    );
 
-      const q = await pool.query(
-        `SELECT p.nombre AS contacto, p.dni, p.telefono, p.email,
-                d.producto, d.prima, pl.name AS pipeline, u.nombre AS agente, d.updated_at AS fecha
-         FROM deals d
-         LEFT JOIN personas p ON p.id = d.persona_id
-         LEFT JOIN users u ON u.id = d.agente_id
-         LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
-         WHERE ${where.join(' AND ')}
-         ORDER BY d.updated_at DESC LIMIT 10000`,
-        vals
-      );
-      rows = q.rows;
-      filename = 'deals_perdidos';
-    } else {
-      // Todos los deals
-      const q = await pool.query(
-        `SELECT p.nombre AS contacto, d.producto, d.prima, d.pipedrive_status AS estado,
-                d.poliza, pl.name AS pipeline, u.nombre AS agente, d.updated_at AS fecha
-         FROM deals d
-         LEFT JOIN personas p ON p.id = d.persona_id
-         LEFT JOIN users u ON u.id = d.agente_id
-         LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
-         WHERE d.updated_at::date >= $1 AND d.updated_at::date <= $2
-         ORDER BY d.updated_at DESC LIMIT 10000`,
-        [desdeDate, hastaDate]
-      );
-      rows = q.rows;
-      filename = 'deals_todos';
-    }
+    if (q.rows.length === 0) return res.status(404).json({ error: 'Sin datos' });
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Sin datos para exportar' });
-    }
+    const cols = [
+      { header: 'Nombre', key: 'nombre' },
+      { header: 'Teléfono', key: 'telefono' },
+      { header: 'Email', key: 'email' },
+      { header: 'DNI', key: 'dni' },
+      { header: 'Dirección', key: 'direccion' },
+      { header: 'CP', key: 'codigo_postal' },
+      { header: 'Agente', key: 'agente' },
+      { header: 'Pipeline', key: 'pipeline' },
+      { header: 'Etiqueta', key: 'etiqueta' },
+      { header: 'Estado', key: 'estado' },
+      { header: 'Tipo póliza', key: 'tipo_poliza' },
+      { header: 'Prima mensual', key: 'prima_mensual' },
+      { header: 'Nº póliza', key: 'n_poliza' },
+      { header: 'Nº solicitud', key: 'num_solicitud' },
+      { header: 'Fecha alta', key: 'fecha_alta' },
+      { header: 'Fecha creación', key: 'fecha_creacion' },
+    ];
 
     if (formato === 'xlsx') {
-      // Generar CSV con BOM para Excel
-      const BOM = '\ufeff';
-      const headers = Object.keys(rows[0]);
-      const csvLines = [headers.join(';')];
-      for (const row of rows) {
-        csvLines.push(headers.map(h => {
-          let val = row[h];
-          if (val instanceof Date) val = val.toLocaleDateString('es-ES');
-          if (val === null || val === undefined) val = '';
-          return `"${String(val).replace(/"/g, '""')}"`;
-        }).join(';'));
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Informes');
+      ws.columns = cols.map(c => ({ header: c.header, key: c.key, width: 18 }));
+
+      // Cabecera en negrita
+      ws.getRow(1).font = { bold: true };
+
+      for (const row of q.rows) {
+        ws.addRow({
+          ...row,
+          prima_mensual: row.prima_mensual ? parseFloat(row.prima_mensual) : null,
+          fecha_alta: row.fecha_alta ? new Date(row.fecha_alta).toLocaleDateString('es-ES') : '',
+          fecha_creacion: row.fecha_creacion ? new Date(row.fecha_creacion).toLocaleDateString('es-ES') : '',
+        });
       }
-      const csv = BOM + csvLines.join('\r\n');
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}_${desdeDate}_${hastaDate}.csv"`);
-      return res.send(csv);
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="informes_export.xlsx"`);
+      await wb.xlsx.write(res);
+      return res.end();
     }
 
-    // CSV estándar
-    const headers = Object.keys(rows[0]);
-    const csvLines = [headers.join(',')];
-    for (const row of rows) {
-      csvLines.push(headers.map(h => {
-        let val = row[h];
-        if (val instanceof Date) val = val.toISOString().split('T')[0];
-        if (val === null || val === undefined) val = '';
-        return `"${String(val).replace(/"/g, '""')}"`;
-      }).join(','));
+    // CSV con ; para Excel español
+    const BOM = '\ufeff';
+    const csvLines = [cols.map(c => c.header).join(';')];
+    for (const row of q.rows) {
+      csvLines.push(cols.map(c => {
+        let v = row[c.key];
+        if (v instanceof Date) v = v.toLocaleDateString('es-ES');
+        if (v === null || v === undefined) v = '';
+        return `"${String(v).replace(/"/g, '""')}"`;
+      }).join(';'));
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}_${desdeDate}_${hastaDate}.csv"`);
-    res.send(csvLines.join('\r\n'));
+    res.setHeader('Content-Disposition', `attachment; filename="informes_export.csv"`);
+    res.send(BOM + csvLines.join('\r\n'));
   } catch (err) {
-    console.error('Error exportar informes:', err);
+    console.error('Error exportar:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // =============================================
-// TAB 5 — Importar
+// GET /api/informes/filtros — opciones para dropdowns
 // =============================================
-router.post('/importar', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
-
+router.get('/filtros', async (req, res) => {
   try {
-    const content = fs.readFileSync(req.file.path, 'utf8');
-    const lines = content.trim().split('\n').filter(l => l.trim());
-    if (lines.length < 2) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: 'El archivo debe tener al menos 2 filas (cabecera + datos)' });
-    }
-
-    // Parsear cabecera y datos
-    const sep = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(sep).map(h => h.replace(/["']/g, '').trim().toLowerCase());
-
-    // Mapeo de columnas (automático por nombre de cabecera)
-    const colMap = JSON.parse(req.body.column_map || '{}');
-    const nameCol = colMap.nombre || headers.findIndex(h => /nombre|name|contacto/i.test(h));
-    const phoneCol = colMap.telefono || headers.findIndex(h => /telefono|phone|tel|móvil/i.test(h));
-    const emailCol = colMap.email || headers.findIndex(h => /email|correo|mail/i.test(h));
-    const dniCol = colMap.dni || headers.findIndex(h => /dni|nif|cif|documento/i.test(h));
-
-    let imported = 0, duplicates = 0, errors = 0;
-    const preview = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(sep).map(c => c.replace(/["']/g, '').trim());
-
-      const nombre = nameCol >= 0 ? cols[nameCol] : null;
-      const telefono = phoneCol >= 0 ? cols[phoneCol] : null;
-      const email = emailCol >= 0 ? cols[emailCol] : null;
-      const dni = dniCol >= 0 ? cols[dniCol] : null;
-
-      if (i <= 5) preview.push({ nombre, telefono, email, dni });
-
-      if (!nombre && !telefono && !email) { errors++; continue; }
-
-      try {
-        // Check duplicados por teléfono o email
-        if (telefono) {
-          const ex = await pool.query('SELECT id FROM personas WHERE telefono = $1', [telefono]);
-          if (ex.rows.length > 0) { duplicates++; continue; }
-        }
-        if (email) {
-          const ex = await pool.query('SELECT id FROM personas WHERE email = $1', [email]);
-          if (ex.rows.length > 0) { duplicates++; continue; }
-        }
-
-        await pool.query(
-          `INSERT INTO personas (nombre, telefono, email, dni, tenant_id)
-           VALUES ($1, $2, $3, $4, 1)`,
-          [nombre, telefono, email, dni ? dni.toUpperCase() : null]
-        );
-        imported++;
-      } catch {
-        errors++;
-      }
-    }
-
-    // Limpiar archivo temporal
-    fs.unlinkSync(req.file.path);
-
+    const [agentes, pipelines, etiquetas] = await Promise.all([
+      pool.query('SELECT id, nombre, avatar_color FROM users WHERE activo = true ORDER BY nombre'),
+      pool.query('SELECT id, name, color FROM pipelines WHERE active = true ORDER BY orden'),
+      pool.query('SELECT id, nombre, color FROM etiquetas ORDER BY nombre'),
+    ]);
     res.json({
-      imported,
-      duplicates,
-      errors,
-      total: lines.length - 1,
-      preview,
+      agentes: agentes.rows,
+      pipelines: pipelines.rows,
+      etiquetas: etiquetas.rows,
     });
   } catch (err) {
-    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
-    console.error('Error importar:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Previsualización de archivo antes de importar
-router.post('/importar/preview', upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
-
-  try {
-    const content = fs.readFileSync(req.file.path, 'utf8');
-    const lines = content.trim().split('\n').filter(l => l.trim());
-    const sep = lines[0].includes(';') ? ';' : ',';
-    const headers = lines[0].split(sep).map(h => h.replace(/["']/g, '').trim());
-    const rows = [];
-    for (let i = 1; i <= Math.min(5, lines.length - 1); i++) {
-      rows.push(lines[i].split(sep).map(c => c.replace(/["']/g, '').trim()));
-    }
-
-    fs.unlinkSync(req.file.path);
-    res.json({ headers, rows, total: lines.length - 1 });
-  } catch (err) {
-    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
     res.status(500).json({ error: err.message });
   }
 });
