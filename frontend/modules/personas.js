@@ -307,6 +307,7 @@ const PersonasModule = {
               ${p.telefono ? `<button id="btn-llamar-ct" onclick="PersonasModule._clickToCall('${p.telefono}',${p.id},'${(p.nombre||'').replace(/'/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
               ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
               ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Email">${_ICO.email(16,'#475569')} Email</button>` : ''}
+              <button onclick="PersonasModule._openCalculadora(${p.id})" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Calculadora">${typeof Icons !== 'undefined' ? Icons.calculadora(16,'#475569') : ''} Calculadora</button>
             </div>
             <div style="width:1px;height:24px;background:#e8edf2"></div>
             <button id="btn-edit-persona" style="padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:12px;font-weight:600;color:#475569;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.editar(14,'#475569')} Editar</button>
@@ -376,18 +377,29 @@ const PersonasModule = {
             <div style="border-bottom:1px solid #e8edf2;padding:16px 18px;">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Seguros actuales (${polizasActivas.length})</div>
               ${polizasActivas.length===0?'<div style="font-size:13px;color:#94a3b8">Sin pólizas activas</div>':''}
-              ${polizasActivas.map(d=>`<div style="padding:8px 0;border-bottom:1px solid #f0f0f0;">
+              ${polizasActivas.map((d,idx)=>`<div class="poliza-sidebar-item" style="padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="const det=document.getElementById('pol-det-${idx}');det.style.display=det.style.display==='none'?'block':'none';this.querySelector('.pol-arrow').textContent=det.style.display==='none'?'▸':'▾';">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <span style="display:flex;align-items:center">${_ICO.polizas(14,'#10b981')}</span>
                   <div style="flex:1;font-size:12px;font-weight:600;">${this._esc(d.tipo_poliza||d.producto||d.compania||'Póliza')}</div>
-                  ${d.prima?`<span style="font-size:12px;font-weight:700;color:var(--accent);">${d.prima}€/mes</span>`:''}
+                  ${d.prima && d.prima <= 1000?`<span style="font-size:12px;font-weight:700;color:var(--accent);">${parseFloat(d.prima).toFixed(2)}€/mes</span>`:''}
+                  <span class="pol-arrow" style="font-size:10px;color:#94a3b8;">▸</span>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:4px;padding-left:22px;font-size:11px;color:#94a3b8;">
-                  ${d.poliza?`<span>Póliza: <strong style="color:#0f172a">${this._esc(d.poliza)}</strong></span>`:''}
-                  ${d.num_solicitud?`<span>Sol: ${this._esc(d.num_solicitud)}</span>`:''}
-                  ${d.pipeline_nombre?`<span>${d.pipeline_nombre}</span>`:''}
+                <div id="pol-det-${idx}" style="display:none;margin-top:8px;padding-left:22px;font-size:11px;" onclick="event.stopPropagation();">
+                  <div style="background:#f4f6f9;border-radius:8px;padding:10px;">
+                    ${[
+                      ['Tipo', d.tipo_poliza || d.producto],
+                      ['Compañía', d.compania],
+                      ['Prima/mes', d.prima && d.prima <= 1000 ? parseFloat(d.prima).toFixed(2) + ' €' : null],
+                      ['Nº Póliza', d.poliza],
+                      ['Nº Solicitud', d.num_solicitud],
+                      ['Fecha efecto', d.fecha_efecto ? new Date(d.fecha_efecto).toLocaleDateString('es-ES') : null],
+                      ['IBAN', d.iban],
+                      ['Pipeline', d.pipeline_nombre],
+                      ['Descuento', d.descuento],
+                      ['Forma pago', d.frecuencia_pago],
+                    ].filter(([,v]) => v).map(([l,v]) => `<div style="display:flex;gap:6px;margin-bottom:4px;"><span style="font-weight:600;color:#94a3b8;min-width:70px;">${l}</span><span style="color:#0f172a;font-weight:500;">${this._esc(String(v))}</span></div>`).join('')}
+                  </div>
                 </div>
-                ${d.fecha_efecto?`<div style="font-size:10px;color:#94a3b8;padding-left:22px;margin-top:2px;">Efecto: ${new Date(d.fecha_efecto).toLocaleDateString('es-ES')}</div>`:''}
               </div>`).join('')}
             </div>
 
@@ -1079,6 +1091,34 @@ const PersonasModule = {
   },
 
   // === Click-to-call via CloudTalk Widget ===
+  _openCalculadora(personaId) {
+    const p = this._fichaPersona;
+    const params = new URLSearchParams();
+    if (p) {
+      if (p.nombre) params.set('nombre', p.nombre);
+      if (p.telefono) params.set('telefono', p.telefono);
+      if (p.email) params.set('email', p.email);
+      params.set('persona_id', personaId);
+    }
+    const qs = params.toString() ? '?' + params.toString() : '';
+    const content = document.getElementById('persona-tab-content');
+    // Desactivar tabs
+    document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => {
+      b.style.color = '#94a3b8'; b.style.borderBottomColor = 'transparent';
+    });
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${typeof Icons !== 'undefined' ? Icons.calculadora(20,'var(--accent)') : ''} Calculadora ADESLAS</span>
+        <button id="btn-volver-calc" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver</button>
+      </div>
+      <iframe src="/calculadora/index.html${qs}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+    document.getElementById('btn-volver-calc').addEventListener('click', () => {
+      const firstTab = document.querySelector('#persona-tabs .tab-btn');
+      if (firstTab) { firstTab.style.color = 'var(--accent)'; firstTab.style.borderBottomColor = 'var(--accent)'; }
+      this.renderTab('historial', p);
+    });
+  },
+
   _clickToCall(phone, personaId, nombre) {
     // Abrir el widget CloudTalk con el número precargado
     if (typeof CloudTalkWidget !== 'undefined') {
@@ -1093,37 +1133,125 @@ const PersonasModule = {
     }
   },
 
-  // === Grabar inline (Opción A — dentro de la ficha) ===
+  // === Grabar póliza — formulario con precarga de propuestas ===
   _openGrabarInline() {
     const p = this._fichaPersona;
     if (!p) return;
     const content = document.getElementById('persona-tab-content');
     const activeDeal = (p.deals||[]).find(d=>d.estado==='en_tramite') || (p.deals||[])[0];
-    const params = new URLSearchParams();
-    if (activeDeal?.pipedrive_deal_id) params.set('deal_id', activeDeal.pipedrive_deal_id);
-    else if (activeDeal?.pipedrive_id) params.set('deal_id', activeDeal.pipedrive_id);
-    params.set('persona_id', p.id);
-    const qs = params.toString() ? '?' + params.toString() : '';
 
-    // Desactivar tabs visualmente
+    // Propuestas previas (de notas que tienen datos de presupuesto)
+    const propuestas = (p.notas || []).filter(n => {
+      const txt = n.texto || '';
+      return txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA') || txt.includes('OPCIÓN');
+    });
+
+    // Desactivar tabs
     document.querySelectorAll('#persona-tabs .tab-btn').forEach(b => {
-      b.style.color = '#94a3b8';
-      b.style.borderBottomColor = 'transparent';
+      b.style.color = '#94a3b8'; b.style.borderBottomColor = 'transparent';
     });
 
     content.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${_ICO.grabar(20,'#ef4444')} Grabación de Póliza</span>
-        <button id="btn-volver-grabar" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver al contacto</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${_ICO.grabar(20,'#ef4444')} Grabar Póliza</span>
+        <button id="btn-volver-grabar" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver</button>
       </div>
-      <iframe src="/grabaciones/index.html${qs}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
 
+      ${propuestas.length > 0 ? `
+        <div style="background:#e6f6fd;border:1px solid #b3e0f7;border-radius:10px;padding:12px;margin-bottom:16px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#007ab8;margin-bottom:8px;">Cargar desde propuesta (${propuestas.length})</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${propuestas.map((pr, i) => {
+              const txt = pr.texto || '';
+              const prod = (txt.match(/Producto[:\s]*(.+)/i) || txt.match(/OPCIÓN\s*\d+[:\s]*(.+)/i) || ['',''])[1].trim().substring(0,30);
+              const fecha = pr.created_at ? new Date(pr.created_at).toLocaleDateString('es-ES') : '';
+              return `<button class="btn-cargar-prop" data-idx="${i}" style="padding:6px 12px;border-radius:8px;border:1px solid #009DDD;background:#fff;color:#009DDD;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">${prod || 'Propuesta'} · ${fecha}</button>`;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="card" style="padding:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Tipo de póliza</label><input type="text" class="form-control" id="grab-tipo" value="${this._esc(activeDeal?.tipo_poliza || activeDeal?.producto || '')}"></div>
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Compañía</label>
+            <select class="form-control" id="grab-compania"><option value="ADESLAS">ADESLAS</option><option value="DKV">DKV</option></select>
+          </div>
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Prima mensual (€)</label><input type="number" step="0.01" class="form-control" id="grab-prima" value="${activeDeal?.prima && activeDeal.prima <= 1000 ? activeDeal.prima : ''}"></div>
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Póliza</label><input type="text" class="form-control" id="grab-poliza" value="${this._esc(activeDeal?.poliza || '')}"></div>
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Nº Solicitud</label><input type="text" class="form-control" id="grab-solicitud" value="${this._esc(activeDeal?.num_solicitud || '')}"></div>
+          <div class="form-group"><label style="font-size:11px;font-weight:700;color:#94a3b8;">Fecha efecto</label><input type="date" class="form-control" id="grab-efecto" value="${activeDeal?.fecha_efecto ? activeDeal.fecha_efecto.split('T')[0] : ''}"></div>
+          <div class="form-group" style="grid-column:1/-1;"><label style="font-size:11px;font-weight:700;color:#94a3b8;">IBAN</label><input type="text" class="form-control" id="grab-iban" value="${this._esc(activeDeal?.iban || '')}"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+          <button id="btn-grabar-iframe" style="padding:8px 16px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">Abrir grabaciones completa</button>
+          <button id="btn-grabar-save" style="padding:8px 20px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;">Guardar póliza ganada</button>
+        </div>
+      </div>
+    `;
+
+    // Cargar propuesta
+    content.querySelectorAll('.btn-cargar-prop').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pr = propuestas[parseInt(btn.dataset.idx)];
+        const txt = pr.texto || '';
+        const extract = (rx) => (txt.match(rx) || ['',''])[1].trim();
+        const prod = extract(/Producto[:\s]*(.+)/i) || extract(/OPCIÓN\s*\d+[:\s]*(.+)/i);
+        const precio = extract(/Precio[:\s]*(.+)/i) || extract(/Prima mensual[:\s]*(.+)/i);
+        if (prod) document.getElementById('grab-tipo').value = prod;
+        if (precio) {
+          const n = parseFloat(precio.replace(/[€\s]/g, '').replace(',', '.'));
+          if (!isNaN(n)) document.getElementById('grab-prima').value = n;
+        }
+      });
+    });
+
+    // Abrir grabaciones completa en iframe
+    document.getElementById('btn-grabar-iframe').addEventListener('click', () => {
+      const params = new URLSearchParams();
+      if (activeDeal?.pipedrive_deal_id) params.set('deal_id', activeDeal.pipedrive_deal_id);
+      else if (activeDeal?.pipedrive_id) params.set('deal_id', activeDeal.pipedrive_id);
+      params.set('persona_id', p.id);
+      const qs = params.toString() ? '?' + params.toString() : '';
+      content.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:6px;">${_ICO.grabar(20,'#ef4444')} Grabación completa</span>
+          <button id="btn-volver-grabar2" style="margin-left:auto;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px">${_ICO.volver(14,'#475569')} Volver</button>
+        </div>
+        <iframe src="/grabaciones/index.html${qs}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+      document.getElementById('btn-volver-grabar2').addEventListener('click', () => this._openGrabarInline());
+    });
+
+    // Guardar póliza
+    document.getElementById('btn-grabar-save').addEventListener('click', async () => {
+      const data = {
+        persona_id: p.id,
+        tipo_poliza: document.getElementById('grab-tipo').value,
+        compania: document.getElementById('grab-compania').value,
+        prima: parseFloat(document.getElementById('grab-prima').value) || null,
+        poliza: document.getElementById('grab-poliza').value || null,
+        num_solicitud: document.getElementById('grab-solicitud').value || null,
+        fecha_efecto: document.getElementById('grab-efecto').value || null,
+        iban: document.getElementById('grab-iban').value || null,
+        pipedrive_status: 'won',
+        estado: 'poliza_activa',
+      };
+      try {
+        if (activeDeal?.id) {
+          await API.patch(`/pipeline/deals/${activeDeal.id}`, data);
+        } else {
+          await API.post('/pipeline/deals', data);
+        }
+        this.showFicha(p.id);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    // Volver
     document.getElementById('btn-volver-grabar').addEventListener('click', () => {
       const firstTab = document.querySelector('#persona-tabs .tab-btn');
-      if (firstTab) {
-        firstTab.style.color = 'var(--accent)';
-        firstTab.style.borderBottomColor = 'var(--accent)';
-      }
+      if (firstTab) { firstTab.style.color = 'var(--accent)'; firstTab.style.borderBottomColor = 'var(--accent)'; }
       this.renderTab('historial', p);
     });
   },
@@ -1141,19 +1269,37 @@ const PersonasModule = {
       ${dealsGanados.length > 0 ? `
         <div style="margin-bottom:16px;">
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:8px;">Pólizas activas (Pipedrive)</div>
-          ${dealsGanados.map(d => `<div style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:10px;padding:12px;margin-bottom:8px;">
+          ${dealsGanados.map((d,i) => `<div class="poliza-card" style="background:#f0fdf4;border:1px solid #d1fae5;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;" onclick="const det=document.getElementById('polcard-${i}');det.style.display=det.style.display==='none'?'block':'none';this.querySelector('.polc-arrow').textContent=det.style.display==='none'?'▸':'▾';">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
               ${_ICO.polizas(16,'#10b981')}
               <span style="font-size:14px;font-weight:700;color:#065f46;">${this._esc(d.tipo_poliza || d.producto || 'Póliza')}</span>
-              ${d.prima ? `<span style="margin-left:auto;font-size:14px;font-weight:700;color:#009DDD;">${d.prima}€/mes</span>` : ''}
+              ${d.prima && d.prima <= 1000 ? `<span style="margin-left:auto;font-size:14px;font-weight:700;color:#009DDD;">${parseFloat(d.prima).toFixed(2)}€/mes</span>` : ''}
+              <span class="polc-arrow" style="font-size:11px;color:#94a3b8;margin-left:${d.prima ? '8px' : 'auto'};">▸</span>
             </div>
             <div style="display:flex;gap:12px;font-size:12px;color:#475569;flex-wrap:wrap;">
               ${d.poliza ? `<span>Póliza: <strong>${this._esc(d.poliza)}</strong></span>` : '<span style="color:#94a3b8;">Nº póliza pendiente</span>'}
               ${d.num_solicitud ? `<span>Sol: ${this._esc(d.num_solicitud)}</span>` : ''}
               ${d.pipeline_nombre ? `<span>${d.pipeline_nombre}</span>` : ''}
-              ${d.fecha_efecto ? `<span>Efecto: ${new Date(d.fecha_efecto).toLocaleDateString('es-ES')}</span>` : ''}
             </div>
-            ${d.iban ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px;">IBAN: ${this._esc(d.iban)}</div>` : ''}
+            <div id="polcard-${i}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #d1fae5;" onclick="event.stopPropagation();">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                ${[
+                  ['Tipo póliza', d.tipo_poliza || d.producto],
+                  ['Compañía', d.compania],
+                  ['Prima/mes', d.prima && d.prima <= 1000 ? parseFloat(d.prima).toFixed(2) + ' €' : null],
+                  ['Nº Póliza', d.poliza],
+                  ['Nº Solicitud', d.num_solicitud],
+                  ['Fecha efecto', d.fecha_efecto ? new Date(d.fecha_efecto).toLocaleDateString('es-ES') : null],
+                  ['IBAN', d.iban],
+                  ['Pipeline', d.pipeline_nombre],
+                  ['Etapa', d.etapa_nombre],
+                  ['Agente', d.agente_nombre],
+                  ['Descuento', d.descuento],
+                  ['Forma pago', d.frecuencia_pago],
+                  ['Observaciones', d.observaciones],
+                ].filter(([,v]) => v).map(([l,v]) => `<div><span style="font-weight:600;color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.5px;display:block;">${l}</span><span style="color:#0f172a;font-weight:500;">${this._esc(String(v))}</span></div>`).join('')}
+              </div>
+            </div>
           </div>`).join('')}
         </div>
       ` : ''}
