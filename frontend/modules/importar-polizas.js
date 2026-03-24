@@ -126,20 +126,35 @@ const ImportarPolizasModule = {
   },
 
   async leerHoja(hoja) {
-    const url = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(hoja)}`;
-    const resp = await fetch(url, { credentials: 'include' });
-    const text = await resp.text();
+    // Usar JSONP para evitar CORS — gviz soporta responseHandler callback
+    const callbackName = '_gvizCb_' + Math.random().toString(36).slice(2);
+    const url = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${callbackName}&sheet=${encodeURIComponent(hoja)}`;
 
-    // gviz devuelve JSONP: google.visualization.Query.setResponse({...})
-    // o a veces con prefijo )]}'\n
-    let jsonStr = text;
-    if (jsonStr.startsWith(")]}'\n")) {
-      jsonStr = jsonStr.substring(5);
-    } else {
-      jsonStr = jsonStr.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
-    }
+    const data = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        delete window[callbackName];
+        script.remove();
+        reject(new Error('Timeout leyendo pestaña (¿tienes sesión de Google activa?)'));
+      }, 15000);
 
-    const data = JSON.parse(jsonStr);
+      window[callbackName] = (response) => {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+        resolve(response);
+      };
+
+      const script = document.createElement('script');
+      script.src = url;
+      script.onerror = () => {
+        clearTimeout(timeout);
+        delete window[callbackName];
+        script.remove();
+        reject(new Error('Error cargando pestaña (¿sesión de Google?)'));
+      };
+      document.head.appendChild(script);
+    });
+
     if (!data.table?.rows) return [];
 
     const filas = [];
