@@ -42,7 +42,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware global
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Cache bust: inyectar versión en index.html
 const BUILD_VERSION = Date.now();
