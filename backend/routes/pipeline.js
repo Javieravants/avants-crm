@@ -501,6 +501,9 @@ router.post('/run-migration-grabar', async (req, res) => {
     )`);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_asegurados_persona ON asegurados(persona_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_asegurados_deal ON asegurados(deal_id)');
+    // Estado póliza en deals
+    await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS num_poliza_definitivo VARCHAR(100)");
+    await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS estado_poliza VARCHAR(30) DEFAULT 'pendiente'");
     res.json({ success: true, message: 'Migración ejecutada' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -522,6 +525,8 @@ router.post('/grabar-poliza', async (req, res) => {
     fecha_efecto, campana,
     // Asegurados
     asegurados,
+    // Datos extra (mascotas, campos específicos)
+    datos_especificos,
   } = req.body;
 
   if (!persona_id) return res.status(400).json({ error: 'persona_id obligatorio' });
@@ -555,8 +560,9 @@ router.post('/grabar-poliza', async (req, res) => {
     let dealIdFinal = deal_id ? parseInt(deal_id) : null;
     const primaVal = prima ? parseFloat(String(prima).replace(',', '.')) : null;
 
+    const extraJson = datos_especificos ? JSON.stringify(datos_especificos) : null;
+
     if (dealIdFinal) {
-      // Actualizar deal existente → marcar como ganado
       await client.query(
         `UPDATE deals SET
            tipo_poliza = COALESCE(NULLIF($1, ''), tipo_poliza),
@@ -568,23 +574,26 @@ router.post('/grabar-poliza', async (req, res) => {
            iban = COALESCE(NULLIF($7, ''), iban),
            pipedrive_status = 'won',
            estado = 'poliza_activa',
+           estado_poliza = 'pendiente',
+           datos_extra = COALESCE($8::jsonb, datos_extra),
            updated_at = NOW()
-         WHERE id = $8`,
+         WHERE id = $9`,
         [tipo_poliza, compania, primaVal, poliza, num_solicitud,
-         fecha_efecto || null, iban, dealIdFinal]
+         fecha_efecto || null, iban, extraJson, dealIdFinal]
       );
     } else {
-      // Crear nuevo deal como ganado
       const r = await client.query(
         `INSERT INTO deals (persona_id, tipo_poliza, compania, prima, poliza,
-           num_solicitud, fecha_efecto, iban, pipedrive_status, estado, agente_id,
+           num_solicitud, fecha_efecto, iban, pipedrive_status, estado, estado_poliza,
+           agente_id, datos_extra,
            pipeline_id, producto)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, 'won', 'poliza_activa', $9,
+         VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, 'won', 'poliza_activa', 'pendiente',
+           $9, $10::jsonb,
            (SELECT id FROM pipelines WHERE active = true ORDER BY orden LIMIT 1),
            $2)
          RETURNING id`,
         [persona_id, tipo_poliza, compania || 'ADESLAS', primaVal, poliza,
-         num_solicitud, fecha_efecto || null, iban, req.user.id]
+         num_solicitud, fecha_efecto || null, iban, req.user.id, extraJson]
       );
       dealIdFinal = r.rows[0].id;
     }
@@ -658,6 +667,31 @@ router.get('/asegurados/:dealId', async (req, res) => {
       'SELECT * FROM asegurados WHERE deal_id = $1 ORDER BY id', [req.params.dealId]
     );
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/pipeline/deals/:id/estado-poliza — actualizar nº solicitud / nº póliza / estado
+router.patch('/deals/:id/estado-poliza', async (req, res) => {
+  const { num_solicitud, num_poliza_definitivo, estado_poliza } = req.body;
+  const dealId = req.params.id;
+
+  try {
+    const fields = [];
+    const vals = [];
+    let idx = 1;
+
+    if (num_solicitud !== undefined) { fields.push(`num_solicitud = $${idx++}`); vals.push(num_solicitud); }
+    if (num_poliza_definitivo !== undefined) { fields.push(`num_poliza_definitivo = $${idx++}`); vals.push(num_poliza_definitivo); }
+    if (estado_poliza) { fields.push(`estado_poliza = $${idx++}`); vals.push(estado_poliza); }
+    fields.push('updated_at = NOW()');
+
+    if (fields.length <= 1) return res.status(400).json({ error: 'Sin datos a actualizar' });
+
+    vals.push(dealId);
+    await pool.query(`UPDATE deals SET ${fields.join(', ')} WHERE id = $${idx}`, vals);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

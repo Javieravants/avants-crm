@@ -115,21 +115,22 @@ router.get('/:id', async (req, res) => {
       ORDER BY d.created_at DESC
     `, [req.params.id]);
 
-    // Tickets/Trámites vinculados (por pipedrive_deal_id)
+    // Tickets/Trámites vinculados (por pipedrive_deal_id O contacto_id)
     const dealIds = dealsResult.rows
       .filter(d => d.pipedrive_id)
       .map(d => String(d.pipedrive_id));
+    const localDealIds = dealsResult.rows.map(d => String(d.id));
+    const allDealIds = [...new Set([...dealIds, ...localDealIds])];
     let tickets = [];
-    if (dealIds.length > 0) {
-      const ticketsResult = await pool.query(`
-        SELECT t.*, tt.nombre AS tipo_nombre
-        FROM tickets t
-        LEFT JOIN ticket_types tt ON t.tipo_id = tt.id
-        WHERE t.pipedrive_deal_id = ANY($1)
-        ORDER BY t.created_at DESC
-      `, [dealIds]);
-      tickets = ticketsResult.rows;
-    }
+    const ticketsResult = await pool.query(`
+      SELECT t.*, tt.nombre AS tipo_nombre
+      FROM tickets t
+      LEFT JOIN ticket_types tt ON t.tipo_id = tt.id
+      WHERE t.contacto_id = $1
+         OR (t.pipedrive_deal_id = ANY($2))
+      ORDER BY t.created_at DESC
+    `, [req.params.id, allDealIds.length > 0 ? allDealIds : ['__none__']]);
+    tickets = ticketsResult.rows;
 
     // Familiares
     const familiaresResult = await pool.query(

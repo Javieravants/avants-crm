@@ -3286,7 +3286,7 @@ async function guardarEnCRM() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({
-                persona_id: null,
+                persona_id: (() => { const u = new URLSearchParams(window.location.search); return u.get('persona_id') ? parseInt(u.get('persona_id')) : null; })(),
                 deal_id: dealId ? parseInt(dealId) : null,
                 compania: 'ADESLAS',
                 producto: saludProducto || 'Presupuesto',

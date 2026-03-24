@@ -118,7 +118,7 @@ const PersonasModule = {
       });
     } catch {}
 
-    document.getElementById('btn-new-persona').addEventListener('click', () => this.showPersonaForm(null));
+    document.getElementById('btn-new-persona')?.addEventListener('click', () => this.showPersonaForm(null));
 
     this.loadPersonas();
   },
@@ -1212,30 +1212,48 @@ const PersonasModule = {
         </div>
       </div>
 
-      <!-- SECCIÓN B: Asegurados -->
-      <div class="card" style="padding:16px;margin-bottom:14px;">
-        <div style="${sec}">${_ICO.añadir(16,'#10b981')} Asegurados</div>
-        <div id="grab-asegurados">
-          <div class="aseg-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
-            <div><label style="${lbl}">Nombre</label><input class="form-control aseg-nombre" value="${this._esc(p.nombre||'')}"></div>
-            <div><label style="${lbl}">DNI</label><input class="form-control aseg-dni" value="${this._esc(p.dni||'')}"></div>
-            <div><label style="${lbl}">F. nac.</label><input type="date" class="form-control aseg-fnac" value="${p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : ''}"></div>
-            <div><label style="${lbl}">Sexo</label><select class="form-control aseg-sexo"><option value="">—</option><option value="H" ${p.sexo==='H'?'selected':''}>H</option><option value="M" ${p.sexo==='M'?'selected':''}>M</option></select></div>
-            <div><label style="${lbl}">Parentesco</label><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
-            <div></div>
-          </div>
-          ${familiares.map(f => `
+      <!-- SECCIÓN B: Asegurados / Mascotas (dinámico) -->
+      <div class="card" style="padding:16px;margin-bottom:14px;" id="grab-seccion-b">
+        <!-- Asegurados (salud, dental, decesos) -->
+        <div id="grab-panel-asegurados">
+          <div style="${sec}">${_ICO.añadir(16,'#10b981')} Asegurados</div>
+          <div id="grab-asegurados">
             <div class="aseg-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
-              <div><input class="form-control aseg-nombre" value="${this._esc(f.nombre||'')}"></div>
-              <div><input class="form-control aseg-dni" value="${this._esc(f.dni||'')}"></div>
-              <div><input type="date" class="form-control aseg-fnac" value="${f.fecha_nacimiento ? f.fecha_nacimiento.split('T')[0] : ''}"></div>
-              <div><select class="form-control aseg-sexo"><option value="">—</option><option value="H">H</option><option value="M">M</option></select></div>
-              <div><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option selected>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
-              <button class="aseg-remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0;" title="Quitar">×</button>
+              <div><label style="${lbl}">Nombre</label><input class="form-control aseg-nombre" value="${this._esc(p.nombre||'')}"></div>
+              <div><label style="${lbl}">DNI</label><input class="form-control aseg-dni" value="${this._esc(p.dni||'')}"></div>
+              <div><label style="${lbl}">F. nac.</label><input type="date" class="form-control aseg-fnac" value="${p.fecha_nacimiento ? p.fecha_nacimiento.split('T')[0] : ''}"></div>
+              <div><label style="${lbl}">Sexo</label><select class="form-control aseg-sexo"><option value="">—</option><option value="H" ${p.sexo==='H'?'selected':''}>H</option><option value="M" ${p.sexo==='M'?'selected':''}>M</option></select></div>
+              <div><label style="${lbl}">Parentesco</label><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
+              <div></div>
             </div>
-          `).join('')}
+            ${familiares.map(f => `
+              <div class="aseg-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
+                <div><input class="form-control aseg-nombre" value="${this._esc(f.nombre||'')}"></div>
+                <div><input class="form-control aseg-dni" value="${this._esc(f.dni||'')}"></div>
+                <div><input type="date" class="form-control aseg-fnac" value="${f.fecha_nacimiento ? f.fecha_nacimiento.split('T')[0] : ''}"></div>
+                <div><select class="form-control aseg-sexo"><option value="">—</option><option value="H">H</option><option value="M">M</option></select></div>
+                <div><select class="form-control aseg-parentesco"><option>Titular</option><option>Cónyuge</option><option selected>Hijo/a</option><option>Familiar</option><option>Otro</option></select></div>
+                <button class="aseg-remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0;" title="Quitar">×</button>
+              </div>
+            `).join('')}
+          </div>
+          <button id="btn-add-aseg" style="padding:6px 12px;border-radius:8px;border:1px dashed #009DDD;background:#e6f6fd;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin-top:4px;">+ Añadir asegurado</button>
         </div>
-        <button id="btn-add-aseg" style="padding:6px 12px;border-radius:8px;border:1px dashed #009DDD;background:#e6f6fd;color:#009DDD;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin-top:4px;">+ Añadir asegurado</button>
+        <!-- Mascotas (solo MASCOTAS) -->
+        <div id="grab-panel-mascotas" style="display:none;">
+          <div style="${sec}">${_ICO.polizas(16,'#f59e0b')} Mascotas</div>
+          <div id="grab-mascotas">
+            <div class="mascota-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;">
+              <div><label style="${lbl}">Nombre mascota</label><input class="form-control masc-nombre"></div>
+              <div><label style="${lbl}">Tipo</label><select class="form-control masc-tipo"><option>Perro</option><option>Gato</option><option>Otro</option></select></div>
+              <div><label style="${lbl}">Raza</label><input class="form-control masc-raza"></div>
+              <div><label style="${lbl}">F. nac.</label><input type="date" class="form-control masc-fnac"></div>
+              <div><label style="${lbl}">Nº Chip</label><input class="form-control masc-chip"></div>
+              <div></div>
+            </div>
+          </div>
+          <button id="btn-add-mascota" style="padding:6px 12px;border-radius:8px;border:1px dashed #f59e0b;background:#fffbeb;color:#f59e0b;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin-top:4px;">+ Añadir mascota</button>
+        </div>
       </div>
 
       <!-- SECCIÓN C: Datos póliza -->
@@ -1270,6 +1288,34 @@ const PersonasModule = {
     document.getElementById('grab-empresa')?.addEventListener('change', (e) => {
       document.getElementById('grab-tomador-persona').style.display = e.target.checked ? 'none' : 'grid';
       document.getElementById('grab-tomador-empresa').style.display = e.target.checked ? 'grid' : 'none';
+    });
+
+    // Toggle asegurados / mascotas según compañía
+    const companiaSelect = document.getElementById('grab-compania');
+    const toggleSeccionB = () => {
+      const isMascotas = companiaSelect.value.includes('MASCOTAS');
+      document.getElementById('grab-panel-asegurados').style.display = isMascotas ? 'none' : 'block';
+      document.getElementById('grab-panel-mascotas').style.display = isMascotas ? 'block' : 'none';
+    };
+    companiaSelect.addEventListener('change', toggleSeccionB);
+    toggleSeccionB();
+
+    // Añadir mascota
+    document.getElementById('btn-add-mascota')?.addEventListener('click', () => {
+      const container = document.getElementById('grab-mascotas');
+      const row = document.createElement('div');
+      row.className = 'mascota-row';
+      row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr 28px;gap:8px;align-items:end;margin-bottom:8px;';
+      row.innerHTML = `
+        <div><input class="form-control masc-nombre" placeholder="Nombre"></div>
+        <div><select class="form-control masc-tipo"><option>Perro</option><option>Gato</option><option>Otro</option></select></div>
+        <div><input class="form-control masc-raza" placeholder="Raza"></div>
+        <div><input type="date" class="form-control masc-fnac"></div>
+        <div><input class="form-control masc-chip" placeholder="Nº chip"></div>
+        <button class="masc-remove" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;padding:0;">×</button>
+      `;
+      container.appendChild(row);
+      row.querySelector('.masc-remove').addEventListener('click', () => row.remove());
     });
 
     // Auto-calcular prima anual
@@ -1387,6 +1433,22 @@ const PersonasModule = {
         campana: document.getElementById('grab-campana')?.value || null,
         // Asegurados
         asegurados,
+        // Datos específicos (mascotas, etc.)
+        datos_especificos: (() => {
+          const mascotas = [];
+          document.querySelectorAll('.mascota-row').forEach(row => {
+            const nombre = row.querySelector('.masc-nombre')?.value?.trim();
+            if (!nombre) return;
+            mascotas.push({
+              nombre,
+              tipo: row.querySelector('.masc-tipo')?.value || 'Perro',
+              raza: row.querySelector('.masc-raza')?.value || null,
+              fecha_nac: row.querySelector('.masc-fnac')?.value || null,
+              chip: row.querySelector('.masc-chip')?.value || null,
+            });
+          });
+          return mascotas.length > 0 ? { mascotas } : null;
+        })(),
       };
 
       try {
