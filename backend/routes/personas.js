@@ -7,6 +7,15 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
+// Normalizar teléfono a formato +34XXXXXXXXX
+function formatTelefono(tel) {
+  if (!tel) return null;
+  const digits = tel.replace(/\D/g, '');
+  if (digits.startsWith('34') && digits.length === 11) return '+' + digits;
+  if (digits.length === 9) return '+34' + digits;
+  return tel;
+}
+
 // GET /api/personas — listar con búsqueda y filtros
 router.get('/', async (req, res) => {
   const { q, compania, producto, estado_poliza, agente_id, page = 1, limit = 50 } = req.query;
@@ -17,17 +26,34 @@ router.get('/', async (req, res) => {
     const values = [req.tenantId];
     let idx = 2;
 
-    // Búsqueda general (nombre, DNI, teléfono, email, nº póliza)
+    // Búsqueda general (nombre, DNI, teléfono normalizado, email, nº póliza)
     if (q) {
-      where.push(`(
-        p.nombre ILIKE $${idx} OR
-        p.dni ILIKE $${idx} OR
-        p.telefono ILIKE $${idx} OR
-        p.email ILIKE $${idx} OR
-        EXISTS (SELECT 1 FROM deals d2 WHERE d2.persona_id = p.id AND d2.poliza ILIKE $${idx})
-      )`);
-      values.push(`%${q}%`);
-      idx++;
+      const qDigits = q.replace(/\D/g, '');
+      const isPhone = qDigits.length >= 6;
+      if (isPhone) {
+        // Búsqueda por teléfono normalizada (últimos 9 dígitos)
+        where.push(`(
+          p.nombre ILIKE $${idx} OR
+          p.dni ILIKE $${idx} OR
+          p.email ILIKE $${idx} OR
+          RIGHT(regexp_replace(COALESCE(p.telefono,''), '[^0-9]', '', 'g'), 9) = $${idx + 1} OR
+          EXISTS (SELECT 1 FROM deals d2 WHERE d2.persona_id = p.id AND d2.poliza ILIKE $${idx})
+        )`);
+        values.push(`%${q}%`);
+        idx++;
+        values.push(qDigits.slice(-9));
+        idx++;
+      } else {
+        where.push(`(
+          p.nombre ILIKE $${idx} OR
+          p.dni ILIKE $${idx} OR
+          p.telefono ILIKE $${idx} OR
+          p.email ILIKE $${idx} OR
+          EXISTS (SELECT 1 FROM deals d2 WHERE d2.persona_id = p.id AND d2.poliza ILIKE $${idx})
+        )`);
+        values.push(`%${q}%`);
+        idx++;
+      }
     }
 
     // Filtros por datos de deals/pólizas
@@ -192,7 +218,7 @@ router.post('/', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO personas (nombre, dni, telefono, email, fecha_nacimiento, direccion, nacionalidad)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [nombre, dni ? dni.toUpperCase() : null, telefono, email, fecha_nacimiento || null, direccion, nacionalidad]
+      [nombre, dni ? dni.toUpperCase() : null, formatTelefono(telefono), email, fecha_nacimiento || null, direccion, nacionalidad]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -212,7 +238,7 @@ router.patch('/:id', async (req, res) => {
 
     if (nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(nombre); }
     if (dni !== undefined) { fields.push(`dni = $${idx++}`); values.push(dni ? dni.toUpperCase() : null); }
-    if (telefono !== undefined) { fields.push(`telefono = $${idx++}`); values.push(telefono); }
+    if (telefono !== undefined) { fields.push(`telefono = $${idx++}`); values.push(formatTelefono(telefono)); }
     if (email !== undefined) { fields.push(`email = $${idx++}`); values.push(email); }
     if (fecha_nacimiento !== undefined) { fields.push(`fecha_nacimiento = $${idx++}`); values.push(fecha_nacimiento || null); }
     if (direccion !== undefined) { fields.push(`direccion = $${idx++}`); values.push(direccion); }

@@ -94,11 +94,14 @@ app.post('/webhook/cloudtalk', async (req, res) => {
 
     if (!contact_phone) return;
 
-    // Buscar persona por teléfono (varios formatos)
+    // Buscar persona por teléfono normalizado (últimos 9 dígitos)
     const phone = (contact_phone || '').replace(/\s/g, '');
+    const phoneDigits = phone.replace(/\D/g, '').slice(-9);
     const persona = await pool.query(
-      `SELECT id FROM personas WHERE telefono = $1 OR telefono = $2 OR telefono = $3 LIMIT 1`,
-      [phone, '+34' + phone.replace(/^\+34/, ''), phone.replace(/^\+34/, '')]
+      `SELECT id FROM personas
+       WHERE RIGHT(regexp_replace(COALESCE(telefono,''), '[^0-9]', '', 'g'), 9) = $1
+       LIMIT 1`,
+      [phoneDigits]
     );
 
     // Buscar agente por nombre

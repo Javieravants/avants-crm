@@ -5,18 +5,31 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
+// Normalizar teléfono a últimos 9 dígitos
+function normTel(tel) {
+  if (!tel) return '';
+  return tel.replace(/\D/g, '').slice(-9);
+}
+
 // GET /api/search?q=texto — buscar en personas, deals, tickets
 router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (!q || q.length < 2) return res.json({ personas: [], deals: [], tickets: [] });
 
   const like = '%' + q + '%';
+  // Si la búsqueda parece un teléfono (>= 6 dígitos)
+  const digits = q.replace(/\D/g, '');
+  const isPhone = digits.length >= 6;
+  const telNorm = digits.slice(-9);
+
   try {
     const [personas, deals, tickets] = await Promise.all([
       pool.query(
         `SELECT id, pipedrive_person_id, nombre, telefono, email, dni
-         FROM personas WHERE nombre ILIKE $1 OR telefono ILIKE $1 OR email ILIKE $1 OR dni ILIKE $1
-         ORDER BY nombre LIMIT 8`, [like]),
+         FROM personas WHERE nombre ILIKE $1 OR email ILIKE $1 OR dni ILIKE $1
+           OR ($2 AND RIGHT(regexp_replace(COALESCE(telefono,''), '[^0-9]', '', 'g'), 9) = $3)
+           OR (NOT $2 AND telefono ILIKE $1)
+         ORDER BY nombre LIMIT 8`, [like, isPhone, telNorm]),
       pool.query(
         `SELECT d.id, d.pipedrive_id, d.producto, d.pipedrive_status, p.nombre as persona_nombre
          FROM deals d LEFT JOIN personas p ON d.persona_id = p.id
