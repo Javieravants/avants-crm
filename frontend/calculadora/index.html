@@ -1026,81 +1026,92 @@ window.onload = async function() {
 
     // Precargar datos del contacto si viene de la ficha
     if (personaId) {
-        try {
-            // Token JWT: probar localStorage propio y del parent (iframe)
-            let token = localStorage.getItem('token');
-            if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
-            if (!token) {
-                console.warn('[Calculadora] Sin token JWT — no se pueden precargar datos');
-                // Aún así usar los datos de URL params como fallback
-                const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
-                if (titularCard) {
-                    const nombre = urlParams.get('nombre');
-                    if (nombre) { const el = titularCard.querySelector('.asegurado-nombre'); if (el) el.value = nombre; }
-                }
-            }
+        // Token JWT: también puede venir por URL param (para iframes)
+        let token = urlParams.get('token') || localStorage.getItem('token');
+        if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
 
-            const res = await fetch('/api/personas/' + personaId, {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (!res.ok) return;
-            const persona = await res.json();
+        if (!token) {
+            console.warn('[Calculadora] Sin token — precarga desde URL params');
+            const tc = document.querySelector('#aseguradosContainer .asegurado-card');
+            if (tc && urlParams.get('nombre')) tc.querySelector('.asegurado-nombre').value = urlParams.get('nombre');
+        }
 
-            // Precargar titular (primer asegurado)
-            const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
-            if (titularCard) {
-                if (persona.nombre) {
-                    const nombreInput = titularCard.querySelector('.asegurado-nombre');
-                    if (nombreInput) nombreInput.value = persona.nombre;
-                }
-                if (persona.fecha_nacimiento) {
-                    const fechaInput = titularCard.querySelector('.asegurado-fecha');
-                    if (fechaInput) {
-                        fechaInput.value = persona.fecha_nacimiento.split('T')[0];
-                        calcularTodo();
-                    }
-                }
-                if (persona.provincia) {
-                    const provSelect = titularCard.querySelector('.asegurado-provincia');
-                    if (provSelect) {
-                        provSelect.value = persona.provincia;
-                        onProvinciaChange(provSelect, true);
-                        if (persona.localidad) {
-                            setTimeout(() => {
-                                const locSelect = titularCard.querySelector('.asegurado-localidad');
-                                if (locSelect) locSelect.value = persona.localidad;
-                            }, 500);
+        if (token) {
+            const headers = { 'Authorization': 'Bearer ' + token };
+            try {
+                // 1. Datos de persona
+                const pRes = await fetch('/api/personas/' + personaId, { headers });
+                if (pRes.ok) {
+                    const persona = await pRes.json();
+                    const tc = document.querySelector('#aseguradosContainer .asegurado-card');
+                    if (tc) {
+                        if (persona.nombre) { const el = tc.querySelector('.asegurado-nombre'); if (el) el.value = persona.nombre; }
+                        if (persona.fecha_nacimiento) {
+                            const el = tc.querySelector('.asegurado-fecha');
+                            if (el) { el.value = persona.fecha_nacimiento.split('T')[0]; calcularTodo(); }
+                        }
+                        if (persona.provincia) {
+                            const el = tc.querySelector('.asegurado-provincia');
+                            if (el) {
+                                el.value = persona.provincia;
+                                onProvinciaChange(el, true);
+                                if (persona.localidad) setTimeout(() => {
+                                    const loc = tc.querySelector('.asegurado-localidad');
+                                    if (loc) loc.value = persona.localidad;
+                                }, 500);
+                            }
                         }
                     }
+                    // Banner contacto
+                    const hdr = document.querySelector('.header');
+                    if (hdr && persona.nombre) {
+                        const b = document.createElement('div');
+                        b.style.cssText = 'background:#e6f6fd;color:#007ab8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;';
+                        b.textContent = persona.nombre + (persona.telefono ? ' · ' + persona.telefono : '');
+                        hdr.appendChild(b);
+                    }
                 }
-            }
 
-            // Mostrar banner de contacto vinculado
-            const header = document.querySelector('.header');
-            if (header && persona.nombre) {
-                const badge = document.createElement('div');
-                badge.style.cssText = 'background:#e6f6fd;color:#007ab8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;';
-                badge.innerHTML = '👤 ' + persona.nombre + (persona.telefono ? ' · ' + persona.telefono : '');
-                header.appendChild(badge);
-            }
-
-            // Cargar propuestas previas
-            const propRes = await fetch('/api/calculadora/propuestas/persona/' + personaId, {
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (propRes.ok) {
-                const propuestas = await propRes.json();
-                if (propuestas.length > 0) {
-                    const header2 = document.querySelector('.header');
-                    const propBadge = document.createElement('div');
-                    propBadge.style.cssText = 'background:#ecfdf5;color:#065f46;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;';
-                    propBadge.textContent = '📋 ' + propuestas.length + ' propuesta' + (propuestas.length > 1 ? 's' : '') + ' previas';
-                    propBadge.title = 'Click para ver propuestas anteriores';
-                    header2.appendChild(propBadge);
+                // 2. Asegurados previos → añadir al formulario
+                const aRes = await fetch('/api/calculadora/asegurados/' + personaId, { headers });
+                if (aRes.ok) {
+                    const asegurados = await aRes.json();
+                    // Añadir los no-titular (el titular ya está como primer card)
+                    asegurados.filter(a => a.parentesco !== 'Titular').forEach(a => {
+                        addAsegurado(false);
+                        const cards = document.querySelectorAll('#aseguradosContainer .asegurado-card');
+                        const last = cards[cards.length - 1];
+                        if (last) {
+                            if (a.nombre) { const el = last.querySelector('.asegurado-nombre'); if (el) el.value = a.nombre; }
+                            if (a.fecha_nac) { const el = last.querySelector('.asegurado-fecha'); if (el) el.value = a.fecha_nac.split('T')[0]; }
+                            if (a.sexo) { const el = last.querySelector('.asegurado-sexo'); if (el) el.value = a.sexo; }
+                        }
+                    });
+                    if (asegurados.length > 0) calcularTodo();
                 }
+
+                // 3. Propuestas previas
+                const prRes = await fetch('/api/calculadora/propuestas/persona/' + personaId, { headers });
+                if (prRes.ok) {
+                    const propuestas = await prRes.json();
+                    if (propuestas.length > 0) {
+                        const hdr = document.querySelector('.header');
+                        const b = document.createElement('div');
+                        b.style.cssText = 'background:#ecfdf5;color:#065f46;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;';
+                        b.textContent = propuestas.length + ' propuesta' + (propuestas.length > 1 ? 's' : '') + ' previa' + (propuestas.length > 1 ? 's' : '');
+                        b.title = 'Click para cargar la última propuesta';
+                        b.onclick = () => {
+                            const p = propuestas[0]; // más reciente
+                            if (p.producto) { const el = document.getElementById('saludProducto'); if (el) { el.value = p.producto; } }
+                            calcularTodo();
+                            showStatus('Propuesta cargada: ' + (p.tipo_poliza || p.producto), 'success');
+                        };
+                        hdr?.appendChild(b);
+                    }
+                }
+            } catch(e) {
+                console.warn('[Calculadora] Error precarga:', e.message);
             }
-        } catch(e) {
-            console.warn('Error precargando datos contacto:', e.message);
         }
     }
 };
@@ -3330,103 +3341,133 @@ async function guardarEnCRM() {
     try { mostrarNota(); } catch(e) {}
     const notaTexto = document.getElementById('notaContenido')?.value || '';
 
-    // Recoger asegurados
+    // Recoger asegurados de todos los cards
     const asegurados = [];
-    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card) => {
+    document.querySelectorAll('#aseguradosContainer .asegurado-card').forEach((card, i) => {
         const nombre = card.querySelector('.asegurado-nombre')?.value || '';
         const fecha = card.querySelector('.asegurado-fecha')?.value || '';
         const sexo = card.querySelector('.asegurado-sexo')?.value || '';
-        if (nombre || fecha) asegurados.push({ nombre, fechaNac: fecha, sexo, edad: fecha ? calcularEdad(fecha) : null });
+        const prov = card.querySelector('.asegurado-provincia')?.value || '';
+        const loc = card.querySelector('.asegurado-localidad')?.value || '';
+        if (nombre || fecha) asegurados.push({
+            nombre, fechaNac: fecha, sexo,
+            parentesco: i === 0 ? 'Titular' : 'Familiar',
+            provincia: prov, localidad: loc,
+            edad: fecha ? calcularEdad(fecha) : null
+        });
     });
 
-    // Recoger datos
+    // Recoger productos activos con su prima individual
+    const productos = [];
     const saludProducto = document.getElementById('saludProducto')?.value || '';
-    const zona = document.querySelector('.zona-badge')?.textContent?.replace('Z','') || '';
-    const primaMensual = parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+    if (productosActivos?.salud && resultadosCalculo?.salud?.mensual > 0) {
+        productos.push({ tipo: 'SALUD', nombre: saludProducto, mensual: resultadosCalculo.salud.mensual, anual: resultadosCalculo.salud.anual || 0, puntos: resultadosCalculo.salud.puntos || 0 });
+    }
+    if (productosActivos?.dentalMax && resultadosCalculo?.dentalMax?.mensual > 0) {
+        productos.push({ tipo: 'DENTAL', nombre: 'Dental MAX', mensual: resultadosCalculo.dentalMax.mensual, anual: resultadosCalculo.dentalMax.anual || 0, puntos: resultadosCalculo.dentalMax.puntos || 0 });
+    }
+    if (productosActivos?.mascotas && resultadosCalculo?.mascotas?.mensual > 0) {
+        productos.push({ tipo: 'MASCOTAS', nombre: 'Mascotas', mensual: resultadosCalculo.mascotas.mensual, anual: resultadosCalculo.mascotas.anual || 0, puntos: resultadosCalculo.mascotas.puntos || 0 });
+    }
+    if (productosActivos?.decesos && resultadosCalculo?.decesos?.mensual > 0) {
+        productos.push({ tipo: 'DECESOS', nombre: 'Decesos', mensual: resultadosCalculo.decesos.mensual, anual: resultadosCalculo.decesos.anual || 0, puntos: resultadosCalculo.decesos.puntos || 0 });
+    }
 
-    if (primaMensual === 0 && asegurados.length === 0) {
-        showStatus('⚠️ Selecciona productos y calcula antes de guardar', 'error');
+    if (productos.length === 0 && asegurados.length === 0) {
+        showStatus('Selecciona productos y calcula antes de guardar', 'error');
         return;
     }
 
     // Token JWT
-    let token = localStorage.getItem('token');
+    let token = new URLSearchParams(window.location.search).get('token') || localStorage.getItem('token');
     if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
-    if (!token) {
-        showStatus('⚠️ No estás logueado en el CRM. Abre la calculadora desde el CRM.', 'error');
-        return;
-    }
+    if (!token) { showStatus('No estás logueado en el CRM', 'error'); return; }
 
-    const personaIdParam = new URLSearchParams(window.location.search).get('persona_id');
-    const personaIdVal = personaIdParam ? parseInt(personaIdParam) : null;
+    const personaIdVal = new URLSearchParams(window.location.search).get('persona_id');
+    if (!personaIdVal) { showStatus('Abre la calculadora desde la ficha de un contacto', 'error'); return; }
 
-    // Recoger desglose de productos
-    const desglose = {};
-    if (productosActivos?.salud) desglose['Salud ' + saludProducto] = { mensual: resultadosCalculo?.salud?.mensual || 0, anual: resultadosCalculo?.salud?.anual || 0 };
-    if (productosActivos?.dentalMax) desglose['Dental MAX'] = { mensual: resultadosCalculo?.dentalMax?.mensual || 0, anual: resultadosCalculo?.dentalMax?.anual || 0 };
-    if (productosActivos?.mascotas) desglose['Mascotas'] = { mensual: resultadosCalculo?.mascotas?.mensual || 0, anual: resultadosCalculo?.mascotas?.anual || 0 };
-    if (productosActivos?.decesos) desglose['Decesos'] = { mensual: resultadosCalculo?.decesos?.mensual || 0, anual: resultadosCalculo?.decesos?.anual || 0 };
+    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+    const zona = document.querySelector('.zona-badge')?.textContent?.replace('Z','') || '';
 
-    showStatus('⏳ Guardando en CRM...', 'info');
+    showStatus('Guardando ' + productos.length + ' propuesta' + (productos.length > 1 ? 's' : '') + '...', 'info');
 
     try {
-        const res = await fetch('/api/calculadora/propuestas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify({
-                persona_id: personaIdVal,
-                deal_id: dealId ? parseInt(dealId) : null,
-                compania: 'ADESLAS',
-                producto: saludProducto || Object.keys(desglose)[0] || 'Presupuesto',
-                zona: zona ? parseInt(zona) : null,
-                num_asegurados: asegurados.length || 1,
-                prima_mensual: primaMensual,
-                prima_anual: primaMensual * 12,
-                campana_puntos: parseInt(document.getElementById('resumenPuntos')?.textContent?.replace(/[^0-9]/g,'')) || 0,
-                forma_pago: 'mensual',
-                asegurados_data: asegurados,
-                desglose: desglose,
-                nota_contenido: notaTexto,
-                pipedrive_deal_id: dealId ? parseInt(dealId) : null
-            })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            showStatus('✅ Propuesta guardada' + (data.pdf_url ? ' con PDF' : '') + ' (ID: ' + data.id + ')', 'success');
+        let guardadas = 0;
 
-            // Actualizar datos del contacto
-            if (personaIdVal) {
-                const titularCard = document.querySelector('#aseguradosContainer .asegurado-card');
-                if (titularCard) {
-                    const patchData = {};
-                    const nombre = titularCard.querySelector('.asegurado-nombre')?.value;
-                    const fecha = titularCard.querySelector('.asegurado-fecha')?.value;
-                    const prov = titularCard.querySelector('.asegurado-provincia')?.value;
-                    const loc = titularCard.querySelector('.asegurado-localidad')?.value;
-                    if (nombre) patchData.nombre = nombre;
-                    if (fecha) patchData.fecha_nacimiento = fecha;
-                    if (prov) patchData.provincia = prov;
-                    if (loc) patchData.localidad = loc;
-
-                    if (Object.keys(patchData).length > 0) {
-                        fetch('/api/personas/' + personaIdVal, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                            body: JSON.stringify(patchData)
-                        }).catch(() => {});
-                    }
-                }
-
-                // Notificar al parent (iframe) que se guardó
-                try {
-                    window.parent?.postMessage?.({ type: 'propuesta-guardada', persona_id: personaIdVal, propuesta_id: data.id }, '*');
-                } catch(e) {}
+        // 1. Actualizar datos del titular en personas
+        const tc = document.querySelector('#aseguradosContainer .asegurado-card');
+        if (tc) {
+            const patchData = {};
+            const nombre = tc.querySelector('.asegurado-nombre')?.value;
+            const fecha = tc.querySelector('.asegurado-fecha')?.value;
+            const prov = tc.querySelector('.asegurado-provincia')?.value;
+            const loc = tc.querySelector('.asegurado-localidad')?.value;
+            if (nombre) patchData.nombre = nombre;
+            if (fecha) patchData.fecha_nacimiento = fecha;
+            if (prov) patchData.provincia = prov;
+            if (loc) patchData.localidad = loc;
+            if (Object.keys(patchData).length > 0) {
+                await fetch('/api/personas/' + personaIdVal, { method: 'PATCH', headers, body: JSON.stringify(patchData) }).catch(() => {});
             }
-        } else {
-            showStatus('❌ Error: ' + (data.error || 'desconocido'), 'error');
         }
+
+        // 2. Guardar asegurados en BD
+        for (const a of asegurados) {
+            await fetch('/api/pipeline/grabar-poliza', {
+                method: 'POST', headers,
+                body: JSON.stringify({ persona_id: parseInt(personaIdVal), asegurados: [{ nombre: a.nombre, dni: null, fecha_nac: a.fechaNac || null, sexo: a.sexo || null, parentesco: a.parentesco }] })
+            }).catch(() => {});
+        }
+
+        // 3. Crear una propuesta por producto activo
+        for (const prod of productos) {
+            const res = await fetch('/api/calculadora/propuestas', {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    persona_id: parseInt(personaIdVal),
+                    deal_id: dealId ? parseInt(dealId) : null,
+                    compania: 'ADESLAS',
+                    producto: prod.nombre,
+                    tipo_poliza: prod.tipo,
+                    zona: zona ? parseInt(zona) : null,
+                    num_asegurados: asegurados.length || 1,
+                    prima_mensual: prod.mensual,
+                    prima_anual: prod.mensual * 12,
+                    campana_puntos: prod.puntos,
+                    forma_pago: 'mensual',
+                    asegurados_data: asegurados,
+                    desglose: { [prod.nombre]: { mensual: prod.mensual, anual: prod.anual } },
+                    nota_contenido: notaTexto,
+                    pipedrive_deal_id: dealId ? parseInt(dealId) : null
+                })
+            });
+            if (res.ok) guardadas++;
+        }
+
+        // Si no hay productos pero hay asegurados, guardar propuesta genérica
+        if (productos.length === 0 && asegurados.length > 0) {
+            const totalMensual = parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+            await fetch('/api/calculadora/propuestas', {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    persona_id: parseInt(personaIdVal),
+                    producto: 'Presupuesto', tipo_poliza: 'SALUD',
+                    prima_mensual: totalMensual, prima_anual: totalMensual * 12,
+                    asegurados_data: asegurados, nota_contenido: notaTexto
+                })
+            });
+            guardadas = 1;
+        }
+
+        showStatus(guardadas + ' propuesta' + (guardadas > 1 ? 's' : '') + ' guardada' + (guardadas > 1 ? 's' : ''), 'success');
+
+        // Redirigir a ficha del contacto después de 2 segundos
+        setTimeout(() => {
+            try { window.parent?.postMessage?.({ type: 'propuesta-guardada', persona_id: parseInt(personaIdVal) }, '*'); } catch(e) {}
+        }, 2000);
+
     } catch(e) {
-        showStatus('❌ Error conexión: ' + e.message, 'error');
+        showStatus('Error: ' + e.message, 'error');
     }
 }
 

@@ -743,7 +743,7 @@ const PersonasModule = {
     });
   },
 
-  renderTab(tab, p) {
+  async renderTab(tab, p) {
     const content = document.getElementById('persona-tab-content');
 
     if (tab === 'historial') {
@@ -752,15 +752,73 @@ const PersonasModule = {
     }
 
     if (tab === 'propuestas') {
-      const propuestas = (p.notas || []).filter(n => {
-        const txt = n.texto || '';
-        return txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA');
-      });
-      if (propuestas.length === 0) {
-        content.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.propuesta(32,'#d1d9e0')}<p style="margin-top:8px;">Sin propuestas guardadas</p></div>`;
-        return;
+      content.innerHTML = '<p class="text-light" style="font-size:13px;">Cargando propuestas...</p>';
+      try {
+        const propuestas = await API.get(`/calculadora/propuestas/persona/${p.id}`);
+        // También buscar en notas las propuestas legacy
+        const notasProp = (p.notas || []).filter(n => {
+          const txt = n.texto || '';
+          return txt.includes('PRESUPUESTO ADESLAS') || txt.includes('GRABACIÓN PÓLIZA');
+        });
+
+        if (propuestas.length === 0 && notasProp.length === 0) {
+          content.innerHTML = `<div style="text-align:center;padding:40px;color:#94a3b8;">${_ICO.propuesta(32,'#d1d9e0')}<p style="margin-top:8px;">Sin propuestas guardadas</p><p style="font-size:12px;">Abre la <strong>Calculadora</strong> y pulsa "Guardar en CRM"</p></div>`;
+          return;
+        }
+
+        content.innerHTML = `
+          ${propuestas.map(pr => `
+            <div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${pr.tipo_poliza === 'MASCOTAS' ? '#f59e0b' : pr.tipo_poliza === 'DENTAL' ? '#10b981' : pr.tipo_poliza === 'DECESOS' ? '#8b5cf6' : '#009DDD'};">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-size:14px;font-weight:700;">${this._esc(pr.tipo_poliza || pr.producto || 'Propuesta')}</div>
+                  <div style="font-size:12px;color:#94a3b8;">${pr.producto || ''} · ${pr.num_asegurados || 1} asegurado${(pr.num_asegurados || 1) > 1 ? 's' : ''} · ${new Date(pr.created_at).toLocaleDateString('es-ES')}</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:18px;font-weight:800;color:#009DDD;">${pr.prima_mensual ? parseFloat(pr.prima_mensual).toFixed(2) + ' €/mes' : '—'}</div>
+                  ${pr.campana_puntos > 0 ? `<div style="font-size:11px;color:#8b5cf6;font-weight:600;">${pr.campana_puntos} pts</div>` : ''}
+                </div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                ${pr.nota_contenido ? `<button class="btn-ver-nota" data-nota="${this._esc(pr.nota_contenido?.substring(0, 5000))}" style="padding:4px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Ver nota</button>` : ''}
+                ${pr.pdf_url ? `<a href="${pr.pdf_url}" target="_blank" style="padding:4px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;text-decoration:none;font-size:11px;font-weight:600;">PDF</a>` : ''}
+                <button class="btn-usar-grab" data-propuesta='${JSON.stringify({tipo:pr.tipo_poliza||pr.producto,prima:pr.prima_mensual,asegurados:pr.asegurados_data})}' style="padding:4px 12px;border-radius:8px;border:1px solid var(--accent);background:#fff;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Usar en grabación</button>
+              </div>
+            </div>
+          `).join('')}
+          ${notasProp.length > 0 ? `<div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;">Propuestas legacy (notas)</div>` : ''}
+          ${notasProp.map(n => this._renderNotaPropuesta(n, n.texto)).join('')}
+        `;
+
+        // Ver nota → modal
+        content.querySelectorAll('.btn-ver-nota').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const nota = btn.dataset.nota;
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;max-width:600px;max-height:80vh;overflow-y:auto;width:90%;"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><strong>Nota de propuesta</strong><button id="close-nota-modal" style="background:none;border:none;font-size:18px;cursor:pointer;">×</button></div><pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;background:#f4f6f9;padding:12px;border-radius:8px;">${nota}</pre><button id="copy-nota-modal" style="margin-top:10px;padding:8px 16px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;width:100%;">Copiar al portapapeles</button></div>`;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#close-nota-modal').addEventListener('click', () => overlay.remove());
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+            overlay.querySelector('#copy-nota-modal').addEventListener('click', () => {
+              navigator.clipboard.writeText(nota).then(() => { overlay.querySelector('#copy-nota-modal').textContent = 'Copiado'; });
+            });
+          });
+        });
+
+        // Usar en grabación → abrir formulario con datos precargados
+        content.querySelectorAll('.btn-usar-grab').forEach(btn => {
+          btn.addEventListener('click', () => {
+            try {
+              const data = JSON.parse(btn.dataset.propuesta);
+              this._fichaPersona._propuestaPrecarga = data;
+            } catch(e) {}
+            this._openGrabarInline();
+          });
+        });
+      } catch (err) {
+        content.innerHTML = `<p style="color:#ef4444;font-size:13px;">Error: ${err.message}</p>`;
       }
-      content.innerHTML = propuestas.map(n => this._renderNotaPropuesta(n, n.texto)).join('');
       return;
     }
 
@@ -1102,7 +1160,18 @@ const PersonasModule = {
   },
 
   // === Click-to-call via CloudTalk Widget ===
+  _listenPropuestaGuardada() {
+    if (this._propuestaListener) return;
+    this._propuestaListener = true;
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'propuesta-guardada' && e.data.persona_id) {
+        this.showFicha(e.data.persona_id);
+      }
+    });
+  },
+
   _openCalculadora(personaId) {
+    this._listenPropuestaGuardada();
     const p = this._fichaPersona;
     const params = new URLSearchParams();
     if (p) {
@@ -1295,6 +1364,14 @@ const PersonasModule = {
       document.getElementById('grab-tomador-persona').style.display = e.target.checked ? 'none' : 'grid';
       document.getElementById('grab-tomador-empresa').style.display = e.target.checked ? 'grid' : 'none';
     });
+
+    // Precargar desde propuesta si hay datos
+    const precarga = p._propuestaPrecarga;
+    if (precarga) {
+      if (precarga.tipo) document.getElementById('grab-tipo').value = precarga.tipo;
+      if (precarga.prima) { document.getElementById('grab-prima').value = parseFloat(precarga.prima); }
+      delete p._propuestaPrecarga;
+    }
 
     // Toggle asegurados / mascotas según compañía o tipo
     const companiaSelect = document.getElementById('grab-compania');

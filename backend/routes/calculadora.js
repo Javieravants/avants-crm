@@ -22,14 +22,17 @@ router.post('/propuestas', async (req, res) => {
       return res.status(400).json({ error: 'Producto es obligatorio' });
     }
 
+    const { tipo_poliza, fecha_validez } = req.body;
+    const validez = fecha_validez || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
     const result = await pool.query(`
       INSERT INTO propuestas (
         persona_id, deal_id, agente_id, compania, producto, modalidad,
         zona, provincia, num_asegurados, prima_mensual, prima_anual,
         descuento, descuento_contra, campana_puntos, fecha_efecto,
         forma_pago, asegurados_data, desglose, nota_contenido,
-        pipedrive_deal_id
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        pipedrive_deal_id, tipo_poliza, fecha_validez
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
       RETURNING *
     `, [
       persona_id || null, deal_id || null, req.user.id,
@@ -40,7 +43,8 @@ router.post('/propuestas', async (req, res) => {
       fecha_efecto || null, forma_pago || 'mensual',
       JSON.stringify(asegurados_data || []),
       JSON.stringify(desglose || {}),
-      nota_contenido || null, pipedrive_deal_id || null
+      nota_contenido || null, pipedrive_deal_id || null,
+      tipo_poliza || producto || null, validez
     ]);
 
     const propuesta = result.rows[0];
@@ -123,6 +127,19 @@ router.get('/propuestas/deal/:dealId', async (req, res) => {
   } catch (err) {
     console.error('Error listando propuestas por deal:', err);
     res.status(500).json({ error: 'Error al listar propuestas' });
+  }
+});
+
+// GET /api/calculadora/asegurados/:personaId — Asegurados guardados
+router.get('/asegurados/:personaId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM asegurados WHERE persona_id = $1 ORDER BY id',
+      [req.params.personaId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
