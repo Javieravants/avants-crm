@@ -28,15 +28,32 @@ const HOJAS = [
 
 // Cache de agentes
 let agentesCache = null;
+// Alias conocidos: apodo en el Sheet → fragmento del nombre real en BD
+const AGENTE_ALIASES = {
+  'MONTSE': 'MONTSERRAT',
+  'MARISA': 'MARÍA LUISA',
+  'ANDY': 'ANDREA',
+  'NANI': 'ANA FRIDA',
+  'SOL': 'MIRTHA',
+  'CRISTINA': 'PATRICIA',
+};
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;
   if (!agentesCache) {
-    const res = await pool.query('SELECT id, nombre FROM users WHERE activo = true');
+    const res = await pool.query('SELECT id, nombre FROM users');
     agentesCache = res.rows;
   }
   const clean = nombreAgente.trim().toUpperCase();
+  // 1. Match exacto
   const exact = agentesCache.find(a => a.nombre.toUpperCase() === clean);
   if (exact) return exact.id;
+  // 2. Alias conocido
+  const alias = AGENTE_ALIASES[clean];
+  if (alias) {
+    const byAlias = agentesCache.find(a => a.nombre.toUpperCase().includes(alias));
+    if (byAlias) return byAlias.id;
+  }
+  // 3. Match parcial: algún fragmento del nombre del Sheet aparece en el nombre de BD
   const match = agentesCache.find(a => {
     const parts = a.nombre.toUpperCase().split(' ');
     return parts.some(p => p.length > 2 && clean.includes(p));
@@ -114,6 +131,28 @@ function str(v) {
   return s || null;
 }
 
+// Normalizar teléfono: quitar prefijos y espacios, devolver 9 dígitos o null
+const TELEFONOS_BASURA = new Set(['666666666', '600000000', '612345678', '000000000']);
+function normalizarTelefono(raw) {
+  if (!raw) return null;
+  let t = String(raw).replace(/[\s\-().+]/g, '');
+  // Quitar prefijos internacionales
+  if (t.startsWith('0034')) t = t.slice(4);
+  else if (t.startsWith('34') && t.length > 9) t = t.slice(2);
+  // Debe tener exactamente 9 dígitos
+  if (!/^\d{9}$/.test(t)) return null;
+  // Descartar basura
+  if (TELEFONOS_BASURA.has(t)) return null;
+  // Descartar 6+ dígitos iguales consecutivos (ej: 666666666, 999999999)
+  if (/(\d)\1{5,}/.test(t)) return null;
+  return t;
+}
+
+// Validar email básico
+function esEmailValido(e) {
+  return e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
 // =============================================
 // LÓGICA COMPARTIDA: procesar una fila
 // =============================================
@@ -136,63 +175,96 @@ async function procesarFila(fila, mesAlta, informe) {
   const dni = dniFromNIF || dniFromName;
   if (dniFromName && !dniFromNIF) informe.dnis_extraidos_de_nombre++;
 
-  const telefono = fila.telefono ? String(fila.telefono).replace(/\s/g, '').trim() : null;
+  const telefonoRaw = fila.telefono ? String(fila.telefono).replace(/\s/g, '').trim() : null;
+  const telefonoNorm = normalizarTelefono(telefonoRaw);
   const email = fila.email ? String(fila.email).trim().toLowerCase() : null;
+  const emailValido = esEmailValido(email) ? email : null;
   const agenteNombre = str(fila.agente);
   const agenteId = await getAgenteId(agenteNombre);
 
-  if (!nombre && !dni && !telefono) {
-    informe.errores.push(`${mesAlta}: póliza ${numPoliza} sin nombre, DNI ni teléfono`);
+  // Rastrear resolución de agente
+  if (agenteNombre && agenteId) informe.agentes_resueltos++;
+  if (agenteNombre && !agenteId) {
+    if (!informe.agentes_no_encontrados.includes(agenteNombre)) {
+      informe.agentes_no_encontrados.push(agenteNombre);
+    }
+  }
+
+  // Marcar si el teléfono se descartó como basura
+  if (telefonoRaw && !telefonoNorm) informe.telefonos_basura_ignorados++;
+
+  if (!nombre && !dni && !telefonoNorm && !emailValido) {
+    informe.errores.push(`${mesAlta}: póliza ${numPoliza} sin datos identificativos válidos`);
     return;
   }
 
   let personaId = null;
+  let matchVia = null;
 
+  // === PASO 1: Buscar por DNI ===
   if (dni) {
-    const existing = await pool.query('SELECT id FROM personas WHERE dni = $1', [dni]);
+    const existing = await pool.query('SELECT id FROM personas WHERE dni = $1 LIMIT 1', [dni]);
     if (existing.rows.length > 0) {
       personaId = existing.rows[0].id;
-      await pool.query(
-        `UPDATE personas SET
-           nombre = COALESCE(NULLIF($1, ''), nombre),
-           telefono = COALESCE(NULLIF($2, ''), telefono),
-           email = COALESCE(NULLIF($3, ''), email),
-           agente_id = COALESCE($4, agente_id),
-           updated_at = now()
-         WHERE id = $5`,
-        [nombre, telefono, email, agenteId, personaId]
-      );
-      informe.contactos_actualizados++;
-    } else {
-      const ins = await pool.query(
-        `INSERT INTO personas (dni, nombre, telefono, email, agente_id)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [dni, nombre || 'Sin nombre', telefono, email, agenteId]
-      );
-      personaId = ins.rows[0].id;
-      informe.contactos_nuevos++;
+      matchVia = 'dni';
     }
-  } else if (telefono) {
-    const existing = await pool.query('SELECT id FROM personas WHERE telefono = $1', [telefono]);
+  }
+
+  // === PASO 2: Buscar por teléfono normalizado ===
+  if (!personaId && telefonoNorm) {
+    const existing = await pool.query(
+      `SELECT id FROM personas WHERE telefono LIKE '%' || $1 LIMIT 1`,
+      [telefonoNorm]
+    );
     if (existing.rows.length > 0) {
       personaId = existing.rows[0].id;
-      informe.contactos_actualizados++;
-    } else {
-      const ins = await pool.query(
-        `INSERT INTO personas (nombre, telefono, email, agente_id)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [nombre || 'Sin nombre', telefono, email, agenteId]
-      );
-      personaId = ins.rows[0].id;
-      informe.contactos_nuevos++;
+      matchVia = 'telefono';
     }
+  }
+
+  // === PASO 3: Buscar por email ===
+  if (!personaId && emailValido) {
+    const existing = await pool.query(
+      'SELECT id FROM personas WHERE LOWER(email) = $1 LIMIT 1',
+      [emailValido]
+    );
+    if (existing.rows.length > 0) {
+      personaId = existing.rows[0].id;
+      matchVia = 'email';
+    }
+  }
+
+  // === PASO 4: Encontrado → enriquecer (solo rellenar vacíos) ===
+  if (personaId) {
+    await pool.query(
+      `UPDATE personas SET
+         dni = COALESCE(NULLIF(dni, ''), $1),
+         email = COALESCE(NULLIF(email, ''), $2),
+         telefono = COALESCE(NULLIF(telefono, ''), $3),
+         agente_id = COALESCE(agente_id, $4),
+         updated_at = now()
+       WHERE id = $5`,
+      [dni, emailValido, telefonoRaw, agenteId, personaId]
+    );
+    if (matchVia === 'dni') informe.personas_vinculadas_por_dni++;
+    else if (matchVia === 'telefono') informe.personas_vinculadas_por_telefono++;
+    else if (matchVia === 'email') informe.personas_vinculadas_por_email++;
+  } else {
+    // === PASO 5: No encontrado → crear persona nueva ===
+    const ins = await pool.query(
+      `INSERT INTO personas (dni, nombre, telefono, email, agente_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [dni, nombre || 'Sin nombre', telefonoRaw, emailValido, agenteId]
+    );
+    personaId = ins.rows[0].id;
+    informe.personas_nuevas_creadas++;
   }
 
   // --- Póliza ---
   const comentarios = str(fila.notas);
   const numSolicitud = str(fila.num_solicitud);
   const estado = detectarEstado(comentarios, numSolicitud);
-  if (estado === 'baja_pendiente') informe.bajas_detectadas++;
+  if (estado === 'baja') informe.bajas_detectadas++;
 
   const producto = str(fila.producto) || 'Sin producto';
   const primaAnual = parseEuros(fila.prima_anual);
@@ -285,7 +357,13 @@ router.post('/importar-json', async (req, res) => {
 
   const mesAlta = mes || 'SIN MES';
   const informe = {
-    contactos_nuevos: 0, contactos_actualizados: 0,
+    personas_vinculadas_por_dni: 0,
+    personas_vinculadas_por_telefono: 0,
+    personas_vinculadas_por_email: 0,
+    personas_nuevas_creadas: 0,
+    telefonos_basura_ignorados: 0,
+    agentes_resueltos: 0,
+    agentes_no_encontrados: [],
     polizas_nuevas: 0, polizas_actualizadas: 0,
     bajas_detectadas: 0, dnis_extraidos_de_nombre: 0,
     errores: [], total_procesadas: 0,
@@ -342,7 +420,13 @@ router.post('/importar-csv', upload.single('archivo'), async (req, res) => {
 
   const mesAlta = req.body.mes || 'SIN MES';
   const informe = {
-    contactos_nuevos: 0, contactos_actualizados: 0,
+    personas_vinculadas_por_dni: 0,
+    personas_vinculadas_por_telefono: 0,
+    personas_vinculadas_por_email: 0,
+    personas_nuevas_creadas: 0,
+    telefonos_basura_ignorados: 0,
+    agentes_resueltos: 0,
+    agentes_no_encontrados: [],
     polizas_nuevas: 0, polizas_actualizadas: 0,
     bajas_detectadas: 0, dnis_extraidos_de_nombre: 0,
     errores: [], total_procesadas: 0,
@@ -426,7 +510,13 @@ router.post('/importar-sheet', async (req, res) => {
   agentesCache = null;
 
   const informe = {
-    contactos_nuevos: 0, contactos_actualizados: 0,
+    personas_vinculadas_por_dni: 0,
+    personas_vinculadas_por_telefono: 0,
+    personas_vinculadas_por_email: 0,
+    personas_nuevas_creadas: 0,
+    telefonos_basura_ignorados: 0,
+    agentes_resueltos: 0,
+    agentes_no_encontrados: [],
     polizas_nuevas: 0, polizas_actualizadas: 0,
     bajas_detectadas: 0, dnis_extraidos_de_nombre: 0,
     errores: [], total_procesadas: 0,

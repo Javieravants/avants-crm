@@ -52,7 +52,13 @@ const ImportarPolizasModule = {
     result.style.display = 'none';
 
     const totales = {
-      contactos_nuevos: 0, contactos_actualizados: 0,
+      personas_vinculadas_por_dni: 0,
+      personas_vinculadas_por_telefono: 0,
+      personas_vinculadas_por_email: 0,
+      personas_nuevas_creadas: 0,
+      telefonos_basura_ignorados: 0,
+      agentes_resueltos: 0,
+      agentes_no_encontrados: [],
       polizas_nuevas: 0, polizas_actualizadas: 0,
       bajas_detectadas: 0, dnis_extraidos_de_nombre: 0,
       errores: [], total_procesadas: 0,
@@ -97,8 +103,17 @@ const ImportarPolizasModule = {
         const batch = filas.slice(i, i + 100);
         try {
           const resp = await API.post('/polizas/importar-json', { mes: hoja, filas: batch });
-          totales.contactos_nuevos += resp.contactos_nuevos;
-          totales.contactos_actualizados += resp.contactos_actualizados;
+          totales.personas_vinculadas_por_dni += resp.personas_vinculadas_por_dni || 0;
+          totales.personas_vinculadas_por_telefono += resp.personas_vinculadas_por_telefono || 0;
+          totales.personas_vinculadas_por_email += resp.personas_vinculadas_por_email || 0;
+          totales.personas_nuevas_creadas += resp.personas_nuevas_creadas || 0;
+          totales.telefonos_basura_ignorados += resp.telefonos_basura_ignorados || 0;
+          totales.agentes_resueltos += resp.agentes_resueltos || 0;
+          if (resp.agentes_no_encontrados?.length) {
+            for (const a of resp.agentes_no_encontrados) {
+              if (!totales.agentes_no_encontrados.includes(a)) totales.agentes_no_encontrados.push(a);
+            }
+          }
           totales.polizas_nuevas += resp.polizas_nuevas;
           totales.polizas_actualizadas += resp.polizas_actualizadas;
           totales.bajas_detectadas += resp.bajas_detectadas;
@@ -227,19 +242,38 @@ const ImportarPolizasModule = {
   },
 
   _renderResultado(t) {
+    const totalVinculadas = t.personas_vinculadas_por_dni + t.personas_vinculadas_por_telefono + t.personas_vinculadas_por_email;
     return `
       <div class="card" style="border-top:3px solid #009DDD;">
         <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">Resultado de importación</h3>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
           ${this._kpi('Total procesadas', t.total_procesadas, '#009DDD')}
-          ${this._kpi('Personas nuevas', t.contactos_nuevos, '#10b981')}
-          ${this._kpi('Personas actualizadas', t.contactos_actualizados, '#3b82f6')}
           ${this._kpi('Pólizas nuevas', t.polizas_nuevas, '#10b981')}
           ${this._kpi('Pólizas actualizadas', t.polizas_actualizadas, '#3b82f6')}
           ${this._kpi('Bajas detectadas', t.bajas_detectadas, '#ef4444')}
+        </div>
+
+        <h4 style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Deduplicación de personas</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+          ${this._kpi('Vinculadas por DNI', t.personas_vinculadas_por_dni, '#8b5cf6')}
+          ${this._kpi('Vinculadas por teléfono', t.personas_vinculadas_por_telefono, '#f59e0b')}
+          ${this._kpi('Vinculadas por email', t.personas_vinculadas_por_email, '#06b6d4')}
+          ${this._kpi('Personas nuevas', t.personas_nuevas_creadas, '#10b981')}
+          ${this._kpi('Teléfonos basura ignorados', t.telefonos_basura_ignorados, '#94a3b8')}
           ${this._kpi('DNIs extraídos de nombre', t.dnis_extraidos_de_nombre, '#8b5cf6')}
         </div>
+
+        <h4 style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Agentes</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+          ${this._kpi('Agentes resueltos', t.agentes_resueltos, '#10b981')}
+          ${this._kpi('Sin resolver', t.agentes_no_encontrados.length, t.agentes_no_encontrados.length > 0 ? '#ef4444' : '#94a3b8')}
+        </div>
+        ${t.agentes_no_encontrados.length > 0 ? `
+          <div style="background:#fef2f2;border-radius:8px;padding:10px;font-size:12px;margin-bottom:16px;">
+            <strong>Agentes no encontrados:</strong> ${t.agentes_no_encontrados.map(a => this._esc(a)).join(', ')}
+          </div>
+        ` : ''}
 
         <h4 style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Desglose por mes</h4>
         <div class="table-wrapper">
