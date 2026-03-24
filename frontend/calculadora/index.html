@@ -3430,15 +3430,7 @@ async function guardarEnCRM() {
             }
         }
 
-        // 2. Guardar asegurados en BD
-        for (const a of asegurados) {
-            await fetch('/api/pipeline/grabar-poliza', {
-                method: 'POST', headers,
-                body: JSON.stringify({ persona_id: parseInt(personaIdVal), asegurados: [{ nombre: a.nombre, dni: null, fecha_nac: a.fechaNac || null, sexo: a.sexo || null, parentesco: a.parentesco }] })
-            }).catch(() => {});
-        }
-
-        // 3. Crear una propuesta por producto activo
+        // 2. Crear una propuesta por producto activo
         for (const prod of productos) {
             const res = await fetch('/api/calculadora/propuestas', {
                 method: 'POST', headers,
