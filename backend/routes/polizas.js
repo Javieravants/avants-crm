@@ -92,12 +92,19 @@ function parseDescuento(v) {
 }
 
 // Detectar estado por comentarios
+// Valores permitidos por CHECK: grabado, solicitud_enviada, aceptado, poliza_emitida, rechazado, baja, impago
 function detectarEstado(comentarios, numSolicitud) {
   const text = ((comentarios || '') + ' ' + (numSolicitud || '')).toUpperCase();
   if (/PTE\s*BAJA|NO\s*LO\s*QUIERE|\bBAJA\b|ANULAD|CANCELAD/.test(text)) {
-    return 'baja_pendiente';
+    return 'baja';
   }
-  return 'activa';
+  if (/IMPAGO|IMPAGAD/.test(text)) {
+    return 'impago';
+  }
+  if (/RECHAZAD/.test(text)) {
+    return 'rechazado';
+  }
+  return 'poliza_emitida';
 }
 
 // String limpio
@@ -502,13 +509,13 @@ async function fetchSheet(hoja) {
 router.get('/stats', async (req, res) => {
   try {
     const [totalQ, bajaQ, porAgenteQ, porProductoQ] = await Promise.all([
-      pool.query(`SELECT COUNT(*) AS total FROM polizas WHERE estado = 'activa'`),
-      pool.query(`SELECT COUNT(*) AS total FROM polizas WHERE estado = 'baja_pendiente'`),
+      pool.query(`SELECT COUNT(*) AS total FROM polizas WHERE estado NOT IN ('baja', 'rechazado')`),
+      pool.query(`SELECT COUNT(*) AS total FROM polizas WHERE estado = 'baja'`),
       pool.query(
         `SELECT u.nombre AS agente, COUNT(*) AS total,
-                SUM(CASE WHEN p.estado = 'activa' THEN 1 ELSE 0 END) AS activas,
-                SUM(CASE WHEN p.estado = 'baja_pendiente' THEN 1 ELSE 0 END) AS bajas,
-                COALESCE(SUM(p.prima_anual) FILTER (WHERE p.estado = 'activa'), 0) AS prima_total
+                SUM(CASE WHEN p.estado NOT IN ('baja', 'rechazado') THEN 1 ELSE 0 END) AS activas,
+                SUM(CASE WHEN p.estado = 'baja' THEN 1 ELSE 0 END) AS bajas,
+                COALESCE(SUM(p.prima_anual) FILTER (WHERE p.estado NOT IN ('baja', 'rechazado')), 0) AS prima_total
          FROM polizas p
          LEFT JOIN users u ON u.id = p.agente_id
          WHERE p.agente_id IS NOT NULL
@@ -516,8 +523,8 @@ router.get('/stats', async (req, res) => {
       ),
       pool.query(
         `SELECT producto, COUNT(*) AS total,
-                SUM(CASE WHEN estado = 'activa' THEN 1 ELSE 0 END) AS activas,
-                COALESCE(SUM(prima_anual) FILTER (WHERE estado = 'activa'), 0) AS prima_total
+                SUM(CASE WHEN estado NOT IN ('baja', 'rechazado') THEN 1 ELSE 0 END) AS activas,
+                COALESCE(SUM(prima_anual) FILTER (WHERE estado NOT IN ('baja', 'rechazado')), 0) AS prima_total
          FROM polizas WHERE producto IS NOT NULL
          GROUP BY producto ORDER BY total DESC`
       ),
