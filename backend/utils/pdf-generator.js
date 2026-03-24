@@ -91,8 +91,8 @@ async function generarPDFPropuesta(propuesta) {
   doc.rect(50, doc.y, 495, 36).fill('#e6f6fd');
   const totY = doc.y + 6;
   doc.fontSize(14).fillColor(BLUE);
-  doc.text(`TOTAL MENSUAL: ${(propuesta.prima_mensual || 0).toFixed(2)} €`, 60, totY);
-  doc.text(`TOTAL ANUAL: ${(propuesta.prima_anual || 0).toFixed(2)} €`, 300, totY, { width: 240, align: 'right' });
+  doc.text(`TOTAL MENSUAL: ${parseFloat(propuesta.prima_mensual || 0).toFixed(2)} €`, 60, totY);
+  doc.text(`TOTAL ANUAL: ${parseFloat(propuesta.prima_anual || 0).toFixed(2)} €`, 300, totY, { width: 240, align: 'right' });
   doc.y = totY + 30;
   doc.moveDown(0.5);
 
