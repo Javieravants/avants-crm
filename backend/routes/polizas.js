@@ -28,31 +28,36 @@ const HOJAS = [
 
 // Cache de agentes
 let agentesCache = null;
-// Alias conocidos: apodo en el Sheet → fragmento del nombre real en BD
-const AGENTE_ALIASES = {
-  'MONTSE': 'MONTSERRAT',
-  'MARISA': 'MARÍA LUISA',
-  'ANDY': 'ANDREA',
-  'NANI': 'ANA FRIDA',
-  'SOL': 'MIRTHA',
-  'CRISTINA': 'PATRICIA',
+// Mapeo alias Sheet → email del usuario en BD (match exacto, sin ambigüedad)
+const AGENTE_POR_EMAIL = {
+  'ANDY':      'andrea@segurosdesaludonline.es',
+  'EVA POLO':  'eva@segurosdesaludonline.es',
+  'EVO POLO':  'eva@segurosdesaludonline.es',       // typo común en el Sheet
+  'EVA MORA':  'evamora@segurosdesaludonline.es',
+  'SILVIA':    'silvia@segurosdesaludonline.es',
+  'MARISA':    'marisa@segurosdesaludonline.es',
+  'MONTSE':    'montse@segurosdesaludonline.es',
+  'DIEGO':     'diego@segurosdesaludonline.es',
+  'SOL':       'sol.historico@avants.internal',
+  'CRISTINA':  'cristina.historico@avants.internal',
+  'NANI':      'nani.historico@avants.internal',
 };
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;
   if (!agentesCache) {
-    const res = await pool.query('SELECT id, nombre FROM users');
+    const res = await pool.query('SELECT id, nombre, email FROM users');
     agentesCache = res.rows;
   }
   const clean = nombreAgente.trim().toUpperCase();
-  // 1. Match exacto
+  // 1. Match por alias → email exacto
+  const emailAlias = AGENTE_POR_EMAIL[clean];
+  if (emailAlias) {
+    const byEmail = agentesCache.find(a => a.email === emailAlias);
+    if (byEmail) return byEmail.id;
+  }
+  // 2. Match exacto por nombre completo
   const exact = agentesCache.find(a => a.nombre.toUpperCase() === clean);
   if (exact) return exact.id;
-  // 2. Alias conocido
-  const alias = AGENTE_ALIASES[clean];
-  if (alias) {
-    const byAlias = agentesCache.find(a => a.nombre.toUpperCase().includes(alias));
-    if (byAlias) return byAlias.id;
-  }
   // 3. Match parcial: algún fragmento del nombre del Sheet aparece en el nombre de BD
   const match = agentesCache.find(a => {
     const parts = a.nombre.toUpperCase().split(' ');
