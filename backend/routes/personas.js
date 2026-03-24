@@ -7,13 +7,13 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-// Normalizar teléfono a formato +34XXXXXXXXX
+// Normalizar teléfono español a +34XXXXXXXXX (no toca extranjeros)
 function formatTelefono(tel) {
   if (!tel) return null;
   const digits = tel.replace(/\D/g, '');
-  if (digits.startsWith('34') && digits.length === 11) return '+' + digits;
-  if (digits.length === 9) return '+34' + digits;
-  return tel;
+  if (digits.length === 9 && /^[6789]/.test(digits)) return '+34' + digits;
+  if (digits.length === 11 && digits.startsWith('34') && /^[6789]/.test(digits.slice(2))) return '+' + digits;
+  return tel; // extranjero o desconocido → sin cambios
 }
 
 // GET /api/personas — listar con búsqueda y filtros
