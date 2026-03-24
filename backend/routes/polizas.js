@@ -33,10 +33,13 @@ async function getAgenteId(nombreAgente) {
     agentesCache = res.rows;
   }
   const clean = nombreAgente.trim().toUpperCase();
-  // Buscar por coincidencia parcial (primer nombre o apellido)
+  // Coincidencia exacta primero
+  const exact = agentesCache.find(a => a.nombre.toUpperCase() === clean);
+  if (exact) return exact.id;
+  // Coincidencia parcial por partes del nombre (>2 chars)
   const match = agentesCache.find(a => {
     const parts = a.nombre.toUpperCase().split(' ');
-    return parts.some(p => p.length > 2 && clean.includes(p)) || clean === a.nombre.toUpperCase();
+    return parts.some(p => p.length > 2 && clean.includes(p));
   });
   return match?.id || null;
 }
@@ -92,16 +95,39 @@ function parseFecha(v) {
   return isNaN(d2.getTime()) ? null : d2;
 }
 
-// Parsear número
-function parseNum(v) {
+// =============================================
+// Parsear euros del Sheet — CRÍTICO
+// Formato: "1.236,00 €" → 1236.00
+// 1. Quitar " €" y espacios
+// 2. Quitar puntos de miles
+// 3. Reemplazar coma decimal por punto
+// 4. parseFloat
+// =============================================
+function parseEuros(v) {
   if (v === null || v === undefined || v === '') return null;
+  // Si gviz ya lo devolvió como número, usarlo directamente
   if (typeof v === 'number') return v;
-  const cleaned = String(v).replace(/[€\s]/g, '').replace(',', '.');
-  const n = parseFloat(cleaned);
+
+  let s = String(v).trim();
+  // Quitar símbolo euro y espacios
+  s = s.replace(/€/g, '').trim();
+  // Si queda vacío
+  if (!s) return null;
+
+  // Detectar formato español: "1.236,00" (punto = miles, coma = decimal)
+  // vs formato anglosajón: "1236.00" (punto = decimal)
+  if (s.includes(',')) {
+    // Formato español: quitar puntos de miles, coma → punto decimal
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
+  // Si no tiene coma, pero tiene múltiples puntos → "1.005.00" (error raro)
+  // Si solo un punto, es decimal normal
+
+  const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
 
-// Parsear descuento a numeric (ej: "5%", "10", "5,5%" → 5, 10, 5.5)
+// Parsear descuento: "5%", "10", "5,5%" → 5, 10, 5.5
 function parseDescuento(v) {
   if (v === null || v === undefined || v === '') return null;
   const cleaned = String(v).replace(/[%€\s]/g, '').replace(',', '.');
@@ -118,6 +144,13 @@ function detectarEstado(comentarios, numSolicitud) {
   return 'activa';
 }
 
+// Leer string limpio de una celda
+function str(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
 // =============================================
 // POST /api/polizas/importar-sheet
 // =============================================
@@ -129,6 +162,8 @@ router.post('/importar-sheet', async (req, res) => {
     contactos_actualizados: 0,
     polizas_nuevas: 0,
     polizas_actualizadas: 0,
+    bajas_detectadas: 0,
+    dnis_extraidos_de_nombre: 0,
     errores: [],
     total_procesadas: 0,
   };
@@ -147,7 +182,7 @@ router.post('/importar-sheet', async (req, res) => {
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
-        const numPoliza = r[COL.NUM_POLIZA] ? String(r[COL.NUM_POLIZA]).trim() : null;
+        const numPoliza = str(r[COL.NUM_POLIZA]);
         if (!numPoliza) continue;
 
         informe.total_procesadas++;
@@ -157,10 +192,13 @@ router.post('/importar-sheet', async (req, res) => {
           const rawNombre = r[COL.NOMBRE];
           const rawNIF = r[COL.NIF] ? String(r[COL.NIF]).toUpperCase().trim() : null;
           const { nombre, dni: dniFromName } = limpiarNombreDNI(rawNombre);
-          const dni = rawNIF || dniFromName;
+          const dniFromNIF = rawNIF && /^[0-9XYZ]/i.test(rawNIF) ? rawNIF : null;
+          const dni = dniFromNIF || dniFromName;
+          if (dniFromName && !dniFromNIF) informe.dnis_extraidos_de_nombre++;
+
           const telefono = r[COL.TELEFONO] ? String(r[COL.TELEFONO]).replace(/\s/g, '').trim() : null;
           const email = r[COL.EMAIL] ? String(r[COL.EMAIL]).trim().toLowerCase() : null;
-          const agenteNombre = r[COL.AGENTE] ? String(r[COL.AGENTE]).trim() : null;
+          const agenteNombre = str(r[COL.AGENTE]);
           const agenteId = await getAgenteId(agenteNombre);
 
           if (!nombre && !dni && !telefono) {
@@ -213,13 +251,25 @@ router.post('/importar-sheet', async (req, res) => {
             }
           }
 
-          // --- Póliza (tabla polizas existente) ---
-          const comentarios = r[COL.COMENTARIOS] ? String(r[COL.COMENTARIOS]).trim() : null;
-          const numSolicitud = r[COL.NUM_SOLICITUD] ? String(r[COL.NUM_SOLICITUD]).trim() : null;
+          // --- Póliza ---
+          const comentarios = str(r[COL.COMENTARIOS]);
+          const numSolicitud = str(r[COL.NUM_SOLICITUD]);
           const estado = detectarEstado(comentarios, numSolicitud);
-          const producto = r[COL.PRODUCTO] ? String(r[COL.PRODUCTO]).trim() : 'Sin producto';
-          const primaAnual = parseNum(r[COL.PRIMA_ANUAL]);
-          const primaMensual = primaAnual ? +(primaAnual / 12).toFixed(2) : null;
+          if (estado === 'baja_pendiente') informe.bajas_detectadas++;
+
+          const producto = str(r[COL.PRODUCTO]) || 'Sin producto';
+          const primaAnual = parseEuros(r[COL.PRIMA_ANUAL]);
+          const reciboMensual = parseEuros(r[COL.RECIBO]);
+          // prima_mensual: usar recibo si existe, sino derivar de anual
+          const primaMensual = reciboMensual || (primaAnual ? +(primaAnual / 12).toFixed(2) : null);
+          const beneficio = parseEuros(r[COL.BENEFICIO]);
+          const descuento = parseDescuento(r[COL.DESCUENTO]);
+          const nAsegurados = r[COL.ASEG] ? parseInt(r[COL.ASEG]) || null : null;
+          const formaPago = str(r[COL.FORMA_PAGO]);
+          const campana = str(r[COL.CAMPANA]);
+          const audio = str(r[COL.AUDIO]);       // → n_grabacion
+          const carencias = str(r[COL.CARENCIAS]);
+          const origenLead = str(r[COL.BASE]);    // → origen_lead
           const enviadaCCPP = r[COL.ENVIADA_CCPP] ? /s[ií]|yes|1|true/i.test(String(r[COL.ENVIADA_CCPP])) : null;
 
           const existingPoliza = await pool.query('SELECT id FROM polizas WHERE n_poliza = $1', [numPoliza]);
@@ -229,35 +279,35 @@ router.post('/importar-sheet', async (req, res) => {
               `UPDATE polizas SET
                  persona_id = COALESCE($1, persona_id),
                  agente_id = COALESCE($2, agente_id),
-                 producto = COALESCE(NULLIF($3, ''), producto),
-                 fecha_grabacion = COALESCE($4, fecha_grabacion),
-                 fecha_efecto = COALESCE($5, fecha_efecto),
-                 forma_pago = COALESCE(NULLIF($6, ''), forma_pago),
-                 n_solicitud = COALESCE(NULLIF($7, ''), n_solicitud),
-                 n_asegurados = COALESCE($8, n_asegurados),
-                 prima_anual = COALESCE($9, prima_anual),
-                 prima_mensual = COALESCE($10, prima_mensual),
-                 beneficio_base = COALESCE($11, beneficio_base),
-                 descuento = COALESCE($12, descuento),
-                 campana = COALESCE(NULLIF($13, ''), campana),
-                 carencias = COALESCE(NULLIF($14, ''), carencias),
-                 comentarios = COALESCE(NULLIF($15, ''), comentarios),
-                 estado = $16,
-                 enviada_ccpp = COALESCE($17, enviada_ccpp),
+                 agente_nombre = COALESCE(NULLIF($3, ''), agente_nombre),
+                 producto = COALESCE(NULLIF($4, ''), producto),
+                 fecha_grabacion = COALESCE($5, fecha_grabacion),
+                 fecha_efecto = COALESCE($6, fecha_efecto),
+                 forma_pago = COALESCE(NULLIF($7, ''), forma_pago),
+                 n_solicitud = COALESCE(NULLIF($8, ''), n_solicitud),
+                 n_asegurados = COALESCE($9, n_asegurados),
+                 prima_anual = COALESCE($10, prima_anual),
+                 prima_mensual = COALESCE($11, prima_mensual),
+                 recibo_mensual = COALESCE($12, recibo_mensual),
+                 beneficio_base = COALESCE($13, beneficio_base),
+                 descuento = COALESCE($14, descuento),
+                 campana = COALESCE(NULLIF($15, ''), campana),
+                 n_grabacion = COALESCE(NULLIF($16, ''), n_grabacion),
+                 carencias = COALESCE(NULLIF($17, ''), carencias),
+                 comentarios = COALESCE(NULLIF($18, ''), comentarios),
+                 origen_lead = COALESCE(NULLIF($19, ''), origen_lead),
+                 mes_alta = COALESCE(NULLIF($20, ''), mes_alta),
+                 estado = $21,
+                 enviada_ccpp = COALESCE($22, enviada_ccpp),
                  updated_at = now()
-               WHERE n_poliza = $18`,
+               WHERE n_poliza = $23`,
               [
-                personaId, agenteId, producto,
+                personaId, agenteId, agenteNombre, producto,
                 parseFecha(r[COL.FECHA_GRABACION]), parseFecha(r[COL.FECHA_EFECTO]),
-                r[COL.FORMA_PAGO] ? String(r[COL.FORMA_PAGO]).trim() : null,
-                numSolicitud,
-                r[COL.ASEG] ? parseInt(r[COL.ASEG]) || null : null,
-                primaAnual, primaMensual,
-                parseNum(r[COL.BENEFICIO]),
-                parseDescuento(r[COL.DESCUENTO]),
-                r[COL.CAMPANA] ? String(r[COL.CAMPANA]).trim() : null,
-                r[COL.CARENCIAS] ? String(r[COL.CARENCIAS]).trim() : null,
-                comentarios, estado, enviadaCCPP,
+                formaPago, numSolicitud, nAsegurados,
+                primaAnual, primaMensual, reciboMensual, beneficio,
+                descuento, campana, audio, carencias, comentarios,
+                origenLead, hoja, estado, enviadaCCPP,
                 numPoliza
               ]
             );
@@ -265,24 +315,21 @@ router.post('/importar-sheet', async (req, res) => {
           } else {
             await pool.query(
               `INSERT INTO polizas (
-                 n_poliza, persona_id, agente_id, compania, producto,
+                 n_poliza, persona_id, agente_id, agente_nombre, compania, producto,
                  fecha_grabacion, fecha_efecto, forma_pago, n_solicitud,
-                 n_asegurados, prima_anual, prima_mensual, beneficio_base,
-                 descuento, campana, carencias, comentarios,
+                 n_asegurados, prima_anual, prima_mensual, recibo_mensual,
+                 beneficio_base, descuento, campana, n_grabacion,
+                 carencias, comentarios, origen_lead, mes_alta,
                  estado, enviada_ccpp
-               ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+               ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
               [
-                numPoliza, personaId, agenteId, 'ADESLAS', producto,
+                numPoliza, personaId, agenteId, agenteNombre, 'ADESLAS', producto,
                 parseFecha(r[COL.FECHA_GRABACION]), parseFecha(r[COL.FECHA_EFECTO]),
-                r[COL.FORMA_PAGO] ? String(r[COL.FORMA_PAGO]).trim() : null,
-                numSolicitud,
-                r[COL.ASEG] ? parseInt(r[COL.ASEG]) || null : null,
-                primaAnual, primaMensual,
-                parseNum(r[COL.BENEFICIO]),
-                parseDescuento(r[COL.DESCUENTO]),
-                r[COL.CAMPANA] ? String(r[COL.CAMPANA]).trim() : null,
-                r[COL.CARENCIAS] ? String(r[COL.CARENCIAS]).trim() : null,
-                comentarios, estado, enviadaCCPP
+                formaPago, numSolicitud, nAsegurados,
+                primaAnual, primaMensual, reciboMensual,
+                beneficio, descuento, campana, audio,
+                carencias, comentarios, origenLead, hoja,
+                estado, enviadaCCPP
               ]
             );
             informe.polizas_nuevas++;
