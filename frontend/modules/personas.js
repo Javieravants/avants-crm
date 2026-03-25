@@ -353,24 +353,34 @@ const PersonasModule = {
             <!-- Datos personales -->
             <div style="border-bottom:1px solid #e8edf2;padding:16px 18px;">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Datos personales</div>
-              ${[['DNI',p.dni],['Teléfono',p.telefono],['Email',p.email],['F. Nacimiento',p.fecha_nacimiento?new Date(p.fecha_nacimiento).toLocaleDateString('es-ES'):null],['Dirección',p.direccion],['Nacionalidad',p.nacionalidad],['Creado',p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):null]].map(([l,v])=>`<div style="display:flex;gap:8px;margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:#94a3b8;min-width:85px;text-transform:uppercase;letter-spacing:.3px">${l}</div><div style="font-size:13px;color:#0f172a;font-weight:500;flex:1;word-break:break-word">${this._esc(v||'—')}</div></div>`).join('')}
+              ${[['DNI',p.dni],['Teléfono',p.telefono],['Email',p.email],['F. Nacimiento',p.fecha_nacimiento?new Date(p.fecha_nacimiento).toLocaleDateString('es-ES'):null],['Sexo',p.sexo==='H'?'Hombre':p.sexo==='M'?'Mujer':p.sexo],['Dirección',p.direccion],['CP',p.codigo_postal],['Provincia',p.provincia],['Localidad',p.localidad],['Nacionalidad',p.nacionalidad],['Creado',p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):null]].map(([l,v])=>`<div style="display:flex;gap:8px;margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:#94a3b8;min-width:85px;text-transform:uppercase;letter-spacing:.3px">${l}</div><div style="font-size:13px;color:#0f172a;font-weight:500;flex:1;word-break:break-word">${this._esc(v||'—')}</div></div>`).join('')}
             </div>
 
             <!-- Asegurados/Familiares -->
             <div style="border-bottom:1px solid #e8edf2;padding:16px 18px;">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Asegurados (${familiares.length})</div>
-              ${familiares.length===0?'<div style="font-size:13px;color:#94a3b8">Sin familiares registrados</div>':''}
-              ${familiares.map(f=>`<div style="background:#f4f6f9;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-                  <div style="width:24px;height:24px;border-radius:50%;background:hsl(${this._hu(f.id)},55%,55%);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${this._ini(f.nombre)}</div>
-                  <div style="font-size:12px;font-weight:700;flex:1">${this._esc(f.nombre)}</div>
-                  <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:#e6f5fc;color:var(--accent)">${f.parentesco||'Familiar'}</span>
-                </div>
-                <div style="font-size:11px;color:#94a3b8;display:flex;gap:10px">
-                  ${f.fecha_nacimiento?`<span>${new Date(f.fecha_nacimiento).toLocaleDateString('es-ES')}</span>`:''}
-                  ${f.dni?`<span>${f.dni}</span>`:''}
-                </div>
-              </div>`).join('')}
+              ${(() => {
+                // Combinar familiares legacy + asegurados tabla nueva (sin duplicar por nombre)
+                const aseguradosBD = (p.asegurados || []).filter(a => a.parentesco !== 'Titular');
+                const nombresAseg = new Set(aseguradosBD.map(a => a.nombre?.toUpperCase()));
+                const familiaresUnicos = familiares.filter(f => !nombresAseg.has(f.nombre?.toUpperCase()));
+                const todos = [...aseguradosBD, ...familiaresUnicos];
+                return `
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8;margin-bottom:12px">Asegurados (${todos.length})</div>
+                  ${todos.length===0?'<div style="font-size:13px;color:#94a3b8">Sin asegurados registrados</div>':''}
+                  ${todos.map(f=>`<div style="background:#f4f6f9;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                      <div style="width:24px;height:24px;border-radius:50%;background:hsl(${this._hu(f.id||0)},55%,55%);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff">${this._ini(f.nombre)}</div>
+                      <div style="font-size:12px;font-weight:700;flex:1">${this._esc(f.nombre||'')}</div>
+                      <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:#e6f5fc;color:var(--accent)">${f.parentesco||'Familiar'}</span>
+                    </div>
+                    <div style="font-size:11px;color:#94a3b8;display:flex;gap:10px">
+                      ${(f.fecha_nacimiento||f.fecha_nac)?`<span>${new Date(f.fecha_nacimiento||f.fecha_nac).toLocaleDateString('es-ES')}</span>`:''}
+                      ${f.sexo?`<span>${f.sexo==='H'?'Hombre':'Mujer'}</span>`:''}
+                      ${f.dni?`<span>${f.dni}</span>`:''}
+                    </div>
+                  </div>`).join('')}
+                `;
+              })()}
             </div>
 
             <!-- Seguros actuales -->
@@ -1727,9 +1737,33 @@ const PersonasModule = {
               <input type="text" class="form-control" name="nacionalidad" value="${isEdit ? (existing.nacionalidad || '') : ''}">
             </div>
           </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label>Sexo</label>
+              <select class="form-control" name="sexo">
+                <option value="">—</option>
+                <option value="H" ${isEdit && existing.sexo==='H'?'selected':''}>Hombre</option>
+                <option value="M" ${isEdit && existing.sexo==='M'?'selected':''}>Mujer</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>CP</label>
+              <input type="text" class="form-control" name="codigo_postal" value="${isEdit ? (existing.codigo_postal || '') : ''}">
+            </div>
+          </div>
           <div class="form-group">
             <label>Dirección</label>
             <input type="text" class="form-control" name="direccion" value="${isEdit ? this._esc(existing.direccion || '') : ''}">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div class="form-group">
+              <label>Provincia</label>
+              <input type="text" class="form-control" name="provincia" value="${isEdit ? (existing.provincia || '') : ''}">
+            </div>
+            <div class="form-group">
+              <label>Localidad</label>
+              <input type="text" class="form-control" name="localidad" value="${isEdit ? (existing.localidad || '') : ''}">
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
@@ -1755,6 +1789,10 @@ const PersonasModule = {
         fecha_nacimiento: form.fecha_nacimiento.value || null,
         nacionalidad: form.nacionalidad.value.trim() || null,
         direccion: form.direccion.value.trim() || null,
+        sexo: form.sexo.value || null,
+        provincia: form.provincia.value.trim() || null,
+        localidad: form.localidad.value.trim() || null,
+        codigo_postal: form.codigo_postal.value.trim() || null,
       };
 
       try {

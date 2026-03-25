@@ -158,11 +158,19 @@ router.get('/:id', async (req, res) => {
     `, [req.params.id, allDealIds.length > 0 ? allDealIds : ['__none__']]);
     tickets = ticketsResult.rows;
 
-    // Familiares
+    // Familiares (tabla legacy) + Asegurados (tabla nueva)
     const familiaresResult = await pool.query(
       'SELECT * FROM familiares WHERE persona_id = $1 ORDER BY created_at',
       [req.params.id]
     );
+    let aseguradosBD = [];
+    try {
+      const asegResult = await pool.query(
+        'SELECT * FROM asegurados WHERE persona_id = $1 ORDER BY created_at',
+        [req.params.id]
+      );
+      aseguradosBD = asegResult.rows;
+    } catch {};
 
     // Notas
     const notasResult = await pool.query(`
@@ -190,6 +198,7 @@ router.get('/:id', async (req, res) => {
       deals: dealsResult.rows,
       tickets,
       familiares: familiaresResult.rows,
+      asegurados: aseguradosBD,
       notas: notasResult.rows,
       etiquetas,
     });
