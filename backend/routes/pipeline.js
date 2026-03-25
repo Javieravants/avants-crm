@@ -508,6 +508,9 @@ router.post('/run-migration-grabar', async (req, res) => {
     // PDF urls
     await pool.query("ALTER TABLE deals ADD COLUMN IF NOT EXISTS grabacion_pdf_url VARCHAR(500)");
     await pool.query("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS grabacion_pdf_url VARCHAR(500)");
+    // Provincia/localidad en asegurados
+    await pool.query("ALTER TABLE asegurados ADD COLUMN IF NOT EXISTS provincia VARCHAR(100)");
+    await pool.query("ALTER TABLE asegurados ADD COLUMN IF NOT EXISTS localidad VARCHAR(100)");
     res.json({ success: true, message: 'Migración ejecutada' });
   } catch (err) {
     res.status(500).json({ error: err.message });

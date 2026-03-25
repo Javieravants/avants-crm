@@ -3444,51 +3444,44 @@ async function guardarEnCRM() {
                 fecha_nacimiento: card.querySelector('.asegurado-fecha')?.value || null,
                 sexo: card.querySelector('.asegurado-sexo')?.value || null,
                 parentesco: i === 0 ? 'Titular' : 'Familiar',
+                provincia: card.querySelector('.asegurado-provincia')?.value || null,
+                localidad: card.querySelector('.asegurado-localidad')?.value || null,
             };
             await fetch('/api/calculadora/asegurados', { method: 'POST', headers, body: JSON.stringify(asegData) }).catch(e => console.warn('POST asegurado error:', e));
         }
 
-        // 2. Crear una propuesta por producto activo
-        for (const prod of productos) {
+        // 2. Crear UNA sola propuesta con TODOS los productos
+        const totalMensual = productos.reduce((s, p) => s + (p.mensual || 0), 0);
+        const totalPuntos = productos.reduce((s, p) => s + (p.puntos || 0), 0);
+        const tiposStr = productos.map(p => p.tipo).join('+');
+        const desglose = {};
+        productos.forEach(p => { desglose[p.nombre] = { mensual: p.mensual, anual: p.anual || p.mensual * 12, puntos: p.puntos }; });
+
+        if (totalMensual > 0 || asegurados.length > 0) {
             const res = await fetch('/api/calculadora/propuestas', {
                 method: 'POST', headers,
                 body: JSON.stringify({
                     persona_id: parseInt(personaIdVal),
                     deal_id: dealId ? parseInt(dealId) : null,
                     compania: 'ADESLAS',
-                    producto: prod.nombre,
-                    tipo_poliza: prod.tipo,
+                    producto: productos.map(p => p.nombre).join(' + '),
+                    tipo_poliza: tiposStr || 'PRESUPUESTO',
                     zona: zona ? parseInt(zona) : null,
                     num_asegurados: asegurados.length || 1,
-                    prima_mensual: prod.mensual,
-                    prima_anual: prod.mensual * 12,
-                    campana_puntos: prod.puntos,
+                    prima_mensual: totalMensual,
+                    prima_anual: totalMensual * 12,
+                    campana_puntos: totalPuntos,
                     forma_pago: 'mensual',
                     asegurados_data: asegurados,
-                    desglose: { [prod.nombre]: { mensual: prod.mensual, anual: prod.anual } },
+                    desglose: desglose,
                     nota_contenido: notaTexto,
                     pipedrive_deal_id: dealId ? parseInt(dealId) : null
                 })
             });
-            if (res.ok) guardadas++;
+            if (res.ok) guardadas = 1;
         }
 
-        // Si no hay productos pero hay asegurados, guardar propuesta genérica
-        if (productos.length === 0 && asegurados.length > 0) {
-            const totalMensual = parseFloat(document.getElementById('resumenTotalMensual')?.textContent?.replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
-            await fetch('/api/calculadora/propuestas', {
-                method: 'POST', headers,
-                body: JSON.stringify({
-                    persona_id: parseInt(personaIdVal),
-                    producto: 'Presupuesto', tipo_poliza: 'SALUD',
-                    prima_mensual: totalMensual, prima_anual: totalMensual * 12,
-                    asegurados_data: asegurados, nota_contenido: notaTexto
-                })
-            });
-            guardadas = 1;
-        }
-
-        showStatus(guardadas + ' propuesta' + (guardadas > 1 ? 's' : '') + ' guardada' + (guardadas > 1 ? 's' : ''), 'success');
+        showStatus('Propuesta guardada' + (totalPuntos > 0 ? ' (' + totalPuntos + ' pts)' : ''), 'success');
 
         // Redirigir a ficha del contacto después de 2 segundos
         setTimeout(() => {

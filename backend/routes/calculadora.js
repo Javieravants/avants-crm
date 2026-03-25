@@ -241,16 +241,18 @@ router.post('/asegurados', async (req, res) => {
            fecha_nac = COALESCE($1::date, fecha_nac),
            sexo = COALESCE(NULLIF($2,''), sexo),
            parentesco = COALESCE(NULLIF($3,''), parentesco),
-           dni = COALESCE(NULLIF($4,''), dni)
-         WHERE id = $5`,
-        [fecha_nacimiento || null, sexo, parentesco, dni, existing.rows[0].id]
+           dni = COALESCE(NULLIF($4,''), dni),
+           provincia = COALESCE(NULLIF($5,''), provincia),
+           localidad = COALESCE(NULLIF($6,''), localidad)
+         WHERE id = $7`,
+        [fecha_nacimiento || null, sexo, parentesco, dni, provincia, localidad, existing.rows[0].id]
       );
       res.json({ id: existing.rows[0].id, updated: true });
     } else {
       const r = await pool.query(
-        `INSERT INTO asegurados (persona_id, nombre, fecha_nac, sexo, parentesco, dni)
-         VALUES ($1, $2, $3::date, $4, $5, $6) RETURNING id`,
-        [persona_id, nombre, fecha_nacimiento || null, sexo || null, parentesco || 'Familiar', dni || null]
+        `INSERT INTO asegurados (persona_id, nombre, fecha_nac, sexo, parentesco, dni, provincia, localidad)
+         VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8) RETURNING id`,
+        [persona_id, nombre, fecha_nacimiento || null, sexo || null, parentesco || 'Familiar', dni || null, provincia || null, localidad || null]
       );
       res.status(201).json({ id: r.rows[0].id, created: true });
     }
@@ -267,6 +269,17 @@ router.get('/asegurados/:personaId', async (req, res) => {
       [req.params.personaId]
     );
     res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/calculadora/propuestas/:id — Eliminar propuesta
+router.delete('/propuestas/:id', async (req, res) => {
+  try {
+    const { rowCount } = await pool.query('DELETE FROM propuestas WHERE id = $1', [req.params.id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Propuesta no encontrada' });
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

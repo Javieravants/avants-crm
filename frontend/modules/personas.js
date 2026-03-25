@@ -797,6 +797,7 @@ const PersonasModule = {
                 ${pr.nota_contenido ? `<button class="btn-ver-nota" data-nota="${this._esc(pr.nota_contenido?.substring(0, 5000))}" style="padding:4px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Ver nota</button>` : ''}
                 ${pr.pdf_url ? `<button class="btn-ver-pdf" data-id="${pr.id}" style="padding:4px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">PDF</button>` : ''}
                 <button class="btn-usar-grab" data-propuesta='${JSON.stringify({tipo:pr.tipo_poliza||pr.producto,prima:pr.prima_mensual,asegurados:pr.asegurados_data})}' style="padding:4px 12px;border-radius:8px;border:1px solid var(--accent);background:#fff;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Usar en grabación</button>
+                <button class="btn-del-prop" data-id="${pr.id}" style="padding:4px 12px;border-radius:8px;border:1px solid #ef4444;background:#fff;color:#ef4444;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Eliminar</button>
               </div>
             </div>`;
           }).join('')}
@@ -863,6 +864,17 @@ const PersonasModule = {
               this._fichaPersona._propuestaPrecarga = data;
             } catch(e) {}
             this._openGrabarInline();
+          });
+        });
+
+        // Eliminar propuesta
+        content.querySelectorAll('.btn-del-prop').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar esta propuesta?')) return;
+            try {
+              await API.delete(`/calculadora/propuestas/${btn.dataset.id}`);
+              btn.closest('.prop-card').remove();
+            } catch (e) { alert('Error: ' + e.message); }
           });
         });
 
