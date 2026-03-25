@@ -59,6 +59,9 @@ router.post('/propuestas', async (req, res) => {
       propuesta._persona = personaData;
       propuesta.desglose = desglose || {};
       propuesta.asegurados_data = asegurados_data || [];
+      // Nombre del agente para el PDF
+      const agRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [req.user.id]);
+      propuesta._agente_nombre = agRes.rows[0]?.nombre || '';
 
       const pdfUrl = await generarPDFPropuesta(propuesta);
       await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [pdfUrl, propuesta.id]);
