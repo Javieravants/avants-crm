@@ -1063,6 +1063,10 @@ window.onload = async function() {
                             const el = tc.querySelector('.asegurado-fecha');
                             if (el) { el.value = persona.fecha_nacimiento.split('T')[0]; calcularTodo(); }
                         }
+                        if (persona.sexo) {
+                            const el = tc.querySelector('.asegurado-sexo');
+                            if (el) el.value = persona.sexo;
+                        }
                         if (persona.provincia) {
                             const el = tc.querySelector('.asegurado-provincia');
                             if (el) {
