@@ -777,28 +777,67 @@ const PersonasModule = {
         }
 
         content.innerHTML = `
-          ${propuestas.map(pr => `
-            <div class="card" style="padding:14px;margin-bottom:10px;border-left:3px solid ${pr.tipo_poliza === 'MASCOTAS' ? '#f59e0b' : pr.tipo_poliza === 'DENTAL' ? '#10b981' : pr.tipo_poliza === 'DECESOS' ? '#8b5cf6' : '#009DDD'};">
+          <div id="propuestas-list">
+          ${propuestas.map(pr => {
+            const color = pr.tipo_poliza === 'MASCOTAS' ? '#f59e0b' : pr.tipo_poliza === 'DENTAL' ? '#10b981' : pr.tipo_poliza === 'DECESOS' ? '#8b5cf6' : '#009DDD';
+            return `
+            <div class="card prop-card" data-id="${pr.id}" style="padding:14px;margin-bottom:10px;border-left:3px solid ${color};">
               <div style="display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" class="prop-check" data-id="${pr.id}" style="width:16px;height:16px;cursor:pointer;">
                 <div style="flex:1;">
                   <div style="font-size:14px;font-weight:700;">${this._esc(pr.tipo_poliza || pr.producto || 'Propuesta')}</div>
-                  <div style="font-size:12px;color:#94a3b8;">${pr.producto || ''} · ${pr.num_asegurados || 1} asegurado${(pr.num_asegurados || 1) > 1 ? 's' : ''} · ${new Date(pr.created_at).toLocaleDateString('es-ES')}</div>
+                  <div style="font-size:12px;color:#94a3b8;">${pr.producto || ''} · ${pr.num_asegurados || 1} aseg. · ${new Date(pr.created_at).toLocaleDateString('es-ES')}</div>
                 </div>
                 <div style="text-align:right;">
-                  <div style="font-size:18px;font-weight:800;color:#009DDD;">${pr.prima_mensual ? parseFloat(pr.prima_mensual).toFixed(2) + ' €/mes' : '—'}</div>
+                  <div style="font-size:18px;font-weight:800;color:${color};">${pr.prima_mensual ? parseFloat(pr.prima_mensual).toFixed(2) + ' €/mes' : '—'}</div>
                   ${pr.campana_puntos > 0 ? `<div style="font-size:11px;color:#8b5cf6;font-weight:600;">${pr.campana_puntos} pts</div>` : ''}
                 </div>
               </div>
               <div style="display:flex;gap:6px;margin-top:10px;">
                 ${pr.nota_contenido ? `<button class="btn-ver-nota" data-nota="${this._esc(pr.nota_contenido?.substring(0, 5000))}" style="padding:4px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Ver nota</button>` : ''}
-                ${pr.pdf_url ? `<a href="${pr.pdf_url}" target="_blank" style="padding:4px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;text-decoration:none;font-size:11px;font-weight:600;">PDF</a>` : ''}
+                ${pr.pdf_url ? `<button class="btn-ver-pdf" data-id="${pr.id}" style="padding:4px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">PDF</button>` : ''}
                 <button class="btn-usar-grab" data-propuesta='${JSON.stringify({tipo:pr.tipo_poliza||pr.producto,prima:pr.prima_mensual,asegurados:pr.asegurados_data})}' style="padding:4px 12px;border-radius:8px;border:1px solid var(--accent);background:#fff;color:var(--accent);cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Usar en grabación</button>
               </div>
-            </div>
-          `).join('')}
+            </div>`;
+          }).join('')}
+          </div>
           ${notasProp.length > 0 ? `<div style="font-size:11px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin:16px 0 8px;">Propuestas legacy (notas)</div>` : ''}
           ${notasProp.map(n => this._renderNotaPropuesta(n, n.texto)).join('')}
+
+          <!-- Barra enviar seleccionados -->
+          <div id="prop-send-bar" style="display:none;position:sticky;bottom:0;background:#fff;border-top:1px solid #e8edf2;padding:10px 0;margin-top:10px;">
+            <div style="display:flex;gap:8px;justify-content:center;">
+              <span id="prop-count" style="font-size:12px;font-weight:600;color:#94a3b8;align-self:center;"></span>
+              <button id="prop-send-wa" style="padding:6px 16px;border-radius:8px;border:none;background:#25D366;color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;">💬 WhatsApp</button>
+              <button id="prop-send-email" style="padding:6px 16px;border-radius:8px;border:none;background:#009DDD;color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:4px;">📧 Email</button>
+            </div>
+          </div>
         `;
+
+        // Toggle barra enviar
+        const updateSendBar = () => {
+          const checked = content.querySelectorAll('.prop-check:checked');
+          const bar = document.getElementById('prop-send-bar');
+          const count = document.getElementById('prop-count');
+          if (bar) bar.style.display = checked.length > 0 ? 'block' : 'none';
+          if (count) count.textContent = checked.length + ' seleccionada' + (checked.length > 1 ? 's' : '');
+        };
+        content.querySelectorAll('.prop-check').forEach(cb => cb.addEventListener('change', updateSendBar));
+
+        // PDF autenticado
+        content.querySelectorAll('.btn-ver-pdf').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            try {
+              const token = Auth.getToken();
+              const resp = await fetch(`/api/calculadora/propuestas/${id}/pdf`, { headers: { 'Authorization': 'Bearer ' + token } });
+              if (!resp.ok) throw new Error('PDF no disponible');
+              const blob = await resp.blob();
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+            } catch (e) { alert('Error: ' + e.message); }
+          });
+        });
 
         // Ver nota → modal
         content.querySelectorAll('.btn-ver-nota').forEach(btn => {
@@ -816,7 +855,7 @@ const PersonasModule = {
           });
         });
 
-        // Usar en grabación → abrir formulario con datos precargados
+        // Usar en grabación
         content.querySelectorAll('.btn-usar-grab').forEach(btn => {
           btn.addEventListener('click', () => {
             try {
@@ -825,6 +864,36 @@ const PersonasModule = {
             } catch(e) {}
             this._openGrabarInline();
           });
+        });
+
+        // Enviar por WhatsApp
+        document.getElementById('prop-send-wa')?.addEventListener('click', () => {
+          const checked = Array.from(content.querySelectorAll('.prop-check:checked')).map(cb => parseInt(cb.dataset.id));
+          const selected = propuestas.filter(pr => checked.includes(pr.id));
+          const nombre = p.nombre?.split(' ')[0] || '';
+          let msg = `Hola ${nombre}, te envío tus presupuestos de seguro:\n\n`;
+          selected.forEach(pr => {
+            msg += `═══ ${pr.tipo_poliza || pr.producto || 'Propuesta'} ═══\n`;
+            msg += pr.nota_contenido ? pr.nota_contenido + '\n\n' : `Prima: ${parseFloat(pr.prima_mensual||0).toFixed(2)} €/mes\n\n`;
+          });
+          msg += 'Un saludo, Avants Seguros';
+          const tel = (p.telefono || '').replace(/\D/g, '').replace(/^34/, '');
+          window.open('https://wa.me/34' + tel + '?text=' + encodeURIComponent(msg), '_blank');
+        });
+
+        // Enviar por Email
+        document.getElementById('prop-send-email')?.addEventListener('click', () => {
+          const checked = Array.from(content.querySelectorAll('.prop-check:checked')).map(cb => parseInt(cb.dataset.id));
+          const selected = propuestas.filter(pr => checked.includes(pr.id));
+          const nombre = p.nombre?.split(' ')[0] || '';
+          let body = `Hola ${nombre},\n\nTe adjunto tus presupuestos de seguro:\n\n`;
+          selected.forEach(pr => {
+            body += `--- ${pr.tipo_poliza || pr.producto || 'Propuesta'} ---\n`;
+            body += pr.nota_contenido ? pr.nota_contenido + '\n\n' : `Prima: ${parseFloat(pr.prima_mensual||0).toFixed(2)} €/mes\n\n`;
+          });
+          body += 'Un saludo,\nAvants Seguros';
+          const subject = 'Tus presupuestos de seguro - Avants';
+          window.open('mailto:' + (p.email || '') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
         });
       } catch (err) {
         content.innerHTML = `<p style="color:#ef4444;font-size:13px;">Error: ${err.message}</p>`;

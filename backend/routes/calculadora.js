@@ -130,6 +130,42 @@ router.get('/propuestas/deal/:dealId', async (req, res) => {
   }
 });
 
+// GET /api/calculadora/propuestas/:id/pdf — Servir PDF autenticado
+router.get('/propuestas/:id/pdf', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT pdf_url FROM propuestas WHERE id = $1', [req.params.id]);
+    if (rows.length === 0 || !rows[0].pdf_url) return res.status(404).json({ error: 'PDF no encontrado' });
+
+    const pdfPath = require('path').join(__dirname, '../..', rows[0].pdf_url);
+    const fs = require('fs');
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: 'Archivo PDF no encontrado' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="propuesta_${req.params.id}.pdf"`);
+    fs.createReadStream(pdfPath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/calculadora/grabacion/:dealId/pdf — Servir PDF grabación
+router.get('/grabacion/:dealId/pdf', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT grabacion_pdf_url FROM deals WHERE id = $1', [req.params.dealId]);
+    if (rows.length === 0 || !rows[0].grabacion_pdf_url) return res.status(404).json({ error: 'PDF no encontrado' });
+
+    const pdfPath = require('path').join(__dirname, '../..', rows[0].grabacion_pdf_url);
+    const fs = require('fs');
+    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: 'Archivo PDF no encontrado' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="grabacion_${req.params.dealId}.pdf"`);
+    fs.createReadStream(pdfPath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/calculadora/asegurados — Guardar/actualizar asegurado
 router.post('/asegurados', async (req, res) => {
   const { persona_id, nombre, fecha_nacimiento, sexo, parentesco, provincia, localidad, dni } = req.body;

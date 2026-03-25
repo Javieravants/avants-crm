@@ -25,13 +25,20 @@ async function generarPDFPropuesta(propuesta) {
   const stream = fs.createWriteStream(filepath);
   doc.pipe(stream);
 
-  // Cabecera
-  doc.fontSize(20).fillColor(BLUE).text('PROPUESTA ADESLAS', { align: 'center' });
-  doc.fontSize(11).fillColor(LIGHT).text('Campaña MásProtección', { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(10).fillColor(GRAY).text(`Fecha: ${new Date(propuesta.created_at || Date.now()).toLocaleDateString('es-ES')}`, { align: 'right' });
-  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e8edf2').stroke();
-  doc.moveDown(0.8);
+  // Cabecera profesional
+  doc.rect(50, 50, 495, 60).fill(BLUE);
+  doc.fontSize(22).fillColor('#fff').text('AVANTS SEGUROS', 60, 58, { width: 475 });
+  doc.fontSize(11).text('Telegestión de Seguros y Soluciones SL', 60, 80, { width: 475 });
+  doc.y = 120;
+
+  doc.fontSize(16).fillColor(BLUE).text('PRESUPUESTO DE SEGURO', { align: 'center' });
+  doc.fontSize(10).fillColor(LIGHT).text('Campaña MásProtección', { align: 'center' });
+  doc.moveDown(0.3);
+  const fecha = new Date(propuesta.created_at || Date.now());
+  const validez = new Date(fecha); validez.setDate(validez.getDate() + 30);
+  doc.fontSize(9).fillColor(GRAY).text(`Fecha: ${fecha.toLocaleDateString('es-ES')}  ·  Válido hasta: ${validez.toLocaleDateString('es-ES')}`, { align: 'right' });
+  doc.moveTo(50, doc.y + 5).lineTo(545, doc.y + 5).strokeColor(BLUE).lineWidth(1.5).stroke();
+  doc.moveDown(1);
 
   // Datos contacto
   doc.fontSize(12).fillColor(BLUE).text('DATOS DEL CONTACTO');
@@ -125,12 +132,11 @@ async function generarPDFPropuesta(propuesta) {
 
   // Pie
   doc.moveDown(1);
-  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e8edf2').stroke();
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor(BLUE).lineWidth(0.5).stroke();
   doc.moveDown(0.5);
-  const validoHasta = new Date();
-  validoHasta.setDate(validoHasta.getDate() + 30);
-  doc.fontSize(8).fillColor(LIGHT).text(`Válido hasta: ${validoHasta.toLocaleDateString('es-ES')}`, { align: 'center' });
-  doc.text('Avants Suite — CRM de Seguros', { align: 'center' });
+  doc.fontSize(9).fillColor(GRAY).text('Telegestión de Seguros y Soluciones Avants SL', { align: 'center' });
+  doc.fontSize(8).fillColor(LIGHT).text('segurosdesaludonline.es · 914 890 234', { align: 'center' });
+  doc.text(`Presupuesto válido hasta ${validez.toLocaleDateString('es-ES')}`, { align: 'center' });
 
   doc.end();
   await new Promise(resolve => stream.on('finish', resolve));
