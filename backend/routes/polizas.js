@@ -136,6 +136,7 @@ const AGENTE_POR_EMAIL = {
   'PYE':       'maripaz.historico@avants.internal',   // Paz y Elvira → asignar a Paz
   'C/M':       'cristina.historico@avants.internal',   // Cristina/Montse → asignar a Cristina
   'JAVI':      'javier@segurosdesaludonline.es',
+  'SM':        'silvia@segurosdesaludonline.es',
 };
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;
