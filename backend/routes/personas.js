@@ -229,7 +229,7 @@ router.post('/', async (req, res) => {
 
 // PATCH /api/personas/:id — actualizar persona
 router.patch('/:id', async (req, res) => {
-  const { nombre, dni, telefono, email, fecha_nacimiento, direccion, nacionalidad } = req.body;
+  const { nombre, dni, telefono, email, fecha_nacimiento, direccion, nacionalidad, sexo, provincia, localidad, codigo_postal } = req.body;
 
   try {
     const fields = [];
@@ -243,6 +243,10 @@ router.patch('/:id', async (req, res) => {
     if (fecha_nacimiento !== undefined) { fields.push(`fecha_nacimiento = $${idx++}`); values.push(fecha_nacimiento || null); }
     if (direccion !== undefined) { fields.push(`direccion = $${idx++}`); values.push(direccion); }
     if (nacionalidad !== undefined) { fields.push(`nacionalidad = $${idx++}`); values.push(nacionalidad); }
+    if (sexo !== undefined) { fields.push(`sexo = $${idx++}`); values.push(sexo); }
+    if (provincia !== undefined) { fields.push(`provincia = $${idx++}`); values.push(provincia); }
+    if (localidad !== undefined) { fields.push(`localidad = $${idx++}`); values.push(localidad); }
+    if (codigo_postal !== undefined) { fields.push(`codigo_postal = $${idx++}`); values.push(codigo_postal); }
 
     if (fields.length === 0) return res.status(400).json({ error: 'Nada que actualizar' });
 

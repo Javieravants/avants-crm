@@ -3414,20 +3414,34 @@ async function guardarEnCRM() {
         let guardadas = 0;
 
         // 1. Actualizar datos del titular en personas
-        const tc = document.querySelector('#aseguradosContainer .asegurado-card');
+        const cards = document.querySelectorAll('#aseguradosContainer .asegurado-card');
+        const tc = cards[0];
         if (tc) {
             const patchData = {};
-            const nombre = tc.querySelector('.asegurado-nombre')?.value;
-            const fecha = tc.querySelector('.asegurado-fecha')?.value;
-            const prov = tc.querySelector('.asegurado-provincia')?.value;
-            const loc = tc.querySelector('.asegurado-localidad')?.value;
-            if (nombre) patchData.nombre = nombre;
-            if (fecha) patchData.fecha_nacimiento = fecha;
-            if (prov) patchData.provincia = prov;
-            if (loc) patchData.localidad = loc;
+            const v = (sel) => tc.querySelector(sel)?.value?.trim() || '';
+            if (v('.asegurado-nombre')) patchData.nombre = v('.asegurado-nombre');
+            if (v('.asegurado-fecha')) patchData.fecha_nacimiento = v('.asegurado-fecha');
+            if (v('.asegurado-sexo')) patchData.sexo = v('.asegurado-sexo');
+            if (v('.asegurado-provincia')) patchData.provincia = v('.asegurado-provincia');
+            if (v('.asegurado-localidad')) patchData.localidad = v('.asegurado-localidad');
             if (Object.keys(patchData).length > 0) {
-                await fetch('/api/personas/' + personaIdVal, { method: 'PATCH', headers, body: JSON.stringify(patchData) }).catch(() => {});
+                await fetch('/api/personas/' + personaIdVal, { method: 'PATCH', headers, body: JSON.stringify(patchData) }).catch(e => console.warn('PATCH persona error:', e));
             }
+        }
+
+        // 1b. Guardar TODOS los asegurados en BD
+        for (let i = 0; i < cards.length; i++) {
+            const card = cards[i];
+            const nombre = card.querySelector('.asegurado-nombre')?.value?.trim();
+            if (!nombre) continue;
+            const asegData = {
+                persona_id: parseInt(personaIdVal),
+                nombre: nombre,
+                fecha_nacimiento: card.querySelector('.asegurado-fecha')?.value || null,
+                sexo: card.querySelector('.asegurado-sexo')?.value || null,
+                parentesco: i === 0 ? 'Titular' : 'Familiar',
+            };
+            await fetch('/api/calculadora/asegurados', { method: 'POST', headers, body: JSON.stringify(asegData) }).catch(e => console.warn('POST asegurado error:', e));
         }
 
         // 2. Crear una propuesta por producto activo

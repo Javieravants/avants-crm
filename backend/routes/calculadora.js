@@ -130,6 +130,42 @@ router.get('/propuestas/deal/:dealId', async (req, res) => {
   }
 });
 
+// POST /api/calculadora/asegurados — Guardar/actualizar asegurado
+router.post('/asegurados', async (req, res) => {
+  const { persona_id, nombre, fecha_nacimiento, sexo, parentesco, provincia, localidad, dni } = req.body;
+  if (!persona_id || !nombre) return res.status(400).json({ error: 'persona_id y nombre obligatorios' });
+
+  try {
+    // Upsert: si ya existe con mismo persona_id + nombre → actualizar
+    const existing = await pool.query(
+      'SELECT id FROM asegurados WHERE persona_id = $1 AND nombre = $2',
+      [persona_id, nombre]
+    );
+
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE asegurados SET
+           fecha_nac = COALESCE($1::date, fecha_nac),
+           sexo = COALESCE(NULLIF($2,''), sexo),
+           parentesco = COALESCE(NULLIF($3,''), parentesco),
+           dni = COALESCE(NULLIF($4,''), dni)
+         WHERE id = $5`,
+        [fecha_nacimiento || null, sexo, parentesco, dni, existing.rows[0].id]
+      );
+      res.json({ id: existing.rows[0].id, updated: true });
+    } else {
+      const r = await pool.query(
+        `INSERT INTO asegurados (persona_id, nombre, fecha_nac, sexo, parentesco, dni)
+         VALUES ($1, $2, $3::date, $4, $5, $6) RETURNING id`,
+        [persona_id, nombre, fecha_nacimiento || null, sexo || null, parentesco || 'Familiar', dni || null]
+      );
+      res.status(201).json({ id: r.rows[0].id, created: true });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/calculadora/asegurados/:personaId — Asegurados guardados
 router.get('/asegurados/:personaId', async (req, res) => {
   try {
