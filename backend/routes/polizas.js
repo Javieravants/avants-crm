@@ -384,13 +384,14 @@ async function procesarFila(fila, mesAlta, informe) {
   const existingPoliza = await pool.query('SELECT id FROM polizas WHERE n_poliza = $1', [numPoliza]);
 
   if (existingPoliza.rows.length > 0) {
+    // Proteger agente_id, agente_nombre y fecha_grabacion originales
     await pool.query(
       `UPDATE polizas SET
          persona_id = COALESCE($1, persona_id),
-         agente_id = COALESCE($2, agente_id),
-         agente_nombre = COALESCE(NULLIF($3, ''), agente_nombre),
+         agente_id = CASE WHEN agente_id IS NULL THEN $2 ELSE agente_id END,
+         agente_nombre = CASE WHEN agente_nombre IS NULL OR agente_nombre = '' THEN $3 ELSE agente_nombre END,
          producto = COALESCE(NULLIF($4, ''), producto),
-         fecha_grabacion = COALESCE($5, fecha_grabacion),
+         fecha_grabacion = CASE WHEN fecha_grabacion IS NULL THEN $5 ELSE fecha_grabacion END,
          fecha_efecto = COALESCE($6, fecha_efecto),
          forma_pago = COALESCE(NULLIF($7, ''), forma_pago),
          n_solicitud = COALESCE(NULLIF($8, ''), n_solicitud),
@@ -405,7 +406,7 @@ async function procesarFila(fila, mesAlta, informe) {
          carencias = COALESCE(NULLIF($17, ''), carencias),
          comentarios = COALESCE(NULLIF($18, ''), comentarios),
          origen_lead = COALESCE(NULLIF($19, ''), origen_lead),
-         mes_alta = COALESCE(NULLIF($20, ''), mes_alta),
+         mes_alta = CASE WHEN mes_alta IS NULL OR mes_alta = '' THEN $20 ELSE mes_alta END,
          estado = $21,
          enviada_ccpp = COALESCE($22, enviada_ccpp),
          updated_at = now()
@@ -703,6 +704,24 @@ async function fetchSheet(hoja, sheetId) {
     });
   });
 }
+
+// =============================================
+// POST /api/polizas/truncate — solo superadmin
+// =============================================
+router.post('/truncate', async (req, res) => {
+  if (req.user.rol !== 'superadmin') {
+    return res.status(403).json({ error: 'Solo superadmin puede truncar pólizas' });
+  }
+  try {
+    const countBefore = await pool.query('SELECT COUNT(*) as total FROM polizas');
+    await pool.query('TRUNCATE TABLE polizas RESTART IDENTITY CASCADE');
+    console.log(`[Pólizas] TRUNCATE ejecutado por ${req.user.nombre} — ${countBefore.rows[0].total} pólizas eliminadas`);
+    res.json({ ok: true, eliminadas: parseInt(countBefore.rows[0].total) });
+  } catch (err) {
+    console.error('[Pólizas] Error truncate:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // =============================================
 // GET /api/polizas/stats
