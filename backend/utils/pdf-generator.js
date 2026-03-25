@@ -153,10 +153,10 @@ async function generarPDFPropuesta(propuesta) {
   const asegurados = propuesta.asegurados_data || [];
   if (asegurados.length > 0) {
     doc.moveDown(0.3);
-    doc.fontSize(9).fillColor(BLUE).text('ASEGURADOS');
+    doc.fontSize(9).fillColor(BLUE).text('ASEGURADOS', L);
     doc.moveDown(0.2);
     asegurados.forEach((a, i) => {
-      doc.fontSize(8).fillColor(GRAY).text(`${i + 1}. ${a.nombre || ''}${a.fechaNac ? ' — ' + a.fechaNac : ''}${a.sexo ? ' (' + a.sexo + ')' : ''}`);
+      doc.fontSize(8).fillColor(GRAY).text(`${i + 1}. ${a.nombre || ''}${a.fechaNac ? '  —  ' + a.fechaNac : ''}${a.sexo ? '  (' + a.sexo + ')' : ''}`, L);
     });
   }
 
@@ -164,9 +164,9 @@ async function generarPDFPropuesta(propuesta) {
   doc.moveDown(1);
   doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(BLUE).lineWidth(0.5).stroke();
   doc.moveDown(0.4);
-  doc.fontSize(7).fillColor(LIGHT).text('Hasta el 30/06/2026  ·  Sujeto a aceptacion por la compania', { align: 'center' });
-  doc.fontSize(8).fillColor(GRAY).text(`TGSSA, SL · segurosdesaludonline.es · Agente: ${propuesta._agente_nombre || ''}`, { align: 'center' });
-  doc.fontSize(7).fillColor(LIGHT).text('Los puntos se acumulan al contratar los seguros indicados. Tarjeta monedero: 10 EUR por cada 100 pts.', { align: 'center' });
+  doc.fontSize(7).fillColor(LIGHT).text('Hasta el 30/06/2026  ·  Sujeto a aceptacion por la compania', L, doc.y, { width: W, align: 'center' });
+  doc.fontSize(8).fillColor(GRAY).text(`TGSSA, SL · segurosdesaludonline.es · Agente: ${propuesta._agente_nombre || ''}`, L, doc.y, { width: W, align: 'center' });
+  doc.fontSize(7).fillColor(LIGHT).text('Los puntos se acumulan al contratar los seguros indicados. Tarjeta monedero: 10 EUR por cada 100 pts.', L, doc.y, { width: W, align: 'center' });
 
   doc.end();
   await new Promise(resolve => stream.on('finish', resolve));
