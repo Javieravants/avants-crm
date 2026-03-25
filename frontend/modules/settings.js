@@ -13,12 +13,14 @@ const SettingsModule = {
     }
 
     const container = document.getElementById('main-content');
+    const isSuperadmin = Auth.hasRole('superadmin');
     container.innerHTML = `
       <h1 class="page-title">Configuración</h1>
       <div class="tabs" id="settings-tabs">
         <button class="tab-btn active" data-tab="ticket-types">Tipos de trámites</button>
         <button class="tab-btn" data-tab="ticket-columns">Columnas / Bandejas</button>
         <button class="tab-btn" data-tab="users">Usuarios</button>
+        ${isSuperadmin ? '<button class="tab-btn" data-tab="importar-polizas">Importación de Pólizas</button>' : ''}
       </div>
       <div class="card" style="margin-top:16px;" id="settings-content">
         <p class="text-light">Cargando...</p>
@@ -45,6 +47,7 @@ const SettingsModule = {
       if (this.currentTab === 'ticket-types') await this.renderTicketTypes(content);
       else if (this.currentTab === 'ticket-columns') await this.renderTicketColumns(content);
       else if (this.currentTab === 'users') await this.renderUsers(content);
+      else if (this.currentTab === 'importar-polizas') await this.renderImportarPolizas(content);
     } catch (err) {
       content.innerHTML = `<p style="color:#c62828">${err.message}</p>`;
     }
@@ -608,5 +611,196 @@ const SettingsModule = {
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  },
+
+  // =============================================
+  // Pestaña: Importación de Pólizas (solo superadmin)
+  // =============================================
+  async renderImportarPolizas(container) {
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Sección A: Importar desde Google Sheet -->
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#e6f6fd;display:flex;align-items:center;justify-content:center;">
+              ${Icons.polizas(22, '#009DDD')}
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:700;">Importar desde Google Sheet</div>
+              <div style="font-size:12px;color:#94a3b8;">Sheets configurados: 2020–2026 · Lectura directa desde el backend</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <select id="import-sheet-year" style="padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;">
+              <option value="2025">2025 + 2026</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2022">2022</option>
+              <option value="2021">2021</option>
+              <option value="2020">2020</option>
+            </select>
+            <button id="btn-import-sheet" class="btn btn-primary" style="padding:8px 20px;font-size:13px;">
+              ${Icons.importar(16, '#fff')} Importar Sheet
+            </button>
+          </div>
+          <div id="import-sheet-progress" style="margin-top:12px;max-height:200px;overflow-y:auto;display:none;"></div>
+        </div>
+
+        <!-- Sección B: Subir Excel histórico -->
+        <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;">
+              ${Icons.importar(22, '#10b981')}
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:700;">Subir Excel histórico</div>
+              <div style="font-size:12px;color:#94a3b8;">Fichero .xlsx o .xls con pestañas mensuales</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <input type="file" id="import-excel-file" accept=".xlsx,.xls" style="font-size:13px;" />
+            <select id="import-excel-year" style="padding:8px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;">
+              <option value="">Seleccionar año</option>
+              <option value="2020">2020</option>
+              <option value="2021">2021</option>
+              <option value="2022">2022</option>
+              <option value="2023">2023</option>
+              <option value="2024">2024</option>
+              <option value="2025">2025</option>
+            </select>
+            <button id="btn-import-excel" class="btn" style="padding:8px 20px;font-size:13px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;">
+              ${Icons.importar(16, '#fff')} Importar Excel
+            </button>
+          </div>
+        </div>
+
+        <!-- Sección C: Informe -->
+        <div id="import-result" style="display:none;"></div>
+      </div>
+    `;
+
+    // Event: Importar Sheet
+    document.getElementById('btn-import-sheet').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-import-sheet');
+      const year = document.getElementById('import-sheet-year').value;
+      const progress = document.getElementById('import-sheet-progress');
+      const result = document.getElementById('import-result');
+
+      btn.disabled = true;
+      btn.textContent = 'Importando...';
+      progress.style.display = 'block';
+      progress.innerHTML = '<div style="font-size:13px;color:#94a3b8;">Procesando pestañas del Sheet ' + year + '...</div>';
+      result.style.display = 'none';
+
+      try {
+        const resp = await API.post('/polizas/importar-sheet', { year });
+        btn.disabled = false;
+        btn.innerHTML = `${Icons.importar(16, '#fff')} Importar Sheet`;
+        progress.innerHTML = '<div style="font-size:13px;color:#10b981;font-weight:600;">Completado</div>';
+        result.style.display = 'block';
+        result.innerHTML = this._renderImportResult(resp, `Google Sheet ${year}`);
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `${Icons.importar(16, '#fff')} Importar Sheet`;
+        progress.innerHTML = `<div style="font-size:13px;color:#ef4444;">Error: ${this._esc(err.message)}</div>`;
+      }
+    });
+
+    // Event: Importar Excel
+    document.getElementById('btn-import-excel').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-import-excel');
+      const fileInput = document.getElementById('import-excel-file');
+      const year = document.getElementById('import-excel-year').value;
+      const result = document.getElementById('import-result');
+
+      if (!fileInput.files[0]) return alert('Selecciona un fichero Excel');
+      if (!year) return alert('Selecciona el año');
+
+      btn.disabled = true;
+      btn.textContent = 'Subiendo...';
+      result.style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        formData.append('archivo', fileInput.files[0]);
+        formData.append('año', year);
+
+        const token = Auth.getToken();
+        const response = await fetch('/api/polizas/importar-excel', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+        const resp = await response.json();
+
+        btn.disabled = false;
+        btn.innerHTML = `${Icons.importar(16, '#fff')} Importar Excel`;
+
+        if (!response.ok) throw new Error(resp.error || 'Error al importar');
+
+        result.style.display = 'block';
+        result.innerHTML = this._renderImportResult(resp, `Excel ${year}`);
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = `${Icons.importar(16, '#fff')} Importar Excel`;
+        alert('Error: ' + err.message);
+      }
+    });
+  },
+
+  _renderImportResult(t, source) {
+    const now = new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `
+      <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;border-top:3px solid #009DDD;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="font-size:16px;font-weight:700;margin:0;">Resultado: ${this._esc(source)}</h3>
+          <span style="font-size:12px;color:#94a3b8;">${now}</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;">
+          ${this._importKpi('Procesadas', t.total_procesadas, '#009DDD')}
+          ${this._importKpi('Nuevas', t.polizas_nuevas, '#10b981')}
+          ${this._importKpi('Actualizadas', t.polizas_actualizadas, '#3b82f6')}
+          ${this._importKpi('Bajas', t.bajas_detectadas, '#ef4444')}
+        </div>
+
+        <h4 style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Deduplicación</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
+          ${this._importKpi('Por DNI', t.personas_vinculadas_por_dni || 0, '#8b5cf6')}
+          ${this._importKpi('Por teléfono', t.personas_vinculadas_por_telefono || 0, '#f59e0b')}
+          ${this._importKpi('Por email', t.personas_vinculadas_por_email || 0, '#06b6d4')}
+          ${this._importKpi('Nuevas', t.personas_nuevas_creadas || 0, '#10b981')}
+        </div>
+
+        <h4 style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Agentes</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
+          ${this._importKpi('Resueltos', t.agentes_resueltos || 0, '#10b981')}
+          ${this._importKpi('Sin resolver', (t.agentes_no_encontrados || []).length, (t.agentes_no_encontrados || []).length > 0 ? '#ef4444' : '#94a3b8')}
+        </div>
+        ${(t.agentes_no_encontrados || []).length > 0 ? `
+          <div style="background:#fef2f2;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:12px;">
+            <strong>No encontrados:</strong> ${t.agentes_no_encontrados.map(a => this._esc(a)).join(', ')}
+          </div>
+        ` : ''}
+
+        ${(t.errores || []).length > 0 ? `
+          <h4 style="font-size:12px;font-weight:700;color:#ef4444;margin-bottom:6px;">Errores (${t.errores.length})</h4>
+          <div style="max-height:150px;overflow-y:auto;background:#fef2f2;border-radius:8px;padding:8px 12px;font-size:11px;font-family:monospace;">
+            ${t.errores.slice(0, 30).map(e => `<div style="padding:2px 0;">${this._esc(e)}</div>`).join('')}
+            ${t.errores.length > 30 ? `<div style="color:#94a3b8;">...y ${t.errores.length - 30} más</div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  _importKpi(label, value, color) {
+    return `
+      <div style="text-align:center;background:#f4f6f9;border-radius:8px;padding:10px 6px;">
+        <div style="font-size:20px;font-weight:800;color:${color};">${value}</div>
+        <div style="font-size:10px;font-weight:600;color:#94a3b8;margin-top:2px;">${label}</div>
+      </div>
+    `;
   },
 };
