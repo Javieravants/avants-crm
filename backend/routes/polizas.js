@@ -32,6 +32,38 @@ const SHEETS = {
       'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
     ],
   },
+  '2023': {
+    id: '169PGnxVu-Nbgp5CbGkLbErM8gNKt_BdG9jIMHqeWy60',
+    hojas: [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL',
+      'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+      'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ],
+  },
+  '2022': {
+    id: '1ONuAHVxxRqGD_2zRZ3ekW9sG9jan2eRDHTKW9PKgReU',
+    hojas: [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL',
+      'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+      'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ],
+  },
+  '2021': {
+    id: '1fBPsSzKBu7tyDmuH2y_hRUCgDn0v4X2hIKuTGOZnLco',
+    hojas: [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL',
+      'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+      'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ],
+  },
+  '2020': {
+    id: '1UnVTSYt9l25Hy9glZ4S037mPMiSi2642aMLgVs7J4L4',
+    hojas: [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL',
+      'MAYO', 'JUNIO', 'JULIO', 'AGOSTO',
+      'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ],
+  },
 };
 // Alias para compatibilidad
 const SHEET_ID = SHEETS['2025'].id;
