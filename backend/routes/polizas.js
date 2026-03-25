@@ -422,6 +422,7 @@ async function procesarFila(fila, mesAlta, informe) {
     );
     informe.polizas_actualizadas++;
   } else {
+    const fechaCreacion = parseFecha(fila.fecha_grabacion) || new Date();
     await pool.query(
       `INSERT INTO polizas (
          n_poliza, persona_id, agente_id, agente_nombre, compania, producto,
@@ -429,8 +430,8 @@ async function procesarFila(fila, mesAlta, informe) {
          n_asegurados, prima_anual, prima_mensual, recibo_mensual,
          beneficio_base, descuento, campana, n_grabacion,
          carencias, comentarios, origen_lead, mes_alta,
-         estado, enviada_ccpp
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+         estado, enviada_ccpp, created_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
       [
         numPoliza, personaId, agenteId, agenteNombre, 'ADESLAS', producto,
         parseFecha(fila.fecha_grabacion), parseFecha(fila.fecha_efecto),
@@ -438,7 +439,7 @@ async function procesarFila(fila, mesAlta, informe) {
         primaAnual, primaMensual, reciboMensual,
         beneficio, descuento, campana, audio,
         carencias, comentarios, origenLead, mesAlta,
-        estado, enviadaCCPP
+        estado, enviadaCCPP, fechaCreacion
       ]
     );
     informe.polizas_nuevas++;
