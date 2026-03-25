@@ -133,38 +133,92 @@ router.get('/propuestas/deal/:dealId', async (req, res) => {
   }
 });
 
-// GET /api/calculadora/propuestas/:id/pdf — Servir PDF autenticado
+// GET /api/calculadora/propuestas/:id/pdf — Servir PDF (regenera si no existe)
 router.get('/propuestas/:id/pdf', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT pdf_url FROM propuestas WHERE id = $1', [req.params.id]);
-    if (rows.length === 0 || !rows[0].pdf_url) return res.status(404).json({ error: 'PDF no encontrado' });
+    const { rows } = await pool.query('SELECT * FROM propuestas WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Propuesta no encontrada' });
 
-    const pdfPath = require('path').join(__dirname, '../..', rows[0].pdf_url);
-    const fs = require('fs');
-    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: 'Archivo PDF no encontrado' });
+    const propuesta = rows[0];
+    const pdfPath = propuesta.pdf_url ? require('path').join(__dirname, '../..', propuesta.pdf_url) : null;
 
+    // Regenerar si no existe en disco
+    if (!pdfPath || !require('fs').existsSync(pdfPath)) {
+      let personaData = {};
+      if (propuesta.persona_id) {
+        const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [propuesta.persona_id]);
+        personaData = pRes.rows[0] || {};
+      }
+      let agenteNombre = '';
+      if (propuesta.agente_id) {
+        const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [propuesta.agente_id]);
+        agenteNombre = aRes.rows[0]?.nombre || '';
+      }
+
+      propuesta._persona = personaData;
+      propuesta._agente_nombre = agenteNombre;
+      propuesta.desglose = typeof propuesta.desglose === 'string' ? JSON.parse(propuesta.desglose) : (propuesta.desglose || {});
+      propuesta.asegurados_data = typeof propuesta.asegurados_data === 'string' ? JSON.parse(propuesta.asegurados_data) : (propuesta.asegurados_data || []);
+
+      const newUrl = await generarPDFPropuesta(propuesta);
+      await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [newUrl, propuesta.id]);
+      propuesta.pdf_url = newUrl;
+    }
+
+    const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="propuesta_${req.params.id}.pdf"`);
-    fs.createReadStream(pdfPath).pipe(res);
+    require('fs').createReadStream(finalPath).pipe(res);
   } catch (err) {
+    console.error('Error PDF propuesta:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/calculadora/grabacion/:dealId/pdf — Servir PDF grabación
+// GET /api/calculadora/grabacion/:dealId/pdf — Servir PDF grabación (regenera si no existe)
 router.get('/grabacion/:dealId/pdf', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT grabacion_pdf_url FROM deals WHERE id = $1', [req.params.dealId]);
-    if (rows.length === 0 || !rows[0].grabacion_pdf_url) return res.status(404).json({ error: 'PDF no encontrado' });
+    const { rows } = await pool.query('SELECT * FROM deals WHERE id = $1', [req.params.dealId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Deal no encontrado' });
 
-    const pdfPath = require('path').join(__dirname, '../..', rows[0].grabacion_pdf_url);
-    const fs = require('fs');
-    if (!fs.existsSync(pdfPath)) return res.status(404).json({ error: 'Archivo PDF no encontrado' });
+    const deal = rows[0];
+    let pdfPath = deal.grabacion_pdf_url ? require('path').join(__dirname, '../..', deal.grabacion_pdf_url) : null;
+
+    if (!pdfPath || !require('fs').existsSync(pdfPath)) {
+      // Regenerar PDF
+      const { generarPDFGrabacion } = require('../utils/pdf-generator');
+      let persona = {};
+      if (deal.persona_id) {
+        const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [deal.persona_id]);
+        persona = pRes.rows[0] || {};
+      }
+      let agente = '';
+      if (deal.agente_id) {
+        const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [deal.agente_id]);
+        agente = aRes.rows[0]?.nombre || '';
+      }
+      const asegurados = (await pool.query('SELECT * FROM asegurados WHERE deal_id = $1', [deal.id])).rows;
+
+      const newUrl = await generarPDFGrabacion({
+        deal_id: deal.id, tipo_poliza: deal.tipo_poliza, compania: deal.compania,
+        prima: deal.prima, fecha_efecto: deal.fecha_efecto, num_solicitud: deal.num_solicitud,
+        poliza: deal.poliza, nombre: persona.nombre, dni: persona.dni,
+        fecha_nacimiento: persona.fecha_nacimiento, sexo: persona.sexo,
+        telefono: persona.telefono, email: persona.email, direccion: persona.direccion,
+        codigo_postal: persona.codigo_postal, provincia: persona.provincia,
+        localidad: persona.localidad, iban: deal.iban || persona.iban,
+        agente_nombre: agente, asegurados,
+        datos_especificos: typeof deal.datos_extra === 'string' ? JSON.parse(deal.datos_extra) : deal.datos_extra,
+      });
+      await pool.query('UPDATE deals SET grabacion_pdf_url = $1 WHERE id = $2', [newUrl, deal.id]);
+      pdfPath = require('path').join(__dirname, '../..', newUrl);
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="grabacion_${req.params.dealId}.pdf"`);
-    fs.createReadStream(pdfPath).pipe(res);
+    require('fs').createReadStream(pdfPath).pipe(res);
   } catch (err) {
+    console.error('Error PDF grabacion:', err);
     res.status(500).json({ error: err.message });
   }
 });
