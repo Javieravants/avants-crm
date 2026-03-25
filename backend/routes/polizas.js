@@ -115,6 +115,27 @@ const AGENTE_POR_EMAIL = {
   'CA':        'cristina.historico@avants.internal',
   'CR-EP':     'eva@segurosdesaludonline.es',
   'GRACI':     'cristina.historico@avants.internal',
+  // Códigos de 1 letra (Sheets 2020-2022)
+  'C':         'cristina.historico@avants.internal',
+  'E':         'eva@segurosdesaludonline.es',
+  'V':         'victoria.historico@avants.internal',
+  'D':         'david.historico@avants.internal',
+  'M':         'montse@segurosdesaludonline.es',
+  'J':         'javier@segurosdesaludonline.es',
+  'B':         'beatrizdkvhealth@gmail.com',
+  'N':         'nani.historico@avants.internal',
+  'L':         'laura@segurosdesaludonline.es',
+  'A':         'andrea@segurosdesaludonline.es',
+  // Códigos cortos adicionales (2020-2023)
+  'PL':        'patricialeria.historico@avants.internal',
+  'EL':        'elvira.historico@avants.internal',
+  'ELV':       'elvira.historico@avants.internal',
+  'ALE':       'alejandra.historico@avants.internal',
+  'EPO':       'eva@segurosdesaludonline.es',
+  'PAZ':       'maripaz.historico@avants.internal',
+  'PYE':       'maripaz.historico@avants.internal',   // Paz y Elvira → asignar a Paz
+  'C/M':       'cristina.historico@avants.internal',   // Cristina/Montse → asignar a Cristina
+  'JAVI':      'javier@segurosdesaludonline.es',
 };
 async function getAgenteId(nombreAgente) {
   if (!nombreAgente) return null;

@@ -23,3 +23,27 @@ ON CONFLICT (email) DO NOTHING;
 INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
 VALUES ('Sol (histórico)', 'sol.historico@avants.internal', '', 'historico', false, 'ADESLAS')
 ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('Victoria (histórico)', 'victoria.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('David (histórico)', 'david.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('Patricia Leria (histórico)', 'patricialeria.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('Elvira (histórico)', 'elvira.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('Alejandra (histórico)', 'alejandra.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO users (nombre, email, password_hash, rol, activo, empresa)
+VALUES ('Mari Paz (histórico)', 'maripaz.historico@avants.internal', '', 'historico', false, 'ADESLAS')
+ON CONFLICT (email) DO NOTHING;
