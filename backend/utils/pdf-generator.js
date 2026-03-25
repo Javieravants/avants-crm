@@ -6,24 +6,38 @@ const fs = require('fs');
 const path = require('path');
 
 const UPLOADS = path.join(__dirname, '../../uploads');
+
+// Colores
 const BLUE = '#009DDD';
+const DARK_BLUE = '#0088C4';
 const GRAY = '#475569';
 const LIGHT = '#94a3b8';
+const ORANGE = '#ff9800';
+const GREEN = '#2e7d32';
+const GREEN_BG = '#f0fff4';
 
 // Tabla de regalos MásProtección
 const REGALOS = [
-  { pts: 500, premio: 'Baliza emergencia / Suscripción 3 meses', monedero: 50 },
-  { pts: 1000, premio: 'Suscripción 6 meses plataforma', monedero: 100 },
-  { pts: 1500, premio: 'Suscripción 1 año / Galaxy Buds3', monedero: 150 },
-  { pts: 2000, premio: 'AirPods 4', monedero: 200 },
-  { pts: 3000, premio: 'Apple Watch SE 3 / Tablet Samsung A11', monedero: 300 },
-  { pts: 5000, premio: 'iPad WiFi 256GB', monedero: 500 },
-  { pts: 7000, premio: 'Galaxy Watch Ultra', monedero: 700 },
-  { pts: 10000, premio: 'iPhone 17 / Samsung Galaxy Z Flip7', monedero: 1000 },
+  { pts: 500, premio: 'Baliza emergencia / Suscripción 3 meses' },
+  { pts: 1000, premio: 'Suscripción 6 meses plataforma' },
+  { pts: 1500, premio: 'Suscripción 1 año / Galaxy Buds3' },
+  { pts: 2000, premio: 'AirPods 4' },
+  { pts: 3000, premio: 'Apple Watch SE 3 / Tablet Samsung A11' },
+  { pts: 5000, premio: 'iPad WiFi 256GB' },
+  { pts: 7000, premio: 'Galaxy Watch Ultra' },
+  { pts: 10000, premio: 'iPhone 17 / Samsung Galaxy Z Flip7' },
 ];
 
+// Colores de badges por tipo de producto
+const TIPO_COLORS = {
+  SALUD: { bg: '#e6f4fb', text: '#0077aa' },
+  DENTAL: { bg: '#e8f5e9', text: '#2e7d32' },
+  MASCOTAS: { bg: '#fff3e0', text: '#b36000' },
+  DECESOS: { bg: '#f0f0f0', text: '#555555' },
+};
+
 // =============================================
-// PDF PROPUESTA — Diseño aprobado
+// PDF PROPUESTA — Diseño aprobado completo
 // =============================================
 async function generarPDFPropuesta(propuesta) {
   const dir = path.join(UPLOADS, 'propuestas');
@@ -33,144 +47,271 @@ async function generarPDFPropuesta(propuesta) {
   const filepath = path.join(dir, filename);
   const pdfUrl = `/uploads/propuestas/${filename}`;
 
-  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  const doc = new PDFDocument({ size: 'A4', margins: { top: 30, bottom: 30, left: 40, right: 40 } });
   const stream = fs.createWriteStream(filepath);
   doc.pipe(stream);
 
-  const W = 515; // ancho útil
-  const L = 40;  // margen izquierdo
+  const L = 40;
+  const W = 515;
   const R = L + W;
-  const DARK = '#0088c4';
   const persona = propuesta._persona || {};
-  const pts = propuesta.campana_puntos || 0;
+  const agente = propuesta._agente_nombre || '';
+  const pts = parseInt(propuesta.campana_puntos) || 0;
   const fecha = new Date(propuesta.created_at || Date.now());
+  const fechaStr = fecha.toLocaleDateString('es-ES');
+  const totalMensual = parseFloat(propuesta.prima_mensual) || 0;
 
-  // ── CABECERA ──
-  doc.rect(L, 40, W, 50).fill(BLUE);
-  doc.fontSize(24).fillColor('#fff').text('ADESLAS', L + 12, 48, { width: 300 });
-  doc.fontSize(9).text('TGSSA, SL', L + 12, 72, { width: 200 });
-  // Badge fecha
-  doc.rect(R - 150, 48, 140, 20).fill('#fff');
-  doc.fontSize(8).fillColor(BLUE).text(`Presupuesto / ${fecha.toLocaleDateString('es-ES')}`, R - 145, 53, { width: 130, align: 'center' });
-  doc.y = 95;
-  doc.fontSize(10).fillColor(BLUE).text('PRESUPUESTO — CAMPAÑA MÁSPROTECCIÓN · MARZO-JUNIO 2026', L, 95, { width: W, align: 'center' });
-  doc.moveDown(0.8);
+  // ═══════════════════════════════════════
+  // SECCIÓN 1 — CABECERA
+  // ═══════════════════════════════════════
+  doc.rect(L, 30, W, 100).fill(BLUE);
 
-  // ── FRANJA CLIENTE ──
-  const cy = doc.y;
-  doc.rect(L, cy, W, 28).fill(DARK);
-  doc.fontSize(9).fillColor('#fff');
-  doc.text(`Cliente: ${persona.nombre || '—'}`, L + 10, cy + 6, { width: 180 });
-  doc.text(`Tel: ${persona.telefono || '—'}`, L + 200, cy + 6, { width: 140 });
-  doc.text(`Agente: ${propuesta._agente_nombre || '—'}`, L + 350, cy + 6, { width: 160 });
-  doc.y = cy + 34;
+  // ADESLAS logo text
+  doc.fontSize(28).fillColor('#fff').text('ADESLAS', L + 16, 40);
+  doc.fontSize(11).fillColor('rgba(255,255,255,0.8)').text('TGSSA, SL', L + 16, 72);
 
-  // ── TABLA PRODUCTOS ──
-  doc.moveDown(0.3);
+  // Badge fecha (rectángulo blanco semitransparente)
+  doc.rect(R - 145, 40, 135, 38).fill('rgba(255,255,255,0.15)');
+  doc.rect(R - 145, 40, 135, 38).strokeColor('rgba(255,255,255,0.3)').lineWidth(0.5).stroke();
+  doc.fontSize(9).fillColor('rgba(255,255,255,0.7)').text('PRESUPUESTO', R - 140, 46, { width: 125, align: 'center' });
+  doc.fontSize(13).fillColor('#fff').text(fechaStr, R - 140, 58, { width: 125, align: 'center' });
+
+  // Título campaña
+  doc.fontSize(10).fillColor('#fff').text(
+    'PRESUPUESTO — CAMPAÑA MÁSPROTECCIÓN · MARZO-JUNIO 2026',
+    L + 16, 100, { width: W - 32, align: 'center' }
+  );
+
+  doc.y = 138;
+
+  // ═══════════════════════════════════════
+  // SECCIÓN 2 — FRANJA CLIENTE
+  // ═══════════════════════════════════════
+  const fy = doc.y;
+  doc.rect(L, fy, W, 45).fill(DARK_BLUE);
+
+  const colW = W / 3;
+  const labelStyle = { fillColor: 'rgba(255,255,255,0.6)' };
+
+  // Cliente
+  doc.fontSize(8).fillColor('rgba(255,255,255,0.6)').text('CLIENTE', L + 12, fy + 8);
+  doc.fontSize(12).fillColor('#fff').text(persona.nombre || '—', L + 12, fy + 20, { width: colW - 20 });
+
+  // Teléfono
+  doc.fontSize(8).fillColor('rgba(255,255,255,0.6)').text('TELÉFONO', L + colW + 12, fy + 8);
+  doc.fontSize(12).fillColor('#fff').text(persona.telefono || '—', L + colW + 12, fy + 20, { width: colW - 20 });
+
+  // Agente
+  doc.fontSize(8).fillColor('rgba(255,255,255,0.6)').text('AGENTE', L + colW * 2 + 12, fy + 8);
+  doc.fontSize(12).fillColor('#fff').text(agente || '—', L + colW * 2 + 12, fy + 20, { width: colW - 20 });
+
+  doc.y = fy + 55;
+
+  // ═══════════════════════════════════════
+  // SECCIÓN 3 — TABLA DE PRODUCTOS
+  // ═══════════════════════════════════════
+  doc.fontSize(10).fillColor(BLUE).text('PRODUCTOS PRESUPUESTADOS', L, doc.y);
+  doc.moveTo(L, doc.y + 2).lineTo(R, doc.y + 2).strokeColor(BLUE).lineWidth(1).stroke();
+  doc.moveDown(0.6);
+
   const desglose = propuesta.desglose || {};
   const productos = Object.entries(desglose);
 
   if (productos.length > 0) {
+    // Cabecera tabla
     const th = doc.y;
-    doc.rect(L, th, W, 18).fill(BLUE);
-    doc.fontSize(8).fillColor('#fff');
-    doc.text('Producto', L + 8, th + 4, { width: 220 });
-    doc.text('Prima/mes', L + 280, th + 4, { width: 100, align: 'right' });
-    doc.text('Puntos', L + 400, th + 4, { width: 80, align: 'right' });
+    doc.rect(L, th, W, 22).fill('#f8f9fa');
+    doc.moveTo(L, th + 22).lineTo(R, th + 22).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    doc.fontSize(8).fillColor(LIGHT);
+    doc.text('Producto', L + 10, th + 6, { width: 200 });
+    doc.text('Modalidad', L + 220, th + 6, { width: 100, align: 'center' });
+    doc.text('Prima/mes', L + 330, th + 6, { width: 80, align: 'right' });
+    doc.text('Puntos', L + 430, th + 6, { width: 75, align: 'right' });
 
-    let y = th + 20;
+    let y = th + 24;
     let totalPts = 0;
+
     productos.forEach(([nombre, data], i) => {
-      const bg = i % 2 === 0 ? '#f4f6f9' : '#fff';
-      doc.rect(L, y, W, 16).fill(bg);
-      doc.fontSize(8).fillColor(GRAY);
-      doc.text(nombre, L + 8, y + 3, { width: 260 });
+      const rowH = 28;
+      const bg = i % 2 === 0 ? '#ffffff' : '#fafafa';
+      doc.rect(L, y, W, rowH).fill(bg);
+      doc.moveTo(L, y + rowH).lineTo(R, y + rowH).strokeColor('#f0f0f0').lineWidth(0.3).stroke();
+
       const mensual = typeof data === 'object' ? (data.mensual || data.prima || 0) : (data || 0);
       const prodPts = typeof data === 'object' ? (data.puntos || 0) : 0;
       totalPts += prodPts;
-      doc.text(mensual ? mensual.toFixed(2) + ' €' : '-', L + 280, y + 3, { width: 100, align: 'right' });
-      doc.text(prodPts ? prodPts + ' pts' : '-', L + 400, y + 3, { width: 80, align: 'right' });
-      y += 16;
+
+      // Producto nombre
+      doc.fontSize(10).fillColor('#0f172a').text(nombre, L + 10, y + 5, { width: 195 });
+
+      // Badge modalidad
+      const tipo = nombre.toUpperCase().includes('SALUD') ? 'SALUD' :
+                   nombre.toUpperCase().includes('DENTAL') ? 'DENTAL' :
+                   nombre.toUpperCase().includes('MASCOTA') ? 'MASCOTAS' :
+                   nombre.toUpperCase().includes('DECESO') ? 'DECESOS' : 'SALUD';
+      const tc = TIPO_COLORS[tipo] || TIPO_COLORS.SALUD;
+      const badgeW = 70;
+      doc.rect(L + 225, y + 6, badgeW, 16).fill(tc.bg);
+      doc.fontSize(7).fillColor(tc.text).text(tipo, L + 225, y + 10, { width: badgeW, align: 'center' });
+
+      // Prima
+      doc.fontSize(11).fillColor(BLUE).text(
+        mensual ? mensual.toFixed(2) + ' €' : '—',
+        L + 330, y + 7, { width: 80, align: 'right' }
+      );
+
+      // Puntos
+      doc.fontSize(10).fillColor(ORANGE).text(
+        prodPts ? prodPts + ' pts' : '—',
+        L + 430, y + 7, { width: 75, align: 'right' }
+      );
+
+      y += rowH;
     });
 
-    // Fila total
-    doc.rect(L, y, W, 20).fill('#e6f6fd');
-    doc.fontSize(9).fillColor(BLUE);
-    doc.text('TOTAL', L + 8, y + 5);
-    doc.text(parseFloat(propuesta.prima_mensual || 0).toFixed(2) + ' €/mes', L + 280, y + 5, { width: 100, align: 'right' });
-    doc.text((pts || totalPts) + ' pts', L + 400, y + 5, { width: 80, align: 'right' });
-    doc.y = y + 26;
+    // Fila TOTAL
+    doc.moveTo(L, y).lineTo(R, y).strokeColor(BLUE).lineWidth(1).stroke();
+    doc.rect(L, y + 1, W, 28).fill('#f0f9ff');
+    doc.fontSize(11).fillColor('#0f172a').text('Total mensual', L + 10, y + 8);
+    doc.fontSize(16).fillColor(BLUE).text(
+      totalMensual.toFixed(2) + ' €',
+      L + 330, y + 5, { width: 80, align: 'right' }
+    );
+    doc.fontSize(11).fillColor(ORANGE).text(
+      (pts || totalPts) + ' pts',
+      L + 430, y + 8, { width: 75, align: 'right' }
+    );
+    doc.y = y + 35;
   }
 
-  // ── REGALOS ──
+  // ═══════════════════════════════════════
+  // SECCIÓN 4 — PUNTOS Y REGALOS
+  // ═══════════════════════════════════════
   if (pts > 0) {
-    doc.moveDown(0.3);
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor(BLUE).text(`REGALOS CAMPAÑA — CON TUS ${pts} PUNTOS`, L, doc.y);
+    doc.moveTo(L, doc.y + 2).lineTo(R, doc.y + 2).strokeColor(BLUE).lineWidth(0.5).stroke();
+    doc.moveDown(0.5);
 
-    // Badge puntos
-    doc.rect(L, doc.y, 120, 18).fill('#f59e0b');
-    doc.fontSize(9).fillColor('#fff').text(pts + ' pts acumulados', L + 8, doc.y + 4, { width: 110 });
-    doc.y += 22;
+    // Badge naranja pill
+    const badgeY = doc.y;
+    doc.roundedRect(L, badgeY, 130, 20, 10).fill(ORANGE);
+    doc.fontSize(10).fillColor('#fff').text(pts + ' pts acumulados', L + 10, badgeY + 4, { width: 115 });
+    doc.y = badgeY + 26;
 
-    // Mensaje motivacional
+    // Caja motivacional amarilla
     const conseguido = REGALOS.filter(r => pts >= r.pts).pop();
     const siguiente = REGALOS.find(r => pts < r.pts);
     if (conseguido || siguiente) {
-      doc.rect(L, doc.y, W, 36).fill('#fffbeb');
-      const msgY = doc.y + 5;
-      doc.fontSize(8).fillColor('#92400e');
-      if (conseguido) doc.text(`Con tus seguros ya tienes: ${conseguido.premio}.`, L + 8, msgY, { width: W - 16 });
-      if (siguiente) doc.text(`Con solo ${siguiente.pts - pts} pts mas consigues: ${siguiente.premio}. Anade Hogar, Auto u otro seguro.`, L + 8, msgY + (conseguido ? 12 : 0), { width: W - 16 });
-      doc.y = msgY + 34;
+      const boxY = doc.y;
+      doc.rect(L, boxY, W, 42).fill('#fff8e1');
+      doc.rect(L, boxY, W, 42).strokeColor('#ffe082').lineWidth(0.8).stroke();
+      let ty = boxY + 6;
+      doc.fontSize(9).fillColor('#5d4037');
+      if (conseguido) {
+        doc.text(`Con tus seguros actuales ya tienes: ${conseguido.premio}.`, L + 10, ty, { width: W - 20 });
+        ty += 13;
+      }
+      if (siguiente) {
+        const monedero = Math.round(siguiente.pts / 100 * 10);
+        doc.text(`¡Con solo ${siguiente.pts - pts} pts más consigues: ${siguiente.premio} (o tarjeta ${monedero}€)!`, L + 10, ty, { width: W - 20 });
+        ty += 13;
+      }
+      doc.text('Añadiendo Hogar, Auto u otro seguro llegas al siguiente nivel.', L + 10, ty, { width: W - 20 });
+      doc.y = boxY + 48;
     }
 
     // Tabla regalos
     doc.moveDown(0.3);
     const rth = doc.y;
-    doc.rect(L, rth, W, 16).fill(BLUE);
-    doc.fontSize(7).fillColor('#fff');
-    doc.text('Premio (a elegir uno)', L + 8, rth + 3, { width: 230 });
-    doc.text('Pts', L + 250, rth + 3, { width: 50, align: 'center' });
-    doc.text('o Tarjeta monedero', L + 310, rth + 3, { width: 100, align: 'center' });
-    doc.text('Estado', L + 420, rth + 3, { width: 90, align: 'center' });
+    doc.rect(L, rth, W, 18).fill('#f8f9fa');
+    doc.moveTo(L, rth + 18).lineTo(R, rth + 18).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    doc.fontSize(7).fillColor(LIGHT);
+    doc.text('Premio (a elegir uno)', L + 22, rth + 5, { width: 215 });
+    doc.text('Puntos', L + 245, rth + 5, { width: 55, align: 'center' });
+    doc.text('o Tarjeta monedero', L + 310, rth + 5, { width: 100, align: 'center' });
+    doc.text('Estado', L + 420, rth + 5, { width: 90, align: 'center' });
 
-    let ry = rth + 18;
-    REGALOS.forEach((r, i) => {
+    let ry = rth + 20;
+    REGALOS.forEach((r) => {
       const achieved = pts >= r.pts;
       const close = !achieved && (r.pts - pts) <= 3000;
-      const bg = achieved ? '#ecfdf5' : (i % 2 === 0 ? '#f9fafb' : '#fff');
-      doc.rect(L, ry, W, 14).fill(bg);
-      doc.fontSize(7).fillColor(achieved ? '#065f46' : close ? '#92400e' : LIGHT);
-      doc.text(r.premio, L + 8, ry + 3, { width: 230 });
-      doc.text(r.pts.toLocaleString('es-ES'), L + 250, ry + 3, { width: 50, align: 'center' });
-      doc.text(r.monedero + ' €', L + 310, ry + 3, { width: 100, align: 'center' });
-      doc.text(achieved ? 'Conseguido!' : close ? `Faltan ${r.pts - pts} pts` : '-', L + 420, ry + 3, { width: 90, align: 'center' });
-      ry += 14;
+      const rowH = 18;
+      const monedero = Math.round(r.pts / 100 * 10);
+
+      // Fondo
+      doc.rect(L, ry, W, rowH).fill(achieved ? GREEN_BG : '#fff');
+      doc.moveTo(L, ry + rowH).lineTo(R, ry + rowH).strokeColor('#f0f0f0').lineWidth(0.3).stroke();
+
+      // Indicador circular
+      const cx = L + 10;
+      const cy2 = ry + rowH / 2;
+      if (achieved) {
+        doc.circle(cx, cy2, 5).fill(GREEN);
+        doc.fontSize(7).fillColor('#fff').text('✓', cx - 3, cy2 - 4, { width: 6 });
+      } else if (close) {
+        doc.circle(cx, cy2, 5).strokeColor(ORANGE).lineWidth(1).stroke();
+        // Barra progreso naranja
+        const pct = Math.min(pts / r.pts, 1);
+        doc.rect(L + 22, ry + rowH - 3, (W - 100) * pct, 2).fill(ORANGE);
+      } else {
+        doc.circle(cx, cy2, 5).strokeColor('#ddd').lineWidth(0.8).stroke();
+      }
+
+      // Texto
+      const txtColor = achieved ? GREEN : close ? '#b36000' : LIGHT;
+      doc.fontSize(8).fillColor(txtColor);
+      doc.text(r.premio, L + 22, ry + 4, { width: 215 });
+      doc.text(r.pts.toLocaleString('es-ES'), L + 245, ry + 4, { width: 55, align: 'center' });
+      doc.text(monedero + ' €', L + 310, ry + 4, { width: 100, align: 'center' });
+
+      // Estado
+      if (achieved) {
+        doc.fillColor(GREEN).text('¡Conseguido!', L + 420, ry + 4, { width: 90, align: 'center' });
+      } else {
+        const faltan = r.pts - pts;
+        doc.fillColor(close ? '#b36000' : LIGHT).text(`Faltan ${faltan} pts`, L + 420, ry + 4, { width: 90, align: 'center' });
+      }
+
+      ry += rowH;
     });
-    doc.y = ry + 5;
+    doc.y = ry + 8;
   }
 
-  // ── ASEGURADOS ──
-  const asegurados = propuesta.asegurados_data || [];
-  if (asegurados.length > 0) {
-    doc.moveDown(0.3);
-    doc.fontSize(9).fillColor(BLUE).text('ASEGURADOS', L);
-    doc.moveDown(0.2);
-    asegurados.forEach((a, i) => {
-      doc.fontSize(8).fillColor(GRAY).text(`${i + 1}. ${a.nombre || ''}${a.fechaNac ? '  —  ' + a.fechaNac : ''}${a.sexo ? '  (' + a.sexo + ')' : ''}`, L);
-    });
-  }
+  // ═══════════════════════════════════════
+  // SECCIÓN 5 — VALIDEZ
+  // ═══════════════════════════════════════
+  doc.moveDown(0.3);
+  const vy = doc.y;
+  doc.rect(L, vy, W, 36).fill('#f8f9fa');
 
-  // ── PIE ──
-  doc.moveDown(1);
-  doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor(BLUE).lineWidth(0.5).stroke();
-  doc.moveDown(0.4);
-  doc.fontSize(7).fillColor(LIGHT).text('Hasta el 30/06/2026  ·  Sujeto a aceptacion por la compania', L, doc.y, { width: W, align: 'center' });
-  doc.fontSize(8).fillColor(GRAY).text(`TGSSA, SL · segurosdesaludonline.es · Agente: ${propuesta._agente_nombre || ''}`, L, doc.y, { width: W, align: 'center' });
-  doc.fontSize(7).fillColor(LIGHT).text('Los puntos se acumulan al contratar los seguros indicados. Tarjeta monedero: 10 EUR por cada 100 pts.', L, doc.y, { width: W, align: 'center' });
+  doc.fontSize(9).fillColor(LIGHT).text('Validez del presupuesto', L + 12, vy + 5);
+  doc.fontSize(11).fillColor('#0f172a').text('Hasta el 30/06/2026', L + 12, vy + 18);
+
+  doc.fontSize(9).fillColor(LIGHT).text('ADESLAS · Campaña Marzo-Junio 2026', L + 280, vy + 5, { width: 220, align: 'right' });
+  doc.text('Sujeto a aceptación por la compañía', L + 280, vy + 18, { width: 220, align: 'right' });
+
+  doc.y = vy + 42;
+
+  // ═══════════════════════════════════════
+  // SECCIÓN 6 — PIE
+  // ═══════════════════════════════════════
+  doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+  doc.moveDown(0.3);
+
+  const py = doc.y;
+  doc.rect(L, py, W, 36).fill('#fafafa');
+
+  doc.fontSize(10).fillColor('#0f172a').text('TGSSA, SL', L + 12, py + 5);
+  doc.fontSize(9).fillColor(LIGHT).text(`segurosdesaludonline.es · Agente: ${agente}`, L + 12, py + 18);
+
+  doc.fontSize(8).fillColor(LIGHT).text(
+    'Los puntos se acumulan al contratar los seguros indicados. Premio sujeto a disponibilidad de la campaña ADESLAS.',
+    L + 260, py + 8, { width: 240, align: 'right' }
+  );
 
   doc.end();
   await new Promise(resolve => stream.on('finish', resolve));
-
   return pdfUrl;
 }
 
@@ -207,7 +348,6 @@ async function generarPDFGrabacion(data) {
   doc.y = 100;
   doc.moveDown(0.5);
 
-  // Datos póliza
   line('TIPO', data.tipo_poliza);
   line('FECHA', new Date().toLocaleDateString('es-ES'));
   line('PRECIO', data.prima ? data.prima + '€/MENSUAL' : '-');
@@ -218,7 +358,6 @@ async function generarPDFGrabacion(data) {
   line('AGENTE', data.agente_nombre || '-');
   if (data.campana) line('CAMPAÑA', data.campana);
 
-  // Tomador
   section('TOMADOR');
   line('NOMBRE', data.nombre);
   line('DNI', data.dni);
@@ -232,7 +371,6 @@ async function generarPDFGrabacion(data) {
   line('PROVINCIA', data.provincia);
   line('IBAN', data.iban);
 
-  // Mascotas
   const mascotas = data.datos_especificos?.mascotas || [];
   if (mascotas.length > 0) {
     mascotas.forEach((m, i) => {
@@ -245,7 +383,6 @@ async function generarPDFGrabacion(data) {
     });
   }
 
-  // Asegurados
   const asegurados = data.asegurados || [];
   if (asegurados.length > 0 && mascotas.length === 0) {
     asegurados.forEach((a, i) => {
@@ -258,14 +395,12 @@ async function generarPDFGrabacion(data) {
     });
   }
 
-  // Pie
   doc.moveDown(1);
   doc.rect(50, doc.y, 495, 30).fill('#f4f6f9');
   doc.fontSize(10).fillColor(BLUE).text('══ FIN GRABACIÓN ══', 60, doc.y + 8, { width: 475, align: 'center' });
 
   doc.end();
   await new Promise(resolve => stream.on('finish', resolve));
-
   return pdfUrl;
 }
 
