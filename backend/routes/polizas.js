@@ -607,7 +607,104 @@ router.post('/importar-csv', upload.single('archivo'), async (req, res) => {
 });
 
 // =============================================
-// POST /api/polizas/importar-sheet (mantener para cuando el Sheet sea público)
+// POST /api/polizas/importar-excel
+// =============================================
+router.post('/importar-excel', upload.single('archivo'), async (req, res) => {
+  agentesCache = null;
+
+  if (!req.file) return res.status(400).json({ error: 'Se requiere un archivo Excel (campo "archivo")' });
+
+  const year = req.body.año || req.body.year || '';
+
+  const informe = {
+    personas_vinculadas_por_dni: 0,
+    personas_vinculadas_por_telefono: 0,
+    personas_vinculadas_por_email: 0,
+    personas_nuevas_creadas: 0,
+    telefonos_basura_ignorados: 0,
+    agentes_resueltos: 0,
+    agentes_no_encontrados: [],
+    polizas_nuevas: 0, polizas_actualizadas: 0,
+    bajas_detectadas: 0, dnis_extraidos_de_nombre: 0,
+    errores: [], total_procesadas: 0,
+    pestanas: [],
+  };
+
+  try {
+    const XLSX = require('xlsx');
+    const workbook = XLSX.readFile(req.file.path);
+
+    // Columnas por posición (mismo orden que el Sheet)
+    const COL = {
+      AGENTE: 0, NOMBRE: 1, NIF: 2, FECHA_GRABACION: 3, FECHA_EFECTO: 4,
+      PRODUCTO: 5, NUM_SOLICITUD: 6, NUM_POLIZA: 7, FORMA_PAGO: 8,
+      DESCUENTO: 9, RECIBO: 10, ASEG: 11, PRIMA_ANUAL: 12,
+      BENEFICIO: 13, BASE: 14, TELEFONO: 15, EMAIL: 16, CAMPANA: 17,
+      AUDIO: 18, CARENCIAS: 19, ENVIADA_CCPP: 20, COMENTARIOS: 21
+    };
+
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+      // Saltar cabecera (primera fila)
+      const dataRows = rows.slice(1).filter(r => r[COL.NUM_POLIZA]);
+      if (dataRows.length === 0) {
+        informe.pestanas.push({ nombre: sheetName, filas: 0 });
+        continue;
+      }
+
+      // mes_alta siempre con año
+      const mesAlta = /\d{4}/.test(sheetName)
+        ? sheetName
+        : year ? `${sheetName.toUpperCase()} ${year}` : sheetName.toUpperCase();
+
+      let pestanaNuevas = 0;
+      for (let i = 0; i < dataRows.length; i++) {
+        const r = dataRows[i];
+        try {
+          // Convertir fecha Excel a string si es número
+          const fgRaw = r[COL.FECHA_GRABACION];
+          const feRaw = r[COL.FECHA_EFECTO];
+          const fg = typeof fgRaw === 'number' ? XLSX.SSF.format('dd/mm/yyyy', fgRaw) : fgRaw;
+          const fe = typeof feRaw === 'number' ? XLSX.SSF.format('dd/mm/yyyy', feRaw) : feRaw;
+
+          await procesarFila({
+            agente: r[COL.AGENTE], nombre: r[COL.NOMBRE], dni: r[COL.NIF],
+            fecha_grabacion: fg, fecha_efecto: fe,
+            producto: r[COL.PRODUCTO], num_solicitud: r[COL.NUM_SOLICITUD] != null ? String(r[COL.NUM_SOLICITUD]) : null,
+            num_poliza: String(r[COL.NUM_POLIZA]), forma_pago: r[COL.FORMA_PAGO],
+            descuento: r[COL.DESCUENTO], recibo_mensual: r[COL.RECIBO],
+            num_asegurados: r[COL.ASEG], prima_anual: r[COL.PRIMA_ANUAL],
+            beneficio: r[COL.BENEFICIO], origen_lead: r[COL.BASE],
+            telefono: r[COL.TELEFONO] != null ? String(r[COL.TELEFONO]) : null,
+            email: r[COL.EMAIL],
+            campana: r[COL.CAMPANA], audio: r[COL.AUDIO] != null ? String(r[COL.AUDIO]) : null,
+            carencias: r[COL.CARENCIAS], enviada_ccpp: r[COL.ENVIADA_CCPP],
+            notas: r[COL.COMENTARIOS],
+          }, mesAlta, informe);
+          pestanaNuevas++;
+        } catch (err) {
+          informe.errores.push(`${sheetName} fila ${i + 2}: ${err.message}`);
+        }
+      }
+
+      informe.pestanas.push({ nombre: sheetName, filas: dataRows.length });
+      console.log(`[Pólizas Excel] ${sheetName}: ${dataRows.length} filas`);
+    }
+
+    fs.unlinkSync(req.file.path);
+    console.log(`[Pólizas Excel] Importación completada: ${informe.total_procesadas} procesadas`);
+    res.json(informe);
+  } catch (err) {
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+    console.error('[Pólizas Excel] Error:', err);
+    res.status(500).json({ error: err.message, informe });
+  }
+});
+
+// =============================================
+// POST /api/polizas/importar-sheet
 // =============================================
 router.post('/importar-sheet', async (req, res) => {
   agentesCache = null;
@@ -654,6 +751,9 @@ router.post('/importar-sheet', async (req, res) => {
         AUDIO: 18, CARENCIAS: 19, ENVIADA_CCPP: 20, COMENTARIOS: 21
       };
 
+      // mes_alta siempre con año: "ENERO" → "ENERO 2024", "ENERO 2026" queda igual
+      const mesAlta = /\d{4}/.test(hoja) ? hoja : `${hoja} ${year}`;
+
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
         try {
@@ -669,7 +769,7 @@ router.post('/importar-sheet', async (req, res) => {
             campana: r[COL.CAMPANA], audio: r[COL.AUDIO],
             carencias: r[COL.CARENCIAS], enviada_ccpp: r[COL.ENVIADA_CCPP],
             notas: r[COL.COMENTARIOS],
-          }, hoja, informe);
+          }, mesAlta, informe);
         } catch (err) {
           informe.errores.push(`${hoja} fila ${i + 1}: ${err.message}`);
         }

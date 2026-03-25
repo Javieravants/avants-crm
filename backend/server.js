@@ -403,7 +403,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);
