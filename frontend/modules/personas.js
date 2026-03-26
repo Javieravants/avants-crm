@@ -305,7 +305,7 @@ const PersonasModule = {
             <!-- Comunicación: Llamar + WhatsApp + Email -->
             <div style="display:flex;gap:6px;">
               ${p.telefono ? `<button id="btn-llamar-ct" onclick="PersonasModule._clickToCall('${p.telefono}',${p.id},'${(p.nombre||'').replace(/'/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#10b981;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="Llamar">${_ICO.llamada(16,'#fff')} Llamar</button>` : ''}
-              ${p.telefono ? `<button onclick="window.open('https://wa.me/34${(p.telefono||'').replace(/\\D/g,'')}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
+              ${p.telefono ? `<button onclick="abrirModalWhatsApp(${p.id}, '${(p.nombre||'').replace(/'/g,"\\'")}', '${p.telefono}')" style="padding:7px 12px;border-radius:8px;border:none;background:#25d366;color:#fff;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;display:flex;align-items:center;gap:5px" title="WhatsApp">${_ICO.whatsapp(16,'#fff')} WhatsApp</button>` : ''}
               ${p.email ? `<button onclick="window.open('mailto:${p.email}')" style="padding:7px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;display:flex;align-items:center;gap:5px" title="Email">${_ICO.email(16,'#475569')} Email</button>` : ''}
             </div>
             <div style="width:1px;height:24px;background:#e8edf2"></div>
@@ -1082,6 +1082,7 @@ const PersonasModule = {
       { key: 'nota', label: 'Notas', ico: _ICO.nota(12,'#d97706') },
       { key: 'etapa', label: 'Etapas', ico: _ICO.historial(12,'#8b5cf6') },
       { key: 'email', label: 'Emails', ico: _ICO.email(12,'#10b981') },
+      { key: 'whatsapp', label: 'WhatsApp', ico: _ICO.whatsapp(12,'#25D366') },
       { key: 'tramite', label: 'Trámites', ico: _ICO.tramites(12,'#f97316') },
       { key: 'propuesta', label: 'Propuestas', ico: _ICO.propuesta(12,'#7c3aed') },
     ];
@@ -1171,6 +1172,7 @@ const PersonasModule = {
       tramite:   { ico: _ICO.tramites(18,'#f97316'),     bg: '#fff7ed', stroke: '#f97316' },
       propuesta: { ico: _ICO.gestion(18,'#7c3aed'),      bg: '#faf5ff', stroke: '#7c3aed' },
       poliza:    { ico: _ICO.polizas(18,'#10b981'),      bg: '#f0fdf4', stroke: '#10b981' },
+      whatsapp:  { ico: _ICO.whatsapp(18,'#25D366'),      bg: '#f0fdf4', stroke: '#25D366' },
       facebook:  { ico: _ICO.llamada(18,'#1d6ef5'),      bg: '#eff6ff', stroke: '#1d6ef5' },
     };
     const cfg = CFG[h.tipo] || CFG.nota;
@@ -1985,3 +1987,137 @@ const PersonasModule = {
     return `<span class="badge" style="background:${color}20;color:${color};">${label}</span>`;
   },
 };
+
+// =============================================
+// Modal WhatsApp — enviar texto y propuestas
+// =============================================
+function abrirModalWhatsApp(personaId, nombre, telefono) {
+  document.getElementById('modal-whatsapp')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'modal-whatsapp';
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,0.5);
+    display:flex;align-items:center;justify-content:center;z-index:9999
+  `;
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:480px;
+      max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.15)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:36px;height:36px;background:#25D366;border-radius:50%;
+          display:flex;align-items:center;justify-content:center">
+          ${_ICO.whatsapp(18,'#fff')}
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:15px">${nombre}</div>
+          <div style="font-size:12px;color:#666">${telefono}</div>
+        </div>
+        <button onclick="document.getElementById('modal-whatsapp').remove()"
+          style="margin-left:auto;background:none;border:none;font-size:20px;
+          cursor:pointer;color:#999">&times;</button>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px">
+          Mensaje
+        </label>
+        <textarea id="wa-mensaje" rows="4"
+          style="width:100%;border:1px solid #e0e0e0;border-radius:8px;padding:10px;
+          font-size:14px;resize:vertical;box-sizing:border-box"
+          placeholder="Escribe el mensaje..."></textarea>
+      </div>
+
+      <div id="wa-propuestas-container" style="margin-bottom:16px;display:none">
+        <label style="font-size:13px;font-weight:500;display:block;margin-bottom:6px">
+          O enviar propuesta PDF
+        </label>
+        <div id="wa-propuestas-lista"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="document.getElementById('modal-whatsapp').remove()"
+          class="btn">Cancelar</button>
+        <button onclick="enviarWhatsAppTexto(${personaId})"
+          class="btn btn-success" id="btn-wa-enviar">
+          Enviar mensaje
+        </button>
+      </div>
+      <div id="wa-feedback" style="margin-top:12px;font-size:13px;text-align:center"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  cargarPropuestasParaWA(personaId);
+}
+
+async function cargarPropuestasParaWA(personaId) {
+  try {
+    const propuestas = await apiGet(`/api/calculadora/propuestas/persona/${personaId}`);
+    if (!propuestas?.length) return;
+    const container = document.getElementById('wa-propuestas-container');
+    const lista = document.getElementById('wa-propuestas-lista');
+    if (!container || !lista) return;
+    const conPdf = propuestas.filter(p => p.pdf_url?.startsWith('https://'));
+    if (!conPdf.length) return;
+    container.style.display = 'block';
+    lista.innerHTML = conPdf.map(p => `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:8px 12px;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:500">${p.tipo_poliza || 'Propuesta'}</div>
+          <div style="font-size:12px;color:#666">${p.prima_mensual}\u20AC/mes</div>
+        </div>
+        <button onclick="enviarWhatsAppPropuesta(${personaId}, ${p.id})"
+          class="btn btn-primary" style="font-size:12px;padding:4px 10px">
+          Enviar PDF
+        </button>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.warn('No se pudieron cargar propuestas WA:', e);
+  }
+}
+
+async function enviarWhatsAppTexto(personaId) {
+  const mensaje  = document.getElementById('wa-mensaje')?.value?.trim();
+  const feedback = document.getElementById('wa-feedback');
+  const btn      = document.getElementById('btn-wa-enviar');
+  if (!mensaje) {
+    feedback.style.color = '#e53e3e';
+    feedback.textContent = 'Escribe un mensaje antes de enviar';
+    return;
+  }
+  btn.disabled = true;
+  feedback.style.color = '#666';
+  feedback.textContent = 'Enviando...';
+  try {
+    await apiPost('/api/whatsapp/send/texto', { persona_id: personaId, mensaje });
+    feedback.style.color = '#25D366';
+    feedback.textContent = 'Mensaje enviado correctamente';
+    setTimeout(() => document.getElementById('modal-whatsapp')?.remove(), 1500);
+    if (typeof PersonasModule !== 'undefined' && PersonasModule._currentPersona) {
+      PersonasModule.renderTab('historial', PersonasModule._currentPersona);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    feedback.style.color = '#e53e3e';
+    feedback.textContent = `Error: ${e.message}`;
+  }
+}
+
+async function enviarWhatsAppPropuesta(personaId, propuestaId) {
+  const feedback = document.getElementById('wa-feedback');
+  feedback.style.color = '#666';
+  feedback.textContent = 'Enviando propuesta...';
+  try {
+    await apiPost('/api/whatsapp/send/propuesta', { persona_id: personaId, propuesta_id: propuestaId });
+    feedback.style.color = '#25D366';
+    feedback.textContent = 'Propuesta enviada por WhatsApp';
+    setTimeout(() => document.getElementById('modal-whatsapp')?.remove(), 1500);
+    if (typeof PersonasModule !== 'undefined' && PersonasModule._currentPersona) {
+      PersonasModule.renderTab('historial', PersonasModule._currentPersona);
+    }
+  } catch (e) {
+    feedback.style.color = '#e53e3e';
+    feedback.textContent = `Error: ${e.message}`;
+  }
+}

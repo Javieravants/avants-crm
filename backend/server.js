@@ -36,6 +36,7 @@ const adminRoutes = require('./routes/admin');
 const etiquetasRoutes = require('./routes/etiquetas');
 const informesRoutes = require('./routes/informes');
 const polizasRoutes = require('./routes/polizas');
+const whatsappRoutes = require('./routes/whatsapp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,6 +80,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/etiquetas', etiquetasRoutes);
 app.use('/api/informes', informesRoutes);
 app.use('/api/polizas', polizasRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -143,6 +145,69 @@ app.post('/webhook/cloudtalk', async (req, res) => {
     console.log(`[CloudTalk] Llamada registrada: ${phone} → persona #${personaId} (${subtipo})`);
   } catch (err) {
     console.error('[CloudTalk] Webhook error:', err.message);
+  }
+});
+
+// Webhook WhatsApp — verificación Meta (GET)
+app.get('/webhook/whatsapp', (req, res) => {
+  const mode      = req.query['hub.mode'];
+  const token     = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    console.log('WhatsApp webhook verificado');
+    return res.status(200).send(challenge);
+  }
+  res.sendStatus(403);
+});
+
+// Webhook WhatsApp — mensajes y estados entrantes (POST)
+app.post('/webhook/whatsapp', async (req, res) => {
+  res.sendStatus(200); // Meta requiere respuesta inmediata
+  try {
+    const changes = req.body?.entry?.[0]?.changes?.[0]?.value;
+    if (!changes) return;
+
+    // Mensajes entrantes de clientes
+    if (changes.messages?.length) {
+      for (const msg of changes.messages) {
+        const telefono_normalizado = `+${msg.from}`; // Meta envía sin +
+        const personaQ = await pool.query(
+          'SELECT id FROM personas WHERE telefono = $1',
+          [telefono_normalizado]
+        );
+        if (!personaQ.rows.length) continue;
+
+        const persona_id = personaQ.rows[0].id;
+        const contenido  = msg.text?.body || `[${msg.type}]`;
+
+        await pool.query(
+          `INSERT INTO whatsapp_messages
+           (persona_id, direccion, tipo, contenido, whatsapp_msg_id)
+           VALUES ($1, 'entrante', 'texto', $2, $3)
+           ON CONFLICT DO NOTHING`,
+          [persona_id, contenido, msg.id]
+        );
+
+        const { registrarEvento } = require('./routes/history');
+        registrarEvento(persona_id, 'whatsapp', {
+          titulo: `WhatsApp recibido: "${contenido.substring(0, 100)}"`,
+          metadata: { whatsapp_msg_id: msg.id, direccion: 'entrante' },
+          origen: 'sistema'
+        });
+      }
+    }
+
+    // Actualizaciones de estado (entregado, leído)
+    if (changes.statuses?.length) {
+      for (const status of changes.statuses) {
+        await pool.query(
+          'UPDATE whatsapp_messages SET estado = $1 WHERE whatsapp_msg_id = $2',
+          [status.status, status.id]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('WA webhook error:', err);
   }
 });
 
