@@ -4,6 +4,7 @@
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const { uploadFile } = require('./storage');
 
 const UPLOADS = path.join(__dirname, '../../uploads');
 
@@ -311,7 +312,22 @@ async function generarPDFPropuesta(propuesta) {
   );
 
   doc.end();
-  await new Promise(resolve => stream.on('finish', resolve));
+  await new Promise((resolve, reject) => {
+    stream.on('finish', async () => {
+      try {
+        const remoteKey = `propuestas/propuesta_${propuesta.id}.pdf`;
+        const publicUrl = await uploadFile(filepath, remoteKey);
+        // Actualizar pdf_url con URL pública de Hetzner
+        const pool = require('../config/db');
+        await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [publicUrl, propuesta.id]);
+        resolve(publicUrl);
+      } catch (err) {
+        console.error('Error subiendo PDF propuesta a Hetzner:', err.message);
+        resolve(pdfUrl); // Fallback a URL local si falla
+      }
+    });
+    stream.on('error', reject);
+  });
   return pdfUrl;
 }
 
@@ -400,7 +416,19 @@ async function generarPDFGrabacion(data) {
   doc.fontSize(10).fillColor(BLUE).text('══ FIN GRABACIÓN ══', 60, doc.y + 8, { width: 475, align: 'center' });
 
   doc.end();
-  await new Promise(resolve => stream.on('finish', resolve));
+  await new Promise((resolve, reject) => {
+    stream.on('finish', async () => {
+      try {
+        const remoteKey = `grabaciones/grabacion_${data.deal_id}.pdf`;
+        const publicUrl = await uploadFile(filepath, remoteKey);
+        resolve(publicUrl);
+      } catch (err) {
+        console.error('Error subiendo PDF grabación a Hetzner:', err.message);
+        resolve(pdfUrl); // Fallback a URL local si falla
+      }
+    });
+    stream.on('error', reject);
+  });
   return pdfUrl;
 }
 
