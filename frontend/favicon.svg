@@ -1,5 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0D1B2A"/>
-  <text x="4" y="26" font-family="Georgia,serif" font-size="24" fill="#009DDD">G</text>
-  <rect x="3" y="28" width="26" height="2" rx="1" fill="#009DDD"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#009DDD"/>
+  <text x="4" y="26"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="24"
+    font-weight="400"
+    fill="white">G</text>
+  <rect x="3" y="28" width="26" height="2" rx="1" fill="rgba(255,255,255,0.5)"/>
 </svg>
