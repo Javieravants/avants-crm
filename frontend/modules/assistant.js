@@ -22,7 +22,7 @@ const AssistantModule = {
         <div id="assistant-messages" style="flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;">
           <div class="assistant-msg assistant-msg-ai">
             <strong>Asistente</strong>
-            <p>Hola Javier. Soy el asistente integrado en Avants Suite. Puedo ayudarte a entender cómo funciona el CRM, sugerir mejoras, o darte código para implementar cambios. ¿En qué puedo ayudarte?</p>
+            <p>Hola Javier. Soy el asistente integrado en Gestavly. Puedo ayudarte a entender cómo funciona el CRM, sugerir mejoras, o darte código para implementar cambios. ¿En qué puedo ayudarte?</p>
           </div>
         </div>
         <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:12px;">

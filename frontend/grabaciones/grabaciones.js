@@ -4103,7 +4103,7 @@ ${productoConDental ? `- Dental: ${dental || 'Sin dental'}<br>` : ''}
     nota += `
 <br>
 <br><b>════════════════════════════════════</b><br>
-<i>Grabado con Avants Suite · ${fecha}</i>
+<i>Grabado con Gestavly · ${fecha}</i>
 `;
     
     return nota;
@@ -4189,7 +4189,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================================================
-// GUARDAR EN CRM (Avants Suite)
+// GUARDAR EN CRM (Gestavly)
 // Añadido para integración con BD del CRM — no modifica funciones existentes
 // ============================================================================
 async function guardarEnCRM() {

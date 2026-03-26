@@ -1,4 +1,4 @@
-// === Avants Suite — Icon Set SVG ===
+// === Gestavly — Icon Set SVG ===
 // Línea fina 1.6px · Esquinas redondeadas · Estilo propio
 // Tamaños: 16px sidebar, 20px botones, 24px cards, 28px display
 

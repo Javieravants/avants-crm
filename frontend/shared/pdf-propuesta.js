@@ -1,4 +1,4 @@
-// === Avants Suite — PDF Propuesta ADESLAS ===
+// === Gestavly — PDF Propuesta ADESLAS ===
 // Usa html2canvas + jsPDF para renderizar UTF-8 perfecto
 
 const PDFPropuesta = {
@@ -51,7 +51,7 @@ const PDFPropuesta = {
       <!-- Header -->
       <div style="padding:20px 32px 16px;display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">Avants Suite</div>
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.3px">Gestavly</div>
           <div style="font-size:9px;color:#788291">Correduría de Seguros</div>
         </div>
         <div style="text-align:right">

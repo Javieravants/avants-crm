@@ -1,4 +1,4 @@
-// === Avants Suite — Shell principal ===
+// === Gestavly — Shell principal ===
 
 const App = {
   currentModule: null,
@@ -188,7 +188,7 @@ const App = {
       <div class="card">
         <h3>Bienvenido, ${user.nombre}</h3>
         <p class="text-light mt-8">Rol: <span class="badge badge-${user.rol}">${user.rol}</span></p>
-        <p class="text-light mt-16">Avants Suite — tu CRM para gestión de seguros de salud.</p>
+        <p class="text-light mt-16">Gestavly — tu CRM para gestión de seguros de salud.</p>
       </div>
       <div class="dashboard-stats" id="dashboard-stats">
         <div class="card text-center"><p class="text-light">Cargando estadísticas...</p></div>

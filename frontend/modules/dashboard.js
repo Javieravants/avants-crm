@@ -1,4 +1,4 @@
-// === Dashboard Agente — Avants Suite ===
+// === Dashboard Agente — Gestavly ===
 
 // Frases motivacionales
 const _FRASES = [
@@ -6,9 +6,9 @@ const _FRASES = [
   {txt:'La única forma de hacer un gran trabajo es amar lo que haces.', autor:'Steve Jobs'},
   {txt:'No cuentes los días, haz que los días cuenten.', autor:'Muhammad Ali'},
   {txt:'El secreto del éxito es la constancia en el propósito.', autor:'Benjamin Disraeli'},
-  {txt:'Cada llamada es una nueva oportunidad. El siguiente sí está ahí fuera.', autor:'Avants Suite'},
+  {txt:'Cada llamada es una nueva oportunidad. El siguiente sí está ahí fuera.', autor:'Gestavly'},
   {txt:'El talento gana partidos, pero el trabajo en equipo gana campeonatos.', autor:'Michael Jordan'},
-  {txt:'No busques el momento perfecto, toma el momento y hazlo perfecto.', autor:'Avants Suite'},
+  {txt:'No busques el momento perfecto, toma el momento y hazlo perfecto.', autor:'Gestavly'},
   {txt:'La perseverancia no es una carrera larga, son muchas carreras cortas una tras otra.', autor:'Walter Elliot'},
 ];
 
