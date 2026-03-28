@@ -49,7 +49,13 @@ const App = {
     }
 
     this.setupNavigation();
-    this.navigate('dashboard');
+
+    // Recordar última ruta visitada
+    const lastRoute = localStorage.getItem('lastRoute');
+    const isAdmin = Auth.hasRole('admin', 'superadmin');
+    const defaultRoute = isAdmin ? 'dashboard' : 'pipeline';
+    this.navigate(lastRoute || defaultRoute);
+
     this.startNotificationPolling();
   },
 
@@ -103,6 +109,7 @@ const App = {
     });
 
     this.currentModule = moduleName;
+    localStorage.setItem('lastRoute', moduleName);
     this.loadModule(moduleName);
   },
 
