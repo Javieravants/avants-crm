@@ -46,3 +46,28 @@ FROM (
   ORDER BY persona_id, created_at DESC
 ) sub
 WHERE personas.id = sub.persona_id;
+
+-- Columnas adicionales para personas
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS localidad VARCHAR(100);
+ALTER TABLE personas ADD COLUMN IF NOT EXISTS provincia VARCHAR(60);
+
+-- Tabla asegurados vinculados a persona
+CREATE TABLE IF NOT EXISTS asegurados (
+  id              SERIAL PRIMARY KEY,
+  persona_id      INTEGER NOT NULL REFERENCES personas(id),
+  deal_id         INTEGER REFERENCES deals(id),
+  nombre          VARCHAR(200) NOT NULL,
+  dni             VARCHAR(20),
+  fecha_nacimiento DATE,
+  sexo            VARCHAR(10),
+  parentesco      VARCHAR(40),
+  orden           INTEGER DEFAULT 1,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_aseg_persona ON asegurados(persona_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_aseg_persona_nombre ON asegurados(persona_id, nombre);
+
+-- Unique en propuestas.deal_id para ON CONFLICT upsert
+CREATE UNIQUE INDEX IF NOT EXISTS idx_propuestas_deal_id ON propuestas(deal_id) WHERE deal_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_propuestas_pd_deal ON propuestas(pipedrive_deal_id) WHERE pipedrive_deal_id IS NOT NULL;

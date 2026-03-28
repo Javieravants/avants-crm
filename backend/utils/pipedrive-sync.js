@@ -300,4 +300,31 @@ async function fullSync() {
   return { persons: personResult, deals: dealResult };
 }
 
-module.exports = { fetchAll, syncPersons, syncDeals, fullSync, DEAL_FIELDS, PERSON_FIELDS };
+// Enum maps de Pipedrive
+const PROVINCIA_MAP = {147:'Álava',148:'Albacete',149:'Alicante',150:'Almería',151:'Asturias',152:'Ávila',153:'Badajoz',154:'Baleares',155:'Barcelona',156:'Burgos',157:'Cáceres',158:'Cádiz',159:'Cantabria',160:'Castellón',161:'Ceuta',162:'Ciudad Real',163:'Córdoba',164:'Cuenca',165:'Girona',166:'Granada',167:'Guadalajara',168:'Guipúzcoa',169:'Huelva',170:'Huesca',171:'Jaén',172:'La Coruña',173:'La Rioja',174:'Las Palmas',175:'León',176:'Lleida',177:'Lugo',178:'Madrid',179:'Málaga',180:'Melilla',181:'Murcia',182:'Navarra',183:'Ourense',184:'Palencia',185:'Pontevedra',186:'Salamanca',187:'Santa Cruz de Tenerife',188:'Segovia',189:'Sevilla',190:'Soria',191:'Tarragona',192:'Teruel',193:'Toledo',194:'Valencia',195:'Valladolid',196:'Vizcaya',197:'Zamora',198:'Zaragoza'};
+const SEXO_MAP = {114:'H',115:'M',116:'Otro'};
+const SEXO_ASEG_MAP = {275:'H',276:'M'};
+const PARENTESCO_MAP = {110:'Titular',111:'Cónyuge',112:'Hijo/a',113:'Otro',306:'Cónyuge',307:'Hijo/a',308:'Hermano/a',309:'Abuelo/a',310:'Otra familia',311:'Otra'};
+const FREQ_PAGO_MAP = {297:'MENSUAL',298:'TRIMESTRAL',299:'SEMESTRAL',300:'ANUAL'};
+
+// Keys de asegurados 2-12
+const ASEG_KEYS = [
+  { n: 2, nombre: '2e833616277d6c808d7ed3603bd3f04afd3609d8', fecha: '5b539de7f25c08c9417808f0a733dcb04a707c2b', dni: 'a52d24d9c6544caddbb21654f8c8ce590257cbab', parentesco: '701dc45d154ab9c8a3c08169b6a0c2fe5b5da9cc', sexo: '2aa3a827d0f43414e25d304143f1e22024a71cf5' },
+  { n: 3, nombre: 'f88ec3af15607b52a5bdf445fc9bd8d97cef67b8', fecha: '4c3e7be32af9c49f65115ac32458f020f87abe95', dni: '4df61a56d4d899081602208a2ee672ff1c352f94', parentesco: 'a17389a87869a3fda1f0823912c559958df58859', sexo: '443faf06fdcba03275f07684fcd4d50347ed8bca' },
+  { n: 4, nombre: '280d8343abffec7ca1e6aafb940f61a2b46ef80a', fecha: '4faca26aa6ce50bbb0e7a018d1465f40db7348ec', dni: '0bb2899158279832e32f98cb21da2093ab3230d4', parentesco: '51c134224255000caf5abde7d72696527831006c', sexo: '9608f329edbbad01da633e5ffca2715e75a6d3d3' },
+  { n: 5, nombre: '168af5c31afff939aa5314d28b02264189318bda', fecha: 'cb7bf6cda9ce92d58dab81362e140dc88e7adee6', dni: '3b44f3516911d8f62879da920477eb9105ce5101', parentesco: '104e08246e9356d4a5f1d693992e8b9146585e48', sexo: '9eb820b9a9eeb39e7eee7731d03f436c82eb342e' },
+  { n: 6, nombre: '8864a8cd8dd30c1dd6a9b5094f865edd309ee971', fecha: 'd8e0cff68f0a054ef94518d06670786ae89b259b', dni: '584fd4a1af91998cab077ba221b695a0bc44cfdf', parentesco: 'c177bb9b600f3489ad846dd5c95552dea68c24a7', sexo: '1f6d1e3f505172c97797bb71ce54bc7b75b6a250' },
+  { n: 7, nombre: 'b962fa7a0f550efca6efb95f4b2df071491855b1', fecha: 'cd7a3694b77a3d98edfbed9cfca6d29f1470a68f', dni: 'd15181a25f5fe0d022cb758ddf0bb0dce75bcbf4', parentesco: 'c1dcd253b93c5cae2b188d0858418c53a1548081', sexo: '007b3e4dc7377091d101cd0ba7566e51d4c268ec' },
+  { n: 8, nombre: 'a269807d90f3390282e8c684728d8914fb0b5c76', fecha: 'ce5ba7401dc24812d1c06337b4223d79883b9b5a', dni: '4c2d05767cac56e3e7a36495634fa99bf317cd77', parentesco: '7ad405d0033f87e54ab06c0ed33be992badd9edf', sexo: '0c0f8813822d10e48da49bc0dbd48ed025e3d355' },
+  { n: 9, nombre: '7aec7960abb01d016e5285d23a3cff69d1fd5834', fecha: '91d398b8fc89aa9a469f962ac3730617b898d2d7', dni: '82a07af17b1a2032e969ca8945c7419e3f3ad54b', parentesco: 'afcacd4f2691279fae88c765f51bb7d0eada54a9', sexo: '40bd14d2bf21def6ff1a0adcbfa8b7ba0eebfa1f' },
+  { n: 10, nombre: '8ab7bbf3d22e06d1bff14b63f41da94f71f0f3e3', fecha: 'cfceacc4062b165c62bf3b804f14664264970168', dni: '95b35c31f6266c137bdefdadab44887d439fb06b', parentesco: '8ee8ce964b517a0df49084db8d2336e54a32c37b', sexo: '4ef7fb408d1198b9413e91c73d27b2c04cf14c32' },
+  { n: 11, nombre: 'ea4d8a1a66c36b4b1f7b9f672ac79538c9f4da5c', fecha: 'f380f6df390a61967082945115412498acbb63f9', dni: 'af5ca2305d55f7272635ee75c4b2297cc718e092', parentesco: '3e45007376d178607e6ca8c243675723d78a249b', sexo: 'fad4e3ef898234b70fffcdd696572604545a051b' },
+  { n: 12, nombre: '01a376237efefb65a127835e7958ee97227d2770', fecha: 'e24472feb836b489962831d00738b1c7534363db', dni: 'aef301a8c911c9f55365369688d6b16f9cbe16a5', parentesco: 'ac52dcfaa87c961e2dd997e2fb94bd3bf83c0f22', sexo: '9f9f2b7d67e9d6ed70bdddf43159427ed58478dd' },
+];
+
+module.exports = {
+  fetchAll, syncPersons, syncDeals, fullSync,
+  DEAL_FIELDS, PERSON_FIELDS,
+  PROVINCIA_MAP, SEXO_MAP, SEXO_ASEG_MAP, PARENTESCO_MAP, FREQ_PAGO_MAP, ASEG_KEYS,
+  getField, getEmail, getPhone,
+};

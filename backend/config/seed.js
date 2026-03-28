@@ -20,6 +20,7 @@ async function seed() {
       ['migration-grabaciones.sql', 'Grabaciones y Pólizas'],
       ['migration-calculadora.sql', 'Calculadora y Propuestas'],
       ['migration-tramites-v2.sql', 'Trámites v2 — Kanban + Comunicaciones'],
+      ['migration-custom-fields.sql', 'Campos custom Pipedrive'],
       ['migration-whatsapp.sql', 'WhatsApp Messages'],
     ];
 
