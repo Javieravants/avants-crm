@@ -240,33 +240,86 @@ const App = {
   async renderGrabacionesList() {
     const container = document.getElementById('main-content');
     container.innerHTML = `
-      <h1 class="page-title">Grabaciones / Pólizas</h1>
+      <h1 class="page-title">Grabaciones</h1>
+      <div class="tabs" id="grab-tabs">
+        <button class="tab-btn active" data-tab="llamadas">Llamadas CloudTalk</button>
+        <button class="tab-btn" data-tab="polizas">Grabaciones de pólizas</button>
+      </div>
       <div class="card" id="grab-container"><p class="text-light">Cargando...</p></div>
     `;
-    try {
-      const data = await API.get('/grabaciones/polizas?limit=100');
-      const polizas = data.polizas || [];
+
+    const renderLlamadas = async () => {
       const gc = document.getElementById('grab-container');
-      if (polizas.length === 0) {
-        gc.innerHTML = '<p class="text-light">No hay pólizas grabadas. Graba desde la ficha de un contacto.</p>';
-        return;
+      gc.innerHTML = '<p class="text-light">Cargando...</p>';
+      try {
+        const data = await API.get('/history/recordings/list?limit=100');
+        const recs = data.data || [];
+        if (recs.length === 0) {
+          gc.innerHTML = '<p class="text-light">No hay llamadas grabadas en CloudTalk.</p>';
+          return;
+        }
+        gc.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Fecha</th><th>Contacto</th><th>Agente</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
+          ${recs.map(r => {
+            const m = r.metadata || {};
+            const dur = m.duracion_seg ? Math.floor(m.duracion_seg/60)+':'+String(m.duracion_seg%60).padStart(2,'0') : '—';
+            const subLabels = { contestada:'Contestada', no_contestada:'No contestada', buzon:'Buzón' };
+            const subColors = { contestada:'#10b981', no_contestada:'#ef4444', buzon:'#f59e0b' };
+            const subColor = subColors[r.subtipo] || '#94a3b8';
+            return `<tr>
+              <td style="white-space:nowrap;">${new Date(r.created_at).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+              <td><a href="#" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${r.persona_id}),200);return false" style="color:#009DDD;text-decoration:none;font-weight:600;">${r.persona_nombre||'—'}</a><br><span class="text-light" style="font-size:11px;">${r.persona_telefono||''}</span></td>
+              <td>${r.agente_nombre||'—'}</td>
+              <td>${dur}</td>
+              <td><span class="badge" style="background:${subColor};color:#fff;font-size:11px;">${subLabels[r.subtipo]||r.subtipo||'—'}</span></td>
+              <td><a href="${m.grabacion_url}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#e6f6fd;border:1px solid #009DDD;border-radius:6px;color:#009DDD;font-size:11px;font-weight:600;text-decoration:none;">▶ Escuchar</a></td>
+            </tr>`;
+          }).join('')}
+        </tbody></table></div>`;
+      } catch (err) {
+        gc.innerHTML = `<p style="color:#c62828;">${err.message}</p>`;
       }
-      const estadoLabels = { grabado:'Grabado', solicitud_enviada:'Solicitud enviada', aceptado:'Aceptado', poliza_emitida:'Emitida', rechazado:'Rechazado', baja:'Baja', impago:'Impago' };
-      const estadoColors = { grabado:'#f59e0b', solicitud_enviada:'#3b82f6', aceptado:'#10b981', poliza_emitida:'#059669', rechazado:'#ef4444', baja:'#6b7280', impago:'#dc2626' };
-      gc.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Cliente</th><th>Producto</th><th>Estado</th><th>Prima</th><th>Nº Póliza</th><th>Agente</th><th>Fecha</th></tr></thead><tbody>
-        ${polizas.map(p => `<tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.persona_id}),200)">
-          <td><strong>${p.persona_nombre||'—'}</strong><br><span class="text-light" style="font-size:11px;">${p.persona_dni||''}</span></td>
-          <td>${p.producto||'—'}<br><span class="text-light" style="font-size:11px;">${p.compania||''}</span></td>
-          <td><span class="badge" style="background:${estadoColors[p.estado]||'#6b7280'};color:#fff;font-size:11px;">${estadoLabels[p.estado]||p.estado}</span></td>
-          <td>${p.prima_mensual?parseFloat(p.prima_mensual).toFixed(2)+' €':'—'}</td>
-          <td>${p.n_poliza||'—'}</td>
-          <td>${p.agente_nombre||'—'}</td>
-          <td>${p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):'—'}</td>
-        </tr>`).join('')}
-      </tbody></table></div>`;
-    } catch (err) {
-      document.getElementById('grab-container').innerHTML = `<p style="color:#c62828;">${err.message}</p>`;
-    }
+    };
+
+    const renderPolizas = async () => {
+      const gc = document.getElementById('grab-container');
+      gc.innerHTML = '<p class="text-light">Cargando...</p>';
+      try {
+        const data = await API.get('/grabaciones/polizas?limit=100');
+        const polizas = data.polizas || [];
+        if (polizas.length === 0) {
+          gc.innerHTML = '<p class="text-light">No hay pólizas grabadas. Graba desde la ficha de un contacto.</p>';
+          return;
+        }
+        const estadoLabels = { grabado:'Grabado', solicitud_enviada:'Solicitud enviada', aceptado:'Aceptado', poliza_emitida:'Emitida', rechazado:'Rechazado', baja:'Baja', impago:'Impago' };
+        const estadoColors = { grabado:'#f59e0b', solicitud_enviada:'#3b82f6', aceptado:'#10b981', poliza_emitida:'#059669', rechazado:'#ef4444', baja:'#6b7280', impago:'#dc2626' };
+        gc.innerHTML = `<div class="table-wrapper"><table><thead><tr><th>Cliente</th><th>Producto</th><th>Estado</th><th>Prima</th><th>Nº Póliza</th><th>Agente</th><th>Fecha</th></tr></thead><tbody>
+          ${polizas.map(p => `<tr style="cursor:pointer" onclick="App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${p.persona_id}),200)">
+            <td><strong>${p.persona_nombre||'—'}</strong><br><span class="text-light" style="font-size:11px;">${p.persona_dni||''}</span></td>
+            <td>${p.producto||'—'}<br><span class="text-light" style="font-size:11px;">${p.compania||''}</span></td>
+            <td><span class="badge" style="background:${estadoColors[p.estado]||'#6b7280'};color:#fff;font-size:11px;">${estadoLabels[p.estado]||p.estado}</span></td>
+            <td>${p.prima_mensual?parseFloat(p.prima_mensual).toFixed(2)+' €':'—'}</td>
+            <td>${p.n_poliza||'—'}</td>
+            <td>${p.agente_nombre||'—'}</td>
+            <td>${p.created_at?new Date(p.created_at).toLocaleDateString('es-ES'):'—'}</td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+      } catch (err) {
+        gc.innerHTML = `<p style="color:#c62828;">${err.message}</p>`;
+      }
+    };
+
+    // Tab switching
+    document.getElementById('grab-tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      document.querySelectorAll('#grab-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (btn.dataset.tab === 'llamadas') renderLlamadas();
+      else renderPolizas();
+    });
+
+    // Default: llamadas CloudTalk
+    renderLlamadas();
   },
 
   // === Placeholder ===

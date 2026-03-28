@@ -9,6 +9,42 @@ router.use(tenantMiddleware);
 
 const TIPOS_VALIDOS = ['llamada', 'nota', 'etapa', 'email', 'tramite', 'propuesta', 'poliza', 'facebook'];
 
+// GET /api/history/recordings/list — llamadas CloudTalk con grabación
+router.get('/recordings/list', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = parseInt(req.query.offset) || 0;
+  try {
+    const { rows } = await pool.query(`
+      SELECT ch.id, ch.persona_id, ch.titulo, ch.descripcion, ch.subtipo,
+             ch.metadata, ch.agente_id, ch.created_at,
+             p.nombre as persona_nombre, p.telefono as persona_telefono,
+             u.nombre as agente_nombre
+      FROM contact_history ch
+      JOIN personas p ON p.id = ch.persona_id
+      LEFT JOIN users u ON u.id = ch.agente_id
+      WHERE ch.tipo = 'llamada'
+        AND ch.origen = 'cloudtalk'
+        AND ch.metadata->>'grabacion_url' IS NOT NULL
+        AND ch.metadata->>'grabacion_url' != ''
+        AND ch.tenant_id = $1
+      ORDER BY ch.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [req.tenantId, limit, offset]);
+
+    const countR = await pool.query(`
+      SELECT COUNT(*) as total FROM contact_history
+      WHERE tipo = 'llamada' AND origen = 'cloudtalk'
+        AND metadata->>'grabacion_url' IS NOT NULL
+        AND metadata->>'grabacion_url' != ''
+        AND tenant_id = $1
+    `, [req.tenantId]);
+
+    res.json({ success: true, data: rows, total: parseInt(countR.rows[0].total) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // GET /api/history/:persona_id
 router.get('/:persona_id', async (req, res) => {
   const { tipo, limit = 50, offset = 0 } = req.query;
