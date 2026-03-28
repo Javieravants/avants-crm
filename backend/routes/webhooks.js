@@ -205,7 +205,7 @@ async function handleDeal(action, data, previous) {
     console.log(`[Webhook] Deal #${pipedriveId} creado → ${estado} (agente: ${agenteId})`);
 
   } else if (action === 'updated') {
-    const existing = await pool.query('SELECT id, estado FROM deals WHERE pipedrive_id = $1', [pipedriveId]);
+    const existing = await pool.query('SELECT id, estado, stage_id AS prev_stage_id FROM deals WHERE pipedrive_id = $1', [pipedriveId]);
 
     if (existing.rows.length === 0) {
       // No existía, crear
@@ -252,7 +252,7 @@ async function handleDeal(action, data, previous) {
 
     // Registrar cambio de etapa en historial (solo si realmente cambió)
     if (personaId && stageName && localStageId) {
-      const prevStageId = existing.rows[0] ? (await pool.query('SELECT stage_id FROM deals WHERE id = $1', [existing.rows[0].id]).catch(() => ({rows:[]}))).rows[0]?.stage_id : null;
+      const prevStageId = existing.rows[0]?.prev_stage_id || null;
       if (prevStageId !== localStageId) {
         const prevStage = previous?.stage_id ? (await pool.query('SELECT name FROM pipeline_stages WHERE pipedrive_id = $1', [previous.stage_id]).catch(() => ({rows:[]}))).rows[0]?.name : null;
         registrarEvento(personaId, 'etapa', {
