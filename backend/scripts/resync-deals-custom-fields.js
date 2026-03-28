@@ -54,6 +54,8 @@ function parsePuntos(raw) {
 
 function parseDate(raw) {
   if (!raw) return null;
+  // Solo aceptar formato ISO (YYYY-MM-DD) o similar — rechazar texto libre
+  if (!/^\d{4}-\d{2}-\d{2}/.test(String(raw))) return null;
   const d = new Date(raw);
   return (!isNaN(d.getTime()) && d.getFullYear() > 1900) ? raw : null;
 }
@@ -135,7 +137,7 @@ async function processDeal(deal) {
   if (dealLocalId && (tipoPoliza || precio)) {
     await pool.query(
       `INSERT INTO propuestas (persona_id, deal_id, pipedrive_deal_id, producto, prima_mensual, fecha_efecto, campana_puntos, num_asegurados, forma_pago)
-       VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9)
+       VALUES ($1, $2, $3, COALESCE($4, 'Sin especificar'), $5, $6::date, $7, $8, $9)
        ON CONFLICT (deal_id) WHERE deal_id IS NOT NULL DO UPDATE SET
          producto = COALESCE(EXCLUDED.producto, propuestas.producto),
          prima_mensual = COALESCE(EXCLUDED.prima_mensual, propuestas.prima_mensual),
