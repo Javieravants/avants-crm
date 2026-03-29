@@ -64,10 +64,15 @@ async function run() {
   const userByEmail = {};
   users.rows.forEach(u => { userByEmail[u.email.toLowerCase()] = u.id; });
 
-  // Leer todos los deals abiertos de Pipedrive
-  console.log('Leyendo deals abiertos de Pipedrive...');
-  const deals = await fetchAllDeals('open');
-  console.log(`\nTotal deals abiertos en Pipedrive: ${deals.length}\n`);
+  // Leer todos los deals de Pipedrive (open + won + lost)
+  console.log('Leyendo deals abiertos...');
+  const openDeals = await fetchAllDeals('open');
+  console.log('Leyendo deals ganados...');
+  const wonDeals = await fetchAllDeals('won');
+  console.log('Leyendo deals perdidos...');
+  const lostDeals = await fetchAllDeals('lost');
+  const deals = [...openDeals, ...wonDeals, ...lostDeals];
+  console.log(`\nTotal deals en Pipedrive: ${deals.length} (${openDeals.length} open, ${wonDeals.length} won, ${lostDeals.length} lost)\n`);
 
   let updated = 0;
   let created = 0;
