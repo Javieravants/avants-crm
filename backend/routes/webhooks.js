@@ -46,11 +46,12 @@ router.post('/pipedrive', async (req, res) => {
     // v1 o v2 con event
     current = body.current || body.data?.current || body.data;
     previous = body.previous || body.data?.previous || null;
-  } else if (body.meta?.action && body.meta?.object) {
+  } else if (body.meta?.action && (body.meta?.object || body.meta?.entity)) {
     // v2 sin event — construir desde meta
-    event = `${body.meta.action}.${body.meta.object}`;
+    const entity = body.meta.object || body.meta.entity;
+    event = `${body.meta.action}.${entity}`;
     current = body.data || {};
-    previous = body.previous_data || body.previous || null;
+    previous = body.previous || body.previous_data || null;
   }
 
   if (!event || !current) {
