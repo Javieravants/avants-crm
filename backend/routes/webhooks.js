@@ -34,7 +34,7 @@ router.post('/pipedrive', async (req, res) => {
   res.status(200).json({ ok: true });
 
   const body = req.body;
-  console.log('WEBHOOK COMPLETO:', JSON.stringify(body, null, 2));
+  try { require('fs').writeFileSync('/tmp/webhook-payload.json', JSON.stringify(body, null, 2)); } catch(e) {}
 
   // Pipedrive v1: { event: "updated.deal", current: {...}, previous: {...} }
   // Pipedrive v2: { event: "updated.deal", data: { current: {...}, previous: {...} } }
