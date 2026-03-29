@@ -71,8 +71,10 @@ async function run() {
   const wonDeals = await fetchAllDeals('won');
   console.log('Leyendo deals perdidos...');
   const lostDeals = await fetchAllDeals('lost');
-  const deals = [...openDeals, ...wonDeals, ...lostDeals];
-  console.log(`\nTotal deals en Pipedrive: ${deals.length} (${openDeals.length} open, ${wonDeals.length} won, ${lostDeals.length} lost)\n`);
+  console.log('Leyendo deals eliminados...');
+  const deletedDeals = await fetchAllDeals('deleted');
+  const deals = [...openDeals, ...wonDeals, ...lostDeals, ...deletedDeals];
+  console.log(`\nTotal deals en Pipedrive: ${deals.length} (${openDeals.length} open, ${wonDeals.length} won, ${lostDeals.length} lost, ${deletedDeals.length} deleted)\n`);
 
   let updated = 0;
   let created = 0;
@@ -144,10 +146,23 @@ async function run() {
     }
   }
 
+  // Marcar como eliminados los deals que están deleted en Pipedrive
+  let deleted = 0;
+  for (const deal of deletedDeals) {
+    try {
+      const r = await pool.query(
+        "UPDATE deals SET estado = 'eliminado', pipedrive_status = 'deleted', updated_at = NOW() WHERE pipedrive_id = $1 AND estado != 'eliminado' RETURNING id",
+        [deal.id]
+      );
+      if (r.rowCount > 0) deleted++;
+    } catch {}
+  }
+
   console.log('\n=== RESUMEN ===');
   console.log(`Total deals procesados: ${deals.length}`);
   console.log(`Actualizados:           ${updated}`);
   console.log(`Nuevos creados:         ${created}`);
+  console.log(`Marcados eliminados:    ${deleted}`);
   console.log(`Saltados/errores:       ${errors}`);
   console.log('===============\n');
 
