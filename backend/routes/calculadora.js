@@ -140,9 +140,15 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Propuesta no encontrada' });
 
     const propuesta = rows[0];
+
+    // Si ya está en S3, redirigir
+    if (propuesta.pdf_url?.startsWith('https://')) {
+      return res.redirect(propuesta.pdf_url);
+    }
+
     const pdfPath = propuesta.pdf_url ? require('path').join(__dirname, '../..', propuesta.pdf_url) : null;
 
-    // Regenerar si no existe en disco
+    // Regenerar si no existe en disco (genera y sube a S3)
     if (!pdfPath || !require('fs').existsSync(pdfPath)) {
       let personaData = {};
       if (propuesta.persona_id) {
@@ -165,6 +171,10 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
       propuesta.pdf_url = newUrl;
     }
 
+    // Redirigir si se subió a S3, o servir local
+    if (propuesta.pdf_url?.startsWith('https://')) {
+      return res.redirect(propuesta.pdf_url);
+    }
     const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="propuesta_${req.params.id}.pdf"`);
@@ -182,6 +192,12 @@ router.get('/grabacion/:dealId/pdf', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Deal no encontrado' });
 
     const deal = rows[0];
+
+    // Si ya está en S3, redirigir
+    if (deal.grabacion_pdf_url?.startsWith('https://')) {
+      return res.redirect(deal.grabacion_pdf_url);
+    }
+
     let pdfPath = deal.grabacion_pdf_url ? require('path').join(__dirname, '../..', deal.grabacion_pdf_url) : null;
 
     if (!pdfPath || !require('fs').existsSync(pdfPath)) {
@@ -211,12 +227,17 @@ router.get('/grabacion/:dealId/pdf', async (req, res) => {
         datos_especificos: typeof deal.datos_extra === 'string' ? JSON.parse(deal.datos_extra) : deal.datos_extra,
       });
       await pool.query('UPDATE deals SET grabacion_pdf_url = $1 WHERE id = $2', [newUrl, deal.id]);
-      pdfPath = require('path').join(__dirname, '../..', newUrl);
+      deal.grabacion_pdf_url = newUrl;
     }
 
+    // Redirigir si se subió a S3, o servir local
+    if (deal.grabacion_pdf_url?.startsWith('https://')) {
+      return res.redirect(deal.grabacion_pdf_url);
+    }
+    const finalGrabPath = require('path').join(__dirname, '../..', deal.grabacion_pdf_url);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="grabacion_${req.params.dealId}.pdf"`);
-    require('fs').createReadStream(pdfPath).pipe(res);
+    require('fs').createReadStream(finalGrabPath).pipe(res);
   } catch (err) {
     console.error('Error PDF grabacion:', err);
     res.status(500).json({ error: err.message });
