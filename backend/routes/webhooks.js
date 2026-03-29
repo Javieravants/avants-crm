@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../config/db');
-const { DEAL_FIELDS, PERSON_FIELDS } = require('../utils/pipedrive-sync');
+const { DEAL_FIELDS, PERSON_FIELDS, PROVINCIA_MAP, SEXO_MAP, SEXO_ASEG_MAP, PARENTESCO_MAP, FREQ_PAGO_MAP, ASEG_KEYS } = require('../utils/pipedrive-sync');
 const { notifyUser } = require('../utils/notifications');
 const { registrarEvento } = require('./history');
 
@@ -34,8 +34,6 @@ router.post('/pipedrive', async (req, res) => {
   res.status(200).json({ ok: true });
 
   const body = req.body;
-  try { require('fs').writeFileSync('/tmp/webhook-payload.json', JSON.stringify(body, null, 2)); } catch(e) {}
-
   // Pipedrive v1: { event: "updated.deal", current: {...}, previous: {...} }
   // Pipedrive v2: { event: "updated.deal", data: { current: {...}, previous: {...} } }
   // Pipedrive v2 alt: { meta: { action: "updated", object: "deal" }, data: {...} }
@@ -302,20 +300,132 @@ async function handleDeal(action, data, previous) {
       });
     }
 
-    // Actualizar datos de persona desde campos del deal
-    if (personaId && (dniTitular || fechaNacRaw || direccionVal)) {
+    // ── A) Actualizar persona con datos del titular ──
+    if (personaId) {
+      const nombreTitular = getField(data, DEAL_FIELDS.nombre_titular);
+      const sexoId = getField(data, DEAL_FIELDS.sexo);
+      const sexo = sexoId ? (SEXO_MAP[sexoId] || null) : null;
+      const poblacion = getField(data, DEAL_FIELDS.poblacion);
+      const provId = getField(data, DEAL_FIELDS.provincia);
+      const provincia = provId ? (PROVINCIA_MAP[provId] || null) : null;
+
+      if (dniTitular || fechaNacRaw || direccionVal || nombreTitular || sexo || provincia) {
+        try {
+          await pool.query(
+            `UPDATE personas SET
+              nombre = COALESCE($1, nombre),
+              dni = COALESCE($2, dni),
+              fecha_nacimiento = COALESCE($3::date, fecha_nacimiento),
+              sexo = COALESCE($4, sexo),
+              nacionalidad = COALESCE($5, nacionalidad),
+              direccion = COALESCE($6, direccion),
+              localidad = COALESCE($7, localidad),
+              provincia = COALESCE($8, provincia),
+              codigo_postal = COALESCE($9, codigo_postal),
+              updated_at = NOW()
+            WHERE id = $10`,
+            [nombreTitular, dniTitular?.toUpperCase(), fechaNacRaw && /^\d{4}-\d{2}-\d{2}/.test(fechaNacRaw) ? fechaNacRaw : null,
+             sexo, nacVal, direccionVal, poblacion, provincia, cpVal?.substring(0, 10), personaId]
+          );
+        } catch (e) { console.error('[Webhook] Error actualizando persona:', e.message); }
+      }
+    }
+
+    // ── B) Guardar/actualizar propuesta ──
+    const dealLocalId = existing.rows[0]?.id;
+    const tipoPolizaVal = getField(data, DEAL_FIELDS.tipo_poliza);
+    const precioVal = precioRaw ? parseFloat(String(precioRaw).replace(',', '.').replace(/[^\d.]/g, '')) : null;
+    const puntosRaw = getField(data, DEAL_FIELDS.descuento);
+    const puntosCampana = puntosRaw ? (parseInt(String(puntosRaw).match(/(\d+)/)?.[1]) || null) : null;
+    const nAseg = parseInt(getField(data, DEAL_FIELDS.n_asegurados)) || null;
+    const freqId = getField(data, DEAL_FIELDS.freq_pago);
+    const formaPago = freqId ? (FREQ_PAGO_MAP[freqId] || null) : null;
+    const ibanVal = getField(data, DEAL_FIELDS.iban);
+    const numSolicitud = getField(data, DEAL_FIELDS.n_solicitud);
+
+    if (dealLocalId && (tipoPolizaVal || precioVal)) {
       try {
         await pool.query(
-          `UPDATE personas SET
-            dni = COALESCE($1, dni),
-            fecha_nacimiento = COALESCE($2::date, fecha_nacimiento),
-            direccion = COALESCE($3, direccion),
-            codigo_postal = COALESCE($4, codigo_postal),
-            nacionalidad = COALESCE($5, nacionalidad)
-          WHERE id = $6`,
-          [dniTitular?.toUpperCase(), fechaNacRaw, direccionVal, cpVal ? cpVal.substring(0, 20) : null, nacVal, personaId]
+          `INSERT INTO propuestas (persona_id, deal_id, pipedrive_deal_id, producto, prima_mensual, fecha_efecto, campana_puntos, num_asegurados, forma_pago)
+           VALUES ($1, $2, $3, COALESCE($4, 'Sin especificar'), $5, $6::date, $7, $8, $9)
+           ON CONFLICT (deal_id) WHERE deal_id IS NOT NULL DO UPDATE SET
+             producto = COALESCE(EXCLUDED.producto, propuestas.producto),
+             prima_mensual = COALESCE(EXCLUDED.prima_mensual, propuestas.prima_mensual),
+             fecha_efecto = COALESCE(EXCLUDED.fecha_efecto, propuestas.fecha_efecto),
+             campana_puntos = COALESCE(EXCLUDED.campana_puntos, propuestas.campana_puntos),
+             num_asegurados = COALESCE(EXCLUDED.num_asegurados, propuestas.num_asegurados),
+             forma_pago = COALESCE(EXCLUDED.forma_pago, propuestas.forma_pago)`,
+          [personaId, dealLocalId, pipedriveId, tipoPolizaVal, precioVal,
+           efecto && /^\d{4}-\d{2}-\d{2}/.test(efecto) ? efecto : null,
+           puntosCampana, nAseg, formaPago]
         );
-      } catch {}
+      } catch (e) { console.error('[Webhook] Error guardando propuesta:', e.message); }
+    }
+
+    // ── C) Guardar asegurados ──
+    if (personaId && ASEG_KEYS) {
+      try {
+        // Titular como asegurado 1
+        const nombreTit = getField(data, DEAL_FIELDS.nombre_titular);
+        if (nombreTit) {
+          const sexoTitId = getField(data, DEAL_FIELDS.sexo);
+          await pool.query(
+            `INSERT INTO asegurados (persona_id, deal_id, nombre, dni, fecha_nacimiento, sexo, parentesco, orden)
+             VALUES ($1, $2, $3, $4, $5::date, $6, 'Titular', 1)
+             ON CONFLICT (persona_id, nombre) DO UPDATE SET
+               dni = COALESCE(EXCLUDED.dni, asegurados.dni),
+               fecha_nacimiento = COALESCE(EXCLUDED.fecha_nacimiento, asegurados.fecha_nacimiento),
+               sexo = COALESCE(EXCLUDED.sexo, asegurados.sexo)`,
+            [personaId, dealLocalId, nombreTit, dniTitular?.toUpperCase(),
+             fechaNacRaw && /^\d{4}-\d{2}-\d{2}/.test(fechaNacRaw) ? fechaNacRaw : null,
+             sexoTitId ? (SEXO_MAP[sexoTitId] || null) : null]
+          );
+        }
+        // Asegurados 2-12
+        for (const ak of ASEG_KEYS) {
+          const aNombre = getField(data, ak.nombre);
+          if (!aNombre) continue;
+          const aFecha = getField(data, ak.fecha);
+          const aDni = getField(data, ak.dni);
+          const aSexoId = getField(data, ak.sexo);
+          const aSexo = aSexoId ? (SEXO_ASEG_MAP[aSexoId] || SEXO_MAP[aSexoId] || null) : null;
+          const aParId = getField(data, ak.parentesco);
+          const aParentesco = aParId ? (PARENTESCO_MAP[aParId] || null) : null;
+          await pool.query(
+            `INSERT INTO asegurados (persona_id, deal_id, nombre, dni, fecha_nacimiento, sexo, parentesco, orden)
+             VALUES ($1, $2, $3, $4, $5::date, $6, $7, $8)
+             ON CONFLICT (persona_id, nombre) DO UPDATE SET
+               dni = COALESCE(EXCLUDED.dni, asegurados.dni),
+               fecha_nacimiento = COALESCE(EXCLUDED.fecha_nacimiento, asegurados.fecha_nacimiento),
+               sexo = COALESCE(EXCLUDED.sexo, asegurados.sexo),
+               parentesco = COALESCE(EXCLUDED.parentesco, asegurados.parentesco)`,
+            [personaId, dealLocalId, aNombre, aDni?.toUpperCase(),
+             aFecha && /^\d{4}-\d{2}-\d{2}/.test(aFecha) ? aFecha : null,
+             aSexo, aParentesco, ak.n]
+          );
+        }
+      } catch (e) { console.error('[Webhook] Error guardando asegurados:', e.message); }
+    }
+
+    // ── D) Actualizar deal con datos de póliza ──
+    if (dealLocalId && (precioVal || tipoPolizaVal)) {
+      try {
+        await pool.query(
+          `UPDATE deals SET
+            prima = COALESCE($1, prima),
+            tipo_poliza = COALESCE($2, tipo_poliza),
+            iban = COALESCE($3, iban),
+            num_solicitud = COALESCE($4, num_solicitud),
+            fecha_efecto = COALESCE($5::date, fecha_efecto),
+            num_asegurados = COALESCE($6, num_asegurados),
+            frecuencia_pago = COALESCE($7, frecuencia_pago),
+            updated_at = NOW()
+          WHERE id = $8`,
+          [precioVal, tipoPolizaVal, ibanVal, numSolicitud,
+           efecto && /^\d{4}-\d{2}-\d{2}/.test(efecto) ? efecto : null,
+           nAseg, formaPago, dealLocalId]
+        );
+      } catch (e) { console.error('[Webhook] Error actualizando deal:', e.message); }
     }
 
   } else if (action === 'deleted') {
