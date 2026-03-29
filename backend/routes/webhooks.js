@@ -34,13 +34,26 @@ router.post('/pipedrive', async (req, res) => {
   res.status(200).json({ ok: true });
 
   const body = req.body;
-  const event = body.event;
-  // Soportar v1 ({ current, previous }) y v2 ({ data: { current, previous } } o { data: {...} })
-  const current = body.current || body.data?.current || body.data;
-  const previous = body.previous || body.data?.previous || null;
+
+  // Pipedrive v1: { event: "updated.deal", current: {...}, previous: {...} }
+  // Pipedrive v2: { event: "updated.deal", data: { current: {...}, previous: {...} } }
+  // Pipedrive v2 alt: { meta: { action: "updated", object: "deal" }, data: {...} }
+  let event = body.event;
+  let current, previous;
+
+  if (event) {
+    // v1 o v2 con event
+    current = body.current || body.data?.current || body.data;
+    previous = body.previous || body.data?.previous || null;
+  } else if (body.meta?.action && body.meta?.object) {
+    // v2 sin event — construir desde meta
+    event = `${body.meta.action}.${body.meta.object}`;
+    current = body.data || {};
+    previous = body.previous_data || body.previous || null;
+  }
 
   if (!event || !current) {
-    console.warn('[Webhook] Payload sin event o current:', JSON.stringify(body).substring(0, 300));
+    console.warn('[Webhook] Payload no reconocido:', JSON.stringify(body).substring(0, 500));
     return;
   }
 
