@@ -354,22 +354,20 @@ async function generarPDFPropuesta(propuesta) {
 
   doc.end();
   await new Promise((resolve, reject) => {
-    stream.on('finish', async () => {
-      try {
-        const remoteKey = `propuestas/propuesta_${propuesta.id}.pdf`;
-        const publicUrl = await uploadFile(filepath, remoteKey);
-        // Actualizar pdf_url con URL pública de Hetzner
-        const pool = require('../config/db');
-        await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [publicUrl, propuesta.id]);
-        resolve(publicUrl);
-      } catch (err) {
-        console.error('Error subiendo PDF propuesta a Hetzner:', err.message);
-        resolve(pdfUrl); // Fallback a URL local si falla
-      }
-    });
+    stream.on('finish', resolve);
     stream.on('error', reject);
   });
-  return pdfUrl;
+
+  // Subir a S3 y devolver URL pública (o local como fallback)
+  try {
+    const remoteKey = `propuestas/propuesta_${propuesta.id}.pdf`;
+    const publicUrl = await uploadFile(filepath, remoteKey);
+    console.log(`[PDF] Propuesta ${propuesta.id} subida a S3: ${publicUrl}`);
+    return publicUrl;
+  } catch (err) {
+    console.error(`[PDF] Error subiendo propuesta ${propuesta.id} a S3:`, err.message);
+    return pdfUrl;
+  }
 }
 
 // =============================================
@@ -458,19 +456,20 @@ async function generarPDFGrabacion(data) {
 
   doc.end();
   await new Promise((resolve, reject) => {
-    stream.on('finish', async () => {
-      try {
-        const remoteKey = `grabaciones/grabacion_${data.deal_id}.pdf`;
-        const publicUrl = await uploadFile(filepath, remoteKey);
-        resolve(publicUrl);
-      } catch (err) {
-        console.error('Error subiendo PDF grabación a Hetzner:', err.message);
-        resolve(pdfUrl); // Fallback a URL local si falla
-      }
-    });
+    stream.on('finish', resolve);
     stream.on('error', reject);
   });
-  return pdfUrl;
+
+  // Subir a S3 y devolver URL pública (o local como fallback)
+  try {
+    const remoteKey = `grabaciones/grabacion_${data.deal_id}.pdf`;
+    const publicUrl = await uploadFile(filepath, remoteKey);
+    console.log(`[PDF] Grabación deal ${data.deal_id} subida a S3: ${publicUrl}`);
+    return publicUrl;
+  } catch (err) {
+    console.error(`[PDF] Error subiendo grabación deal ${data.deal_id} a S3:`, err.message);
+    return pdfUrl;
+  }
 }
 
 module.exports = { generarPDFPropuesta, generarPDFGrabacion };
