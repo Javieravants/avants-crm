@@ -148,15 +148,12 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
       personaData = pRes.rows[0] || {};
     }
 
-    // Si ya está en S3, redirigir
-    if (propuesta.pdf_url?.startsWith('https://')) {
-      return res.redirect(propuesta.pdf_url);
-    }
+    const personaNombre = (personaData?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
 
     const pdfPath = propuesta.pdf_url ? require('path').join(__dirname, '../..', propuesta.pdf_url) : null;
 
-    // Regenerar si no existe en disco (genera y sube a S3)
-    if (!pdfPath || !require('fs').existsSync(pdfPath)) {
+    // Regenerar si no existe en disco ni en S3
+    if (!propuesta.pdf_url?.startsWith('https://') && (!pdfPath || !require('fs').existsSync(pdfPath))) {
       let agenteNombre = '';
       if (propuesta.agente_id) {
         const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [propuesta.agente_id]);
@@ -173,15 +170,20 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
       propuesta.pdf_url = newUrl;
     }
 
-    // Redirigir si se subió a S3, o servir local
-    if (propuesta.pdf_url?.startsWith('https://')) {
-      return res.redirect(propuesta.pdf_url);
-    }
-    const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
+    // Servir con nombre correcto
     res.setHeader('Content-Type', 'application/pdf');
-    const personaNombre = (personaData?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
     res.setHeader('Content-Disposition', `inline; filename="Propuesta_${personaNombre}.pdf"`);
-    require('fs').createReadStream(finalPath).pipe(res);
+
+    if (propuesta.pdf_url?.startsWith('https://')) {
+      // Proxy desde S3 para controlar el filename
+      const s3Res = await fetch(propuesta.pdf_url);
+      if (!s3Res.ok) return res.status(502).json({ error: 'Error descargando PDF de S3' });
+      const { Readable } = require('stream');
+      Readable.fromWeb(s3Res.body).pipe(res);
+    } else {
+      const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
+      require('fs').createReadStream(finalPath).pipe(res);
+    }
   } catch (err) {
     console.error('Error PDF propuesta:', err);
     res.status(500).json({ error: err.message });
