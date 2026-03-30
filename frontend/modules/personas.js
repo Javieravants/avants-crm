@@ -825,18 +825,11 @@ const PersonasModule = {
         };
         content.querySelectorAll('.prop-check').forEach(cb => cb.addEventListener('change', updateSendBar));
 
-        // PDF autenticado
+        // PDF — window.open para que el browser respete Content-Disposition
         content.querySelectorAll('.btn-ver-pdf').forEach(btn => {
-          btn.addEventListener('click', async () => {
+          btn.addEventListener('click', () => {
             const id = btn.dataset.id;
-            try {
-              const token = Auth.getToken();
-              const resp = await fetch(`/api/calculadora/propuestas/${id}/pdf`, { headers: { 'Authorization': 'Bearer ' + token } });
-              if (!resp.ok) throw new Error('PDF no disponible');
-              const blob = await resp.blob();
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
-            } catch (e) { alert('Error: ' + e.message); }
+            window.open(`/api/calculadora/propuestas/${id}/pdf`, '_blank');
           });
         });
 

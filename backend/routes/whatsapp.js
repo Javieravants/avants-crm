@@ -96,53 +96,28 @@ router.post('/send/propuesta', async (req, res) => {
     const persona   = personaQ.rows[0];
     const propuesta = propuestaQ.rows[0];
 
-    if (!propuesta.pdf_url?.startsWith('https://')) {
-      return res.status(400).json({ error: 'El PDF no tiene URL pública. Regenera la propuesta.' });
-    }
-
     const telefono = normalizarTelefono(persona.telefono);
+    const pdfLink = `https://app.gestavly.com/api/calculadora/propuestas/${propuesta.id}/pdf`;
+    const mensaje = `Hola ${persona.nombre}, te envío tu propuesta de ${propuesta.tipo_poliza || 'seguro'} (${propuesta.prima_mensual}€/mes).\n\nDescarga tu propuesta aquí:\n${pdfLink}\n\nSi tienes cualquier duda, estoy a tu disposición.`;
 
     const metaRes = await enviarMeta({
       messaging_product: 'whatsapp',
       to: telefono,
-      type: 'template',
-      template: {
-        name: 'propuesta_seguro',
-        language: { code: 'es' },
-        components: [
-          {
-            type: 'header',
-            parameters: [{
-              type: 'document',
-              document: {
-                link: propuesta.pdf_url,
-                filename: `Propuesta_${propuesta.tipo_poliza || 'Seguro'}.pdf`,
-              },
-            }],
-          },
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: persona.nombre },
-              { type: 'text', text: propuesta.tipo_poliza || 'seguro' },
-              { type: 'text', text: `${propuesta.prima_mensual}€/mes` },
-            ],
-          },
-        ],
-      },
+      type: 'text',
+      text: { body: mensaje },
     });
     const whatsapp_msg_id = metaRes.messages?.[0]?.id;
 
     await pool.query(
       `INSERT INTO whatsapp_messages
-       (persona_id, agente_id, direccion, tipo, plantilla, media_url, whatsapp_msg_id)
-       VALUES ($1, $2, 'saliente', 'documento', 'propuesta_seguro', $3, $4)`,
-      [persona_id, agente_id, propuesta.pdf_url, whatsapp_msg_id]
+       (persona_id, agente_id, direccion, tipo, contenido, whatsapp_msg_id)
+       VALUES ($1, $2, 'saliente', 'texto', $3, $4)`,
+      [persona_id, agente_id, mensaje, whatsapp_msg_id]
     );
     await registrarEnHistorial(
       persona_id, agente_id,
       `Propuesta enviada por WhatsApp: ${propuesta.tipo_poliza} — ${propuesta.prima_mensual}€/mes`,
-      { propuesta_id, whatsapp_msg_id, pdf_url: propuesta.pdf_url }
+      { propuesta_id, whatsapp_msg_id, pdf_link: pdfLink }
     );
     res.json({ ok: true, whatsapp_msg_id });
   } catch (err) {

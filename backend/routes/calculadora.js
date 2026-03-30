@@ -4,7 +4,64 @@ const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const { generarPDFPropuesta } = require('../utils/pdf-generator');
 
-// Todas las rutas requieren autenticación
+// GET /api/calculadora/propuestas/:id/pdf — Público (accesible desde WhatsApp)
+router.get('/propuestas/:id/pdf', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM propuestas WHERE id = $1', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Propuesta no encontrada' });
+
+    const propuesta = rows[0];
+
+    // Cargar persona para nombre del archivo
+    let personaData = {};
+    if (propuesta.persona_id) {
+      const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [propuesta.persona_id]);
+      personaData = pRes.rows[0] || {};
+    }
+
+    const personaNombre = (personaData?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
+
+    const pdfPath = propuesta.pdf_url ? require('path').join(__dirname, '../..', propuesta.pdf_url) : null;
+
+    // Regenerar si no existe en disco ni en S3
+    if (!propuesta.pdf_url?.startsWith('https://') && (!pdfPath || !require('fs').existsSync(pdfPath))) {
+      let agenteNombre = '';
+      if (propuesta.agente_id) {
+        const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [propuesta.agente_id]);
+        agenteNombre = aRes.rows[0]?.nombre || '';
+      }
+
+      propuesta._persona = personaData;
+      propuesta._agente_nombre = agenteNombre;
+      propuesta.desglose = typeof propuesta.desglose === 'string' ? JSON.parse(propuesta.desglose) : (propuesta.desglose || {});
+      propuesta.asegurados_data = typeof propuesta.asegurados_data === 'string' ? JSON.parse(propuesta.asegurados_data) : (propuesta.asegurados_data || []);
+
+      const newUrl = await generarPDFPropuesta(propuesta);
+      await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [newUrl, propuesta.id]);
+      propuesta.pdf_url = newUrl;
+    }
+
+    // Servir con nombre correcto
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Propuesta_${personaNombre}.pdf"`);
+
+    if (propuesta.pdf_url?.startsWith('https://')) {
+      // Proxy desde S3 para controlar el filename
+      const s3Res = await fetch(propuesta.pdf_url);
+      if (!s3Res.ok) return res.status(502).json({ error: 'Error descargando PDF de S3' });
+      const { Readable } = require('stream');
+      Readable.fromWeb(s3Res.body).pipe(res);
+    } else {
+      const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
+      require('fs').createReadStream(finalPath).pipe(res);
+    }
+  } catch (err) {
+    console.error('Error PDF propuesta:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Todas las rutas siguientes requieren autenticación
 router.use(auth);
 
 // POST /api/calculadora/propuestas — Guardar propuesta + generar PDF
@@ -133,62 +190,6 @@ router.get('/propuestas/deal/:dealId', async (req, res) => {
   }
 });
 
-// GET /api/calculadora/propuestas/:id/pdf — Servir PDF (regenera si no existe)
-router.get('/propuestas/:id/pdf', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM propuestas WHERE id = $1', [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Propuesta no encontrada' });
-
-    const propuesta = rows[0];
-
-    // Cargar persona para nombre del archivo
-    let personaData = {};
-    if (propuesta.persona_id) {
-      const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [propuesta.persona_id]);
-      personaData = pRes.rows[0] || {};
-    }
-
-    const personaNombre = (personaData?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
-
-    const pdfPath = propuesta.pdf_url ? require('path').join(__dirname, '../..', propuesta.pdf_url) : null;
-
-    // Regenerar si no existe en disco ni en S3
-    if (!propuesta.pdf_url?.startsWith('https://') && (!pdfPath || !require('fs').existsSync(pdfPath))) {
-      let agenteNombre = '';
-      if (propuesta.agente_id) {
-        const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [propuesta.agente_id]);
-        agenteNombre = aRes.rows[0]?.nombre || '';
-      }
-
-      propuesta._persona = personaData;
-      propuesta._agente_nombre = agenteNombre;
-      propuesta.desglose = typeof propuesta.desglose === 'string' ? JSON.parse(propuesta.desglose) : (propuesta.desglose || {});
-      propuesta.asegurados_data = typeof propuesta.asegurados_data === 'string' ? JSON.parse(propuesta.asegurados_data) : (propuesta.asegurados_data || []);
-
-      const newUrl = await generarPDFPropuesta(propuesta);
-      await pool.query('UPDATE propuestas SET pdf_url = $1 WHERE id = $2', [newUrl, propuesta.id]);
-      propuesta.pdf_url = newUrl;
-    }
-
-    // Servir con nombre correcto
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="Propuesta_${personaNombre}.pdf"`);
-
-    if (propuesta.pdf_url?.startsWith('https://')) {
-      // Proxy desde S3 para controlar el filename
-      const s3Res = await fetch(propuesta.pdf_url);
-      if (!s3Res.ok) return res.status(502).json({ error: 'Error descargando PDF de S3' });
-      const { Readable } = require('stream');
-      Readable.fromWeb(s3Res.body).pipe(res);
-    } else {
-      const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
-      require('fs').createReadStream(finalPath).pipe(res);
-    }
-  } catch (err) {
-    console.error('Error PDF propuesta:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // GET /api/calculadora/grabacion/:dealId/pdf — Servir PDF grabación (regenera si no existe)
 router.get('/grabacion/:dealId/pdf', async (req, res) => {
