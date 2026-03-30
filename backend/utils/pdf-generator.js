@@ -186,6 +186,47 @@ async function generarPDFPropuesta(propuesta) {
   }
 
   // ═══════════════════════════════════════
+  // SECCIÓN 3B — ASEGURADOS
+  // ═══════════════════════════════════════
+  const asegurados = propuesta.asegurados_data || [];
+  if (asegurados.length > 0) {
+    doc.moveDown(0.4);
+    doc.fontSize(10).fillColor(BLUE).text('ASEGURADOS', L, doc.y);
+    doc.moveTo(L, doc.y + 2).lineTo(R, doc.y + 2).strokeColor(BLUE).lineWidth(1).stroke();
+    doc.moveDown(0.6);
+
+    // Cabecera tabla
+    const ath = doc.y;
+    doc.rect(L, ath, W, 20).fill('#f8f9fa');
+    doc.moveTo(L, ath + 20).lineTo(R, ath + 20).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    doc.fontSize(8).fillColor(LIGHT);
+    doc.text('Nº', L + 8, ath + 6, { width: 20 });
+    doc.text('Nombre completo', L + 32, ath + 6, { width: 220 });
+    doc.text('Fecha nacimiento', L + 260, ath + 6, { width: 110, align: 'center' });
+    doc.text('DNI/NIE', L + 380, ath + 6, { width: 130, align: 'center' });
+
+    let ay = ath + 22;
+    asegurados.forEach((a, i) => {
+      const rowH = 22;
+      const bg = i % 2 === 0 ? '#ffffff' : '#fafafa';
+      doc.rect(L, ay, W, rowH).fill(bg);
+      doc.moveTo(L, ay + rowH).lineTo(R, ay + rowH).strokeColor('#f0f0f0').lineWidth(0.3).stroke();
+
+      const fechaNac = a.fecha_nacimiento || a.fecha_nac || '';
+      const fechaStr = fechaNac ? new Date(fechaNac).toLocaleDateString('es-ES') : '—';
+
+      doc.fontSize(9).fillColor(GRAY);
+      doc.text(String(i + 1), L + 8, ay + 5, { width: 20 });
+      doc.fillColor('#0f172a').text(a.nombre || '—', L + 32, ay + 5, { width: 220 });
+      doc.fillColor(GRAY).text(fechaStr, L + 260, ay + 5, { width: 110, align: 'center' });
+      doc.text(a.dni || '—', L + 380, ay + 5, { width: 130, align: 'center' });
+
+      ay += rowH;
+    });
+    doc.y = ay + 8;
+  }
+
+  // ═══════════════════════════════════════
   // SECCIÓN 4 — PUNTOS Y REGALOS
   // ═══════════════════════════════════════
   if (pts > 0) {
