@@ -141,6 +141,13 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
 
     const propuesta = rows[0];
 
+    // Cargar persona para nombre del archivo
+    let personaData = {};
+    if (propuesta.persona_id) {
+      const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [propuesta.persona_id]);
+      personaData = pRes.rows[0] || {};
+    }
+
     // Si ya está en S3, redirigir
     if (propuesta.pdf_url?.startsWith('https://')) {
       return res.redirect(propuesta.pdf_url);
@@ -150,11 +157,6 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
 
     // Regenerar si no existe en disco (genera y sube a S3)
     if (!pdfPath || !require('fs').existsSync(pdfPath)) {
-      let personaData = {};
-      if (propuesta.persona_id) {
-        const pRes = await pool.query('SELECT * FROM personas WHERE id = $1', [propuesta.persona_id]);
-        personaData = pRes.rows[0] || {};
-      }
       let agenteNombre = '';
       if (propuesta.agente_id) {
         const aRes = await pool.query('SELECT nombre FROM users WHERE id = $1', [propuesta.agente_id]);
@@ -177,7 +179,8 @@ router.get('/propuestas/:id/pdf', async (req, res) => {
     }
     const finalPath = require('path').join(__dirname, '../..', propuesta.pdf_url);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="propuesta_${req.params.id}.pdf"`);
+    const personaNombre = (personaData?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
+    res.setHeader('Content-Disposition', `inline; filename="Propuesta_${personaNombre}.pdf"`);
     require('fs').createReadStream(finalPath).pipe(res);
   } catch (err) {
     console.error('Error PDF propuesta:', err);

@@ -44,7 +44,8 @@ async function generarPDFPropuesta(propuesta) {
   const dir = path.join(UPLOADS, 'propuestas');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  const filename = `propuesta_${propuesta.id}.pdf`;
+  const nombreCliente = (propuesta._persona?.nombre || 'Cliente').replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/g, '').trim().replace(/\s+/g, '_');
+  const filename = `Propuesta_${nombreCliente}_${propuesta.id}.pdf`;
   const filepath = path.join(dir, filename);
   const pdfUrl = `/uploads/propuestas/${filename}`;
 
@@ -188,7 +189,18 @@ async function generarPDFPropuesta(propuesta) {
   // ═══════════════════════════════════════
   // SECCIÓN 3B — ASEGURADOS
   // ═══════════════════════════════════════
-  const asegurados = propuesta.asegurados_data || [];
+  let asegurados = propuesta.asegurados_data || [];
+  // Si asegurados_data está vacío, cargar de tabla asegurados
+  if (asegurados.length === 0 && propuesta.persona_id) {
+    try {
+      const pool = require('../config/db');
+      const asegQ = await pool.query(
+        'SELECT nombre, fecha_nacimiento, dni, sexo, parentesco FROM asegurados WHERE persona_id = $1 ORDER BY orden',
+        [propuesta.persona_id]
+      );
+      asegurados = asegQ.rows;
+    } catch {}
+  }
   if (asegurados.length > 0) {
     doc.moveDown(0.4);
     doc.fontSize(10).fillColor(BLUE).text('ASEGURADOS', L, doc.y);
@@ -321,35 +333,23 @@ async function generarPDFPropuesta(propuesta) {
   }
 
   // ═══════════════════════════════════════
-  // SECCIÓN 5 — VALIDEZ
+  // SECCIÓN 5+6 — VALIDEZ + PIE (compacto)
   // ═══════════════════════════════════════
-  doc.moveDown(0.3);
+  doc.moveDown(0.2);
+  doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+  doc.moveDown(0.2);
+
   const vy = doc.y;
-  doc.rect(L, vy, W, 36).fill('#f8f9fa');
+  doc.rect(L, vy, W, 50).fill('#f8f9fa');
 
   doc.fontSize(9).fillColor(LIGHT).text('Validez del presupuesto', L + 12, vy + 5);
-  doc.fontSize(11).fillColor('#0f172a').text('Hasta el 30/06/2026', L + 12, vy + 18);
+  doc.fontSize(11).fillColor('#0f172a').text('Hasta el 30/06/2026', L + 12, vy + 16);
+  doc.fontSize(8).fillColor(LIGHT).text(`TGSSA, SL · segurosdesaludonline.es · Agente: ${agente}`, L + 12, vy + 33);
 
   doc.fontSize(9).fillColor(LIGHT).text('ADESLAS · Campaña Marzo-Junio 2026', L + 280, vy + 5, { width: 220, align: 'right' });
-  doc.text('Sujeto a aceptación por la compañía', L + 280, vy + 18, { width: 220, align: 'right' });
-
-  doc.y = vy + 42;
-
-  // ═══════════════════════════════════════
-  // SECCIÓN 6 — PIE
-  // ═══════════════════════════════════════
-  doc.moveTo(L, doc.y).lineTo(R, doc.y).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-  doc.moveDown(0.3);
-
-  const py = doc.y;
-  doc.rect(L, py, W, 36).fill('#fafafa');
-
-  doc.fontSize(10).fillColor('#0f172a').text('TGSSA, SL', L + 12, py + 5);
-  doc.fontSize(9).fillColor(LIGHT).text(`segurosdesaludonline.es · Agente: ${agente}`, L + 12, py + 18);
-
-  doc.fontSize(8).fillColor(LIGHT).text(
-    'Los puntos se acumulan al contratar los seguros indicados. Premio sujeto a disponibilidad de la campaña ADESLAS.',
-    L + 260, py + 8, { width: 240, align: 'right' }
+  doc.fontSize(7).fillColor(LIGHT).text(
+    'Sujeto a aceptación por la compañía. Puntos acumulables al contratar. Premio sujeto a disponibilidad.',
+    L + 280, vy + 18, { width: 220, align: 'right' }
   );
 
   doc.end();
