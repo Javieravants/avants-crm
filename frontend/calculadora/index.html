@@ -1053,9 +1053,10 @@ window.onload = async function() {
             const headers = { 'Authorization': 'Bearer ' + token };
             try {
                 // 1. Datos de persona
+                let persona = {};
                 const pRes = await fetch('/api/personas/' + personaId, { headers });
                 if (pRes.ok) {
-                    const persona = await pRes.json();
+                    persona = await pRes.json();
                     const tc = document.querySelector('#aseguradosContainer .asegurado-card');
                     if (tc) {
                         if (persona.nombre) { const el = tc.querySelector('.asegurado-nombre'); if (el) el.value = persona.nombre; }
@@ -1101,10 +1102,23 @@ window.onload = async function() {
                         if (last) {
                             if (a.nombre) { const el = last.querySelector('.asegurado-nombre'); if (el) el.value = a.nombre; }
                             if (a.fecha_nac) { const el = last.querySelector('.asegurado-fecha'); if (el) el.value = a.fecha_nac.split('T')[0]; }
+                            if (a.fecha_nacimiento) { const el = last.querySelector('.asegurado-fecha'); if (el && !el.value) el.value = a.fecha_nacimiento.split('T')[0]; }
                             if (a.sexo) { const el = last.querySelector('.asegurado-sexo'); if (el) el.value = a.sexo; }
+                            // Pre-rellenar provincia y localidad de la persona
+                            const prov = a.provincia || persona?.provincia;
+                            if (prov) {
+                                const el = last.querySelector('.asegurado-provincia');
+                                if (el) {
+                                    el.value = prov;
+                                    onProvinciaChange(el, true);
+                                    const loc = a.localidad || persona?.localidad;
+                                    if (loc) setTimeout(() => { const l = last.querySelector('.asegurado-localidad'); if (l) l.value = loc; }, 500);
+                                }
+                            }
                         }
                     });
-                    if (asegurados.length > 0) calcularTodo();
+                    // Recalcular después de que las provincias/localidades se hayan cargado (setTimeout de 500ms)
+                    if (asegurados.length > 0) setTimeout(() => calcularTodo(), 700);
                 }
 
                 // 3. Propuestas previas

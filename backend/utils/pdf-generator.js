@@ -212,7 +212,7 @@ async function generarPDFPropuesta(propuesta) {
       doc.rect(L, ay, W, rowH).fill(bg);
       doc.moveTo(L, ay + rowH).lineTo(R, ay + rowH).strokeColor('#f0f0f0').lineWidth(0.3).stroke();
 
-      const fechaNac = a.fecha_nacimiento || a.fecha_nac || '';
+      const fechaNac = a.fecha_nacimiento || a.fecha_nac || a.fechaNac || '';
       const fechaStr = fechaNac ? new Date(fechaNac).toLocaleDateString('es-ES') : '—';
 
       doc.fontSize(9).fillColor(GRAY);
