@@ -222,7 +222,7 @@ WHERE d.pipedrive_owner = u.pipedrive_owner_id::text
 
 ## 5. Estado actual de webhooks
 
-**URL:** `https://avants-crm-production.up.railway.app/webhook/pipedrive`
+**URL:** `https://app.gestavly.com/webhook/pipedrive`
 **Ruta en app:** `POST /api/webhooks/pipedrive`
 **Auth:** Basic Auth (`avants:crm2026webhook`)
 
