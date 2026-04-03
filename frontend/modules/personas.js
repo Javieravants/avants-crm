@@ -1234,13 +1234,17 @@ const PersonasModule = {
       </div>`;
     }
 
-    // Grabación de CloudTalk
+    // Grabación de CloudTalk — reproductor inline
     if (h.tipo === 'llamada' && meta.grabacion_url) {
-      body += `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;background:#f4f6f9;border-radius:8px;">
-        <a href="${this._esc(meta.grabacion_url)}" target="_blank" style="display:flex;align-items:center;gap:6px;color:#009DDD;font-size:12px;font-weight:600;text-decoration:none;">
-          ${_ICO.llamada(14,'#009DDD')} Escuchar grabación
-        </a>
-        ${meta.duracion_seg ? `<span style="font-size:11px;color:#94a3b8;margin-left:auto;">${Math.floor(meta.duracion_seg/60)}:${String(meta.duracion_seg%60).padStart(2,'0')}</span>` : ''}
+      body += `<div style="margin-top:8px;padding:8px 10px;background:#f4f6f9;border-radius:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          ${_ICO.llamada(14,'#009DDD')}
+          <span style="font-size:12px;font-weight:600;color:#009DDD;">Grabación</span>
+          ${meta.duracion_seg ? `<span style="font-size:11px;color:#94a3b8;margin-left:auto;">${Math.floor(meta.duracion_seg/60)}:${String(meta.duracion_seg%60).padStart(2,'0')}</span>` : ''}
+        </div>
+        <audio controls preload="none" style="width:100%;height:36px;border-radius:6px;">
+          <source src="${this._esc(meta.grabacion_url)}">
+        </audio>
       </div>`;
     }
 
