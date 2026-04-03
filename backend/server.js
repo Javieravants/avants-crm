@@ -88,61 +88,107 @@ app.post('/webhook/cloudtalk', async (req, res) => {
   res.json({ success: true }); // Responder rápido
 
   try {
-    const {
-      call_id, duration_seconds, status,
-      recording_url, agent_extension, agent_name,
-      contact_phone, contact_name
-    } = req.body;
+    const body = req.body;
+    // Campos confirmados por Paula (CloudTalk Support)
+    const call_id        = body.call_id || body.id;
+    const talking_time   = body.talking_time   ?? body.duration_seconds ?? 0; // seg reales de conversación
+    const waiting_time   = body.waiting_time   ?? 0;
+    const status         = body.status;
+    const direction      = body.direction;        // inbound | outbound
+    const recording_url  = body.recording_url;
+    const tags           = body.tags || [];
+    const external_number = body.external_number || body.contact_phone || '';
+    const internal_number = body.internal_number || '';
 
-    if (!contact_phone) return;
+    // Datos del agente — preferir objeto agent, fallback a campos planos
+    const agentEmail = body.agent?.email || body.agent_email || '';
+    const agentName  = body.agent ? `${body.agent.first_name || ''} ${body.agent.last_name || ''}`.trim()
+                                  : (body.agent_name || '');
+
+    const phone = external_number.replace(/\s/g, '');
+    if (!phone) return;
+
+    const phoneDigits = phone.replace(/\D/g, '').slice(-9);
+    if (!phoneDigits || phoneDigits.length < 9) return;
+
+    // Dedup: si ya existe este call_id, ignorar
+    if (call_id) {
+      const dup = await pool.query(
+        `SELECT id FROM contact_history WHERE metadata->>'cloudtalk_call_id' = $1 LIMIT 1`,
+        [String(call_id)]
+      );
+      if (dup.rows.length) {
+        console.log(`[CloudTalk] Duplicado ignorado: call_id ${call_id}`);
+        return;
+      }
+    }
 
     // Buscar persona por teléfono normalizado (últimos 9 dígitos)
-    const phone = (contact_phone || '').replace(/\s/g, '');
-    const phoneDigits = phone.replace(/\D/g, '').slice(-9);
     const persona = await pool.query(
-      `SELECT id FROM personas
+      `SELECT id, tenant_id FROM personas
        WHERE RIGHT(regexp_replace(COALESCE(telefono,''), '[^0-9]', '', 'g'), 9) = $1
        LIMIT 1`,
       [phoneDigits]
     );
-
-    // Buscar agente por nombre
-    let agenteId = null;
-    if (agent_name) {
-      const agR = await pool.query(
-        'SELECT id FROM users WHERE nombre ILIKE $1 AND activo = true LIMIT 1',
-        ['%' + (agent_name || '').split(' ')[0] + '%']
-      );
-      agenteId = agR.rows[0]?.id || null;
-    }
 
     const personaId = persona.rows[0]?.id;
     if (!personaId) {
       console.log(`[CloudTalk] Persona no encontrada para teléfono: ${phone}`);
       return;
     }
+    const tenantId = persona.rows[0]?.tenant_id || 1;
 
-    // Registrar en contact_history
-    const { registrarEvento } = require('./routes/history');
-    const subtipo = status === 'answered' ? 'contestada' :
-      status === 'voicemail' ? 'buzon' : 'no_contestada';
+    // Buscar agente por email (fiable) o fallback a nombre
+    let agenteId = null;
+    if (agentEmail) {
+      const agR = await pool.query(
+        'SELECT id FROM users WHERE email = $1 AND activo = true LIMIT 1',
+        [agentEmail]
+      );
+      agenteId = agR.rows[0]?.id || null;
+    }
+    if (!agenteId && agentName) {
+      const agR = await pool.query(
+        'SELECT id FROM users WHERE nombre ILIKE $1 AND activo = true LIMIT 1',
+        ['%' + agentName.split(' ')[0] + '%']
+      );
+      agenteId = agR.rows[0]?.id || null;
+    }
 
-    registrarEvento(personaId, 'llamada', {
-      subtipo,
-      titulo: 'Llamada ' + (status === 'answered' ? 'contestada' : 'no contestada'),
-      descripcion: (agent_name || '') + ' → ' + (contact_name || phone),
-      metadata: {
-        cloudtalk_call_id: call_id,
-        duracion_seg: duration_seconds,
-        resultado: status,
-        grabacion_url: recording_url,
-        extension: agent_extension
-      },
-      agente_id: agenteId,
-      origen: 'cloudtalk'
-    });
+    // Determinar subtipo
+    const contestada = talking_time > 0 || status === 'answered';
+    const subtipo = contestada ? 'contestada'
+      : status === 'voicemail' ? 'buzon' : 'no_contestada';
 
-    console.log(`[CloudTalk] Llamada registrada: ${phone} → persona #${personaId} (${subtipo})`);
+    const dirLabel = direction === 'inbound' ? 'entrante' : direction === 'outbound' ? 'saliente' : '';
+    const titulo = `Llamada ${dirLabel} ${subtipo === 'contestada' ? 'contestada' : 'no contestada'}`.replace(/\s+/g, ' ').trim();
+
+    // Registrar en contact_history con tenant_id
+    await pool.query(
+      `INSERT INTO contact_history
+         (persona_id, tipo, subtipo, titulo, descripcion, metadata, agente_id, origen, tenant_id)
+       VALUES ($1, 'llamada', $2, $3, $4, $5, $6, 'cloudtalk', $7)`,
+      [
+        personaId,
+        subtipo,
+        titulo,
+        `${agentName || 'Agente'} → ${phone}`,
+        JSON.stringify({
+          cloudtalk_call_id: call_id,
+          duracion_seg: talking_time,
+          waiting_time_seg: waiting_time,
+          resultado: status,
+          direction: direction || null,
+          grabacion_url: recording_url || null,
+          extension: internal_number || null,
+          tags: tags.length ? tags : undefined,
+        }),
+        agenteId,
+        tenantId
+      ]
+    );
+
+    console.log(`[CloudTalk] Llamada registrada: ${phone} → persona #${personaId} (${subtipo}, ${dirLabel || 'sin dirección'}, ${talking_time}s)`);
   } catch (err) {
     console.error('[CloudTalk] Webhook error:', err.message);
   }

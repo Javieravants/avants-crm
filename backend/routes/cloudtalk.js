@@ -30,7 +30,7 @@ router.get('/status', async (req, res) => {
   }
 });
 
-// POST /api/cloudtalk/call — iniciar llamada click-to-call
+// POST /api/cloudtalk/call — iniciar llamada click-to-call via API
 router.post('/call', async (req, res) => {
   const { phone, persona_id, persona_nombre, agent_email } = req.body;
   if (!phone) return res.status(400).json({ error: 'phone obligatorio' });
@@ -39,7 +39,7 @@ router.post('/call', async (req, res) => {
   if (!auth) return res.status(500).json({ error: 'CloudTalk no configurado' });
 
   try {
-    // Buscar el voice_agent_id del agente en CloudTalk por email
+    // Buscar el agente en CloudTalk por email
     const email = agent_email || req.user.email;
     const agentsR = await fetch(CT_BASE_V1 + '/agents.json', { headers: { Authorization: auth } });
     const agentsData = await agentsR.json();
@@ -47,7 +47,6 @@ router.post('/call', async (req, res) => {
     const ctAgent = agents.find(a => a.email === email);
 
     if (!ctAgent) {
-      // Registrar igualmente y hacer fallback
       if (persona_id) {
         await pool.query(
           'INSERT INTO persona_notas (persona_id, user_id, texto) VALUES ($1, $2, $3)',
@@ -57,7 +56,25 @@ router.post('/call', async (req, res) => {
       return res.status(502).json({ error: 'Agente no encontrado en CloudTalk', email });
     }
 
-    // Registrar la llamada en el historial del contacto
+    // Iniciar llamada real via POST /v1/calls (endpoint confirmado por CloudTalk)
+    const callR = await fetch(CT_BASE_V2 + '/calls', {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent_id: ctAgent.id,
+        external_number: phone,
+      }),
+    });
+    const callData = await callR.json();
+
+    if (!callR.ok) {
+      console.error('[CloudTalk] Error iniciando llamada:', callData);
+      // Fallback: devolver info del agente para que el widget lo haga
+      res.json({ ok: true, fallback: true, agent: { id: ctAgent.id, name: ctAgent.firstname + ' ' + ctAgent.lastname, extension: ctAgent.extension } });
+      return;
+    }
+
+    // Registrar en persona_notas
     if (persona_id) {
       const texto = `Llamada iniciada a ${phone}${persona_nombre ? ' (' + persona_nombre + ')' : ''} via CloudTalk · Agente: ${ctAgent.firstname} ${ctAgent.lastname}`;
       await pool.query(
@@ -66,8 +83,7 @@ router.post('/call', async (req, res) => {
       );
     }
 
-    // Devolver info del agente para el widget
-    res.json({ ok: true, agent: { id: ctAgent.id, name: ctAgent.firstname + ' ' + ctAgent.lastname, extension: ctAgent.extension } });
+    res.json({ ok: true, call: callData, agent: { id: ctAgent.id, name: ctAgent.firstname + ' ' + ctAgent.lastname, extension: ctAgent.extension } });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

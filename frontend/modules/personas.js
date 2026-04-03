@@ -1180,12 +1180,17 @@ const PersonasModule = {
       : diffH < 24 ? 'hace ' + Math.round(diffH) + 'h'
       : d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
 
-    // Badge estado llamada
+    // Badge estado llamada + dirección
     let badge = '';
     if (h.tipo === 'llamada' && h.subtipo) {
       const badgeCfg = { contestada: { bg:'#d1fae5', color:'#065f46', label:'Contestada' }, no_contestada: { bg:'#fee2e2', color:'#991b1b', label:'No contestó' }, buzon: { bg:'#f3f4f6', color:'#6b7280', label:'Buzón' } };
       const bc = badgeCfg[h.subtipo] || badgeCfg.buzon;
       badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${bc.bg};color:${bc.color};">${bc.label}</span>`;
+      if (meta.direction === 'inbound') {
+        badge += `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#e6f6fd;color:#0284c7;">↓ Entrante</span>`;
+      } else if (meta.direction === 'outbound') {
+        badge += `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;">↑ Saliente</span>`;
+      }
     }
 
     // Badge tarea por fecha
