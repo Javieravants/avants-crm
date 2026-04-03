@@ -35,7 +35,12 @@ async function enviarMeta(payload) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'Error Meta API');
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Token de WhatsApp caducado. Regenerar en Meta Developers.');
+    }
+    throw new Error(data.error?.message || 'Error Meta API');
+  }
   return data;
 }
 
