@@ -1,9 +1,10 @@
 ---
 name: avants-suite
-description: Skill maestro de Avants Suite — design system, arquitectura, BD, roles, módulos, mockups y reglas
+description: Skill maestro de Avants Suite — estado real del proyecto, integraciones, BD, módulos, arquitectura y reglas. Fuente de verdad absoluta. Actualizado 03/04/2026.
 ---
 
 # Avants Suite — Skill Maestro
+> Actualizado: 03/04/2026
 
 ## Visión
 CRM/ERP propio para correduría de seguros. Reemplazo progresivo de Pipedrive.
@@ -14,52 +15,90 @@ Objetivo final: SaaS vendible a otras corredurías.
 - **BD:** PostgreSQL (Railway producción)
 - **Frontend:** HTML/CSS/JS vanilla — SIN frameworks (no React, no Vue, no Tailwind)
 - **Auth:** JWT (8h expiry)
+- **Storage:** Hetzner Object Storage (S3-compatible)
 - **Hosting:** Railway (temporal) → Hetzner VPS CX23
 - **Repo:** https://github.com/Javieravants/avants-crm
-- **Producción:** https://avants-crm-production.up.railway.app
+- **Producción:** https://app.gestavly.com
+
+---
 
 ## Estructura de archivos
 ```
 backend/
-  server.js          — Express app, migraciones auto al arrancar
-  config/db.js       — Pool PostgreSQL (DATABASE_URL o DB_HOST/PORT/NAME)
-  config/init.sql    — Schema base
-  config/migration-*.sql — Migraciones incrementales
+  server.js              — Express app + webhooks CloudTalk/WhatsApp
+  config/db.js           — Pool PostgreSQL (DATABASE_URL o DB_HOST/PORT/NAME)
+  config/init.sql        — Schema base
+  config/migration-*.sql — Migraciones incrementales (17+ archivos)
   routes/
-    auth.js          — Login, JWT, CRUD usuarios
-    personas.js      — CRUD personas, familiares, notas
-    tickets.js       — Trámites Kanban + comunicaciones
-    pipeline.js      — Pipeline Kanban deals, sync Pipedrive
-    settings.js      — Config tipos trámites, columnas
-    webhooks.js      — Receptor webhooks Pipedrive (v1+v2)
-    grabaciones.js   — Pólizas grabadas
+    auth.js              — Login, JWT, CRUD usuarios
+    personas.js          — CRUD personas, familiares, notas, documentos
+    tickets.js           — Tramites Kanban + comunicaciones
+    pipeline.js          — Pipeline Kanban deals, sync Pipedrive
+    settings.js          — Config tipos tramites, columnas
+    webhooks.js          — Receptor webhooks Pipedrive (v1+v2+v2-meta)
+    grabaciones.js       — Polizas grabadas
+    cloudtalk.js         — Click-to-call, status, historial llamadas
+    whatsapp.js          — Envio WA texto + propuesta PDF
+    calculadora.js       — Propuestas, PDFs, asegurados, sync Pipedrive
+    history.js           — Timeline contacto, registrarEvento()
+    tareas.js            — Tareas pendientes agentes
+    fichate.js           — Control horario (IONOS MySQL)
+    search.js            — Busqueda global personas/deals/tickets
+    documentos.js        — Gestion documentos personas
+    dashboard.js         — Metricas y KPIs
+    informes.js          — Reportes Excel
+    polizas.js           — Import Google Sheets
+    etiquetas.js         — Tags personas/deals
+    admin.js             — Multi-tenant, gestion usuarios
+    assistant.js         — Chat IA con Claude
   middleware/
-    auth.js          — JWT verification
-    roles.js         — requireRole('admin','supervisor')
+    auth.js              — JWT verification
+    roles.js             — requireRole('admin','supervisor')
+    tenant.js            — Multi-tenant middleware
   utils/
-    pipedrive-sync.js — Field mapping Pipedrive
-    notifications.js  — Sistema de notificaciones
+    pipedrive-sync.js    — Field mapping + enum maps Pipedrive
+    notifications.js     — Sistema notificaciones
+    storage.js           — S3 client Hetzner (upload, delete)
+  scripts/
+    register-webhooks.js       — Registrar/listar/borrar webhooks Pipedrive
+    sync-pipeline-stages.js    — Resync deals con pipeline/stage
+    resync-deals-custom-fields.js — Resync campos personalizados
+    sync-custom-fields.js      — Sync solo custom fields
+    sync-deals-status.js       — Sync deals won/lost historicos
+    sync-activities.js         — Migrar actividades historicas
+    sync-cloudtalk.js          — Bulk upload contactos a CloudTalk
+    migrate-pdfs-to-hetzner.js — Migrar PDFs locales a S3
+    import-pipedrive-labels.js — Import etiquetas Pipedrive
 frontend/
-  index.html         — SPA shell (sidebar + main-content)
+  index.html             — SPA shell (sidebar + CloudTalk widget + WhatsApp btn)
   shared/
-    api.js           — Wrapper fetch con JWT (TODA llamada API pasa por aquí)
-    app.js           — Router SPA, Auth, navegación
-    styles.css       — Design system global
-    icons.js         — SVG icons set
+    api.js               — Wrapper fetch con JWT (TODA llamada pasa por aqui)
+    app.js               — Router SPA, Auth, navegacion
+    styles.css           — Design system global
+    icons.js             — SVG icons set (avants_icons_v2)
   modules/
-    personas.js      — Ficha contacto, listado, búsqueda
-    pipeline.js      — Kanban deals por embudo
-    tickets.js       — Trámites Kanban + panel lateral
-    settings.js      — Configuración admin
-    grabaciones.js   — Módulo grabaciones pólizas
-    calculadora.js   — Calculadora precios ADESLAS
-    fichate.js       — Control horario
+    dashboard.js         — Home con KPIs y metricas
+    personas.js          — Ficha contacto completa + timeline
+    pipeline.js          — Kanban deals por embudo
+    tickets.js           — Tramites Kanban + panel lateral
+    llamada.js           — Pantalla llamada activa + scripts
+    calculadora.js       — Calculadora precios ADESLAS/DKV
+    grabaciones.js       — Modulo grabaciones polizas
+    fichate.js           — Control horario empleados
+    informes.js          — Reportes con export Excel
+    importar-polizas.js  — Import desde Google Sheets
+    import.js            — Import Excel/CSV masivo
+    settings.js          — Configuracion admin
+    assistant.js         — Chat IA admin
+    tarifas.js           — Tablas tarifas ADESLAS 2026 (utility)
 ```
+
+---
 
 ## Design System — INMUTABLE
 ```css
 :root {
-  --accent:    #009DDD;   /* Azul ADESLAS — NO #ff4a6e (solo logo) */
+  --accent:    #009DDD;   /* Azul ADESLAS — NO #ff4a6e (solo logo Fichate) */
   --accent-d:  #0088c2;
   --accent-l:  #e6f5fc;
   --bg:        #f4f6f9;
@@ -78,211 +117,443 @@ frontend/
 - Font: **Inter** (Google Fonts), sans-serif
 - Border-radius: 12px cards, 8px inputs, 9px botones, 50% avatares
 - Sidebar: 220px → 52px colapsable, blanco, border-right
-- Iconos: **SVG propios** de avants_icons_v2.html (NUNCA emojis, NUNCA librerías externas)
-- Tamaños iconos: 16px sidebar/tabs, 20px botones, 24px cards, 32px KPIs
+- Iconos: **SVG propios** de avants_icons_v2.html (NUNCA emojis, NUNCA librerias externas)
+- Tamanos iconos: 16px sidebar/tabs, 20px botones, 24px cards, 32px KPIs
 
-## Iconos SVG disponibles (avants_icons_v2.html)
+### Iconos SVG disponibles
 Volver, Llamada, WhatsApp, Email, Editar, Agendar, Grabar, Historial, Propuesta,
-Pólizas, Trámites, Nota, Añadir, Guardar, Cierre, Seguimiento, Gestión, Agenda,
+Polizas, Tramites, Nota, Anadir, Guardar, Cierre, Seguimiento, Gestion, Agenda,
 Dashboard, Contactos, Pipeline, Impagos, Fichate, Informes, Settings, Calculadora,
-Buscar, Filtrar, Notificación, Colgar, Subir, Descargar, Arrastrar, Reunión
+Buscar, Filtrar, Notificacion, Colgar, Subir, Descargar, Arrastrar, Reunion
 
-## Base de datos — Tablas principales
+---
 
-### personas
-- id, pipedrive_person_id, nombre, dni, telefono, email
-- fecha_nacimiento, direccion, nacionalidad, notas
-- created_at, updated_at
+## INTEGRACIONES — Estado real (03/04/2026)
 
-### deals
-- id, pipedrive_id, persona_id, pipeline_id, stage_id, agente_id
-- poliza, producto, compania, prima, fecha_efecto
-- estado (en_tramite/poliza_activa/perdido/eliminado)
-- pipedrive_status (open/won/lost), pipedrive_stage, pipedrive_owner
-- pipeline_id → pipelines, stage_id → pipeline_stages
-- datos_extra (JSONB), stage_entered_at, estado_grabacion
+### 1. CloudTalk (VoIP) — FUNCIONAL
 
-### tickets (trámites)
-- id, tipo_id → ticket_types, column_id → ticket_columns
-- estado (nuevo/en_gestion/esperando/resuelto/cerrado)
-- descripcion, urgencia (normal/alta/urgente)
-- created_by, assigned_to, agente_id → users
-- compania (auto-asignada por empresa del usuario)
-- contacto_id → personas
-- num_poliza, num_solicitud, pipedrive_deal_id
+| Componente | Estado | Archivo |
+|---|---|---|
+| Widget telefono flotante | ✅ | `index.html` (iframe CloudTalk Phone) |
+| Click-to-call via API | ✅ | `POST /api/cloudtalk/call` → `POST /v1/calls` |
+| Verificar conexion | ✅ | `GET /api/cloudtalk/status` |
+| Historial llamadas por telefono | ✅ | `GET /api/cloudtalk/calls` |
+| Webhook call_ended | ✅ | `POST /webhook/cloudtalk` (sin auth) |
+| Sync contactos bulk | ✅ | `scripts/sync-cloudtalk.js` |
+| Llamadas en timeline contacto | ✅ | Badges: contestada/no contesto/buzon/devolver llamada |
+| Badge "Devolver llamada" en pipeline | ✅ | Cards kanban con alerta roja (ultimas 48h) |
 
-### users
-- id, nombre, email, password_hash, password_visible
-- rol (admin/supervisor/agent)
-- empresa (ADESLAS/DKV/NULL para admin)
-- telefono, activo, created_at
+**Formato webhook:** `event.properties.*` (ticket #495931)
 
-### pipelines / pipeline_stages
-- pipelines: id, name, pipedrive_id, color, orden, active
-- pipeline_stages: id, pipeline_id, pipedrive_id, name, orden, color, active
+**Clasificacion de llamadas:**
+| direction | talking_time | subtipo | prioridad |
+|---|---|---|---|
+| outbound | > 0 | contestada | normal |
+| outbound | = 0 | no_contestada | media |
+| inbound | = 0 | devolver_llamada | ALTA |
+| inbound | > 0 | contestada | normal |
 
-### Otras tablas
-- ticket_types, ticket_columns, ticket_comments
-- tramite_comunicaciones (email/whatsapp/nota/sistema)
-- notifications, activity_logs
-- persona_familiares, persona_notas
-- grabaciones_polizas
+**Dedup:** Por `cloudtalk_call_id` en metadata JSONB.
+**Agente:** Busca por email (fiable), fallback nombre.
+**Env:** `CLOUDTALK_API_KEY`, `CLOUDTALK_API_SECRET`
+
+### 2. WhatsApp Business API (Meta) — FUNCIONAL
+
+| Componente | Estado | Archivo |
+|---|---|---|
+| Enviar texto | ✅ | `POST /api/whatsapp/send/texto` |
+| Enviar propuesta PDF | ✅ | `POST /api/whatsapp/send/propuesta` |
+| Historial mensajes | ✅ | `GET /api/whatsapp/history/:persona_id` |
+| Webhook verificacion Meta | ✅ | `GET /webhook/whatsapp` |
+| Webhook mensajes entrantes | ✅ | `POST /webhook/whatsapp` |
+| Actualizacion estado (entregado/leido) | ✅ | Via webhook |
+| Error 401 token caducado | ✅ | Mensaje claro al agente |
+
+**API:** `graph.facebook.com/v19.0/{PHONE_ID}/messages`
+**Token:** Temporal — cuando caduca, error 401 con mensaje "Token de WhatsApp caducado. Regenerar en Meta Developers."
+**Tabla:** `whatsapp_messages` (persona_id, direccion, tipo, contenido, estado)
+**Env:** `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_VERIFY_TOKEN`
+
+**Pendiente:**
+- Envio de plantillas (endpoints no implementados)
+- Envio de imagenes/documentos (tipos definidos, sin endpoint)
+- Validacion firma webhook (X-Hub-Signature)
+
+### 3. Pipedrive (Sync bidireccional) — FUNCIONAL
+
+| Componente | Estado | Archivo |
+|---|---|---|
+| Webhook deal.added/updated/deleted | ✅ | `POST /api/webhooks/pipedrive` |
+| Webhook person.added/updated | ✅ | `POST /api/webhooks/pipedrive` |
+| Webhook activity.added/updated | ✅ | Desde 23/03/2026 |
+| Auth Basic | ✅ | `avants:crm2026webhook` |
+| Sync deals manual | ✅ | `sync-pipeline-stages.js` |
+| Sync campos personalizados | ✅ | `resync-deals-custom-fields.js` |
+| Sync deals won/lost | ✅ | `sync-deals-status.js` |
+| Sync actividades historicas | ✅ | `sync-activities.js` |
+| Auto-crear stages faltantes | ✅ | En webhook handler |
+| Cruce agentes por email | ✅ | 106.771 deals asignados |
+| Sync propuesta → Pipedrive | ✅ | `POST /api/calculadora/propuestas/:id/pipedrive-sync` |
+
+**URL webhook:** `https://app.gestavly.com/api/webhooks/pipedrive`
+**Formatos soportados:** v1 (`{event, current, previous}`), v2 (`{event, data}`), v2-meta (`{meta, data, previous}`)
+**Paginacion:** `limit=500` siempre (excepto actividades: `limit=100`)
+**Env:** `PIPEDRIVE_API_KEY`, `PIPEDRIVE_WEBHOOK_USER`, `PIPEDRIVE_WEBHOOK_PASS`
+
+**Pendiente:**
+- Bidireccional CRM→Pipedrive limitado (solo sync propuestas manual)
+- Sync actividades solo por script, no real-time retroactivo
+
+### 4. Facebook Lead Ads — SOLO TABLAS (sin implementar)
+
+| Componente | Estado |
+|---|---|
+| Tablas BD (fb_form_mappings, fb_leads) | ✅ Creadas |
+| Webhook `/webhook/facebook` | ❌ No existe |
+| Routes `/api/facebook/*` | ❌ No existen |
+| Lead → persona + deal | ❌ No implementado |
+
+**Pendiente:** Implementacion completa del flujo webhook → persona → deal.
+
+### 5. Hetzner Object Storage (S3) — FUNCIONAL
+
+| Componente | Estado | Archivo |
+|---|---|---|
+| Upload archivo desde disco | ✅ | `storage.js → uploadFile()` |
+| Upload buffer desde memoria | ✅ | `storage.js → uploadBuffer()` |
+| Delete archivo remoto | ✅ | `storage.js → deleteFile()` |
+| PDFs propuestas en S3 | ✅ | `propuestas/propuesta_{id}.pdf` |
+| PDFs grabaciones en S3 | ✅ | Via `calculadora.js` |
+| Proxy con Content-Disposition | ✅ | Descarga con nombre correcto |
+| Migracion PDFs locales → S3 | ✅ | `migrate-pdfs-to-hetzner.js` |
+
+**Bucket:** `gestavly-uploads`
+**URL publica:** `https://gestavly-uploads.hel1.your-objectstorage.com/`
+**Env:** `HETZNER_REGION`, `HETZNER_ACCESS_KEY`, `HETZNER_SECRET_KEY`, `HETZNER_BUCKET`, `HETZNER_PUBLIC_URL`
+
+### 6. Fichate (Control horario) — FUNCIONAL (BD separada)
+
+| Componente | Estado |
+|---|---|
+| Clock in/out | ✅ |
+| Ausencias | ✅ |
+| Documentos | ✅ |
+| Auto-crear usuario desde CRM | ✅ |
+| Sync roles CRM → Fichate | ✅ |
+
+**BD:** MySQL en IONOS (separada de PostgreSQL principal)
+**Tablas:** `ft_companies`, `ft_users`, `ft_time_records`, `ft_absence_requests`, `ft_documents`, `ft_holidays`, `ft_shifts`, `ft_app_credentials`, `ft_alerts`, `ft_sessions`
+**Env:** `FICHATE_DB_HOST`, `FICHATE_DB_PORT`, `FICHATE_DB_NAME`, `FICHATE_DB_USER`, `FICHATE_DB_PASS`
+
+### 7. Google Sheets (Import polizas) — FUNCIONAL
+- Import desde hojas mensuales (Ene 2025 - Ene 2026)
+- Modulo `importar-polizas.js` en frontend
+
+### 8. Claude AI (Asistente) — FUNCIONAL
+- Chat con Claude desde panel admin
+- `POST /api/assistant/chat`
+- **Env:** `ANTHROPIC_API_KEY`
+
+---
+
+## MODULOS — Estado real
+
+| Modulo | Backend | Frontend | Estado |
+|---|---|---|---|
+| Auth / Login | ✅ `auth.js` | ✅ `app.js` | ✅ Completo |
+| Dashboard | ✅ `dashboard.js` | ✅ `dashboard.js` | ✅ Completo |
+| Personas (ficha contacto) | ✅ `personas.js` | ✅ `personas.js` | ✅ Completo |
+| Pipeline (Kanban deals) | ✅ `pipeline.js` | ✅ `pipeline.js` | ✅ Completo |
+| Tramites (Kanban tickets) | ✅ `tickets.js` | ✅ `tickets.js` | ✅ Completo |
+| Llamada activa | — | ✅ `llamada.js` | ✅ Completo |
+| Calculadora + Propuestas | ✅ `calculadora.js` | ✅ `calculadora.js` | ✅ Completo |
+| Grabaciones (polizas) | ✅ `grabaciones.js` | ✅ `grabaciones.js` | ✅ Completo |
+| Fichate (control horario) | ✅ `fichate.js` | ✅ `fichate.js` | ✅ Completo |
+| Informes | ✅ `informes.js` | ✅ `informes.js` | ✅ Completo |
+| Import Excel/CSV | ✅ `import.js` | ✅ `import.js` | ✅ Completo |
+| Import Polizas (Sheets) | ✅ `polizas.js` | ✅ `importar-polizas.js` | ✅ Completo |
+| Settings (admin) | ✅ `settings.js` | ✅ `settings.js` | ✅ Completo |
+| Asistente IA | ✅ `assistant.js` | ✅ `assistant.js` | ✅ Completo |
+| CloudTalk (telefonia) | ✅ `cloudtalk.js` | ✅ Widget en `index.html` | ✅ Completo |
+| WhatsApp | ✅ `whatsapp.js` | ✅ Botones en ficha | ✅ Funcional |
+| Busqueda global | ✅ `search.js` | ✅ Cmd+K en `index.html` | ✅ Completo |
+| Documentos | ✅ `documentos.js` | ✅ Tab en ficha | ✅ Completo |
+| Historial/Timeline | ✅ `history.js` | ✅ Tab en ficha | ✅ Completo |
+| Tareas | ✅ `tareas.js` | — (dentro de ficha) | ✅ Completo |
+| Etiquetas | ✅ `etiquetas.js` | ✅ En ficha + pipeline | ✅ Completo |
+| Multi-tenant | ✅ `admin.js` + middleware | — | ✅ Base |
+| Polizas (CRUD) | ✅ `polizas.js` | ✅ Tab en ficha | ✅ Completo |
+| Impagos | — | — | ❌ No implementado (sidebar existe) |
+| Usuarios (admin) | — | — | ❌ No implementado (sidebar existe) |
+
+---
+
+## BASE DE DATOS — Todas las tablas (51 total)
+
+### Nucleo (2)
+| Tabla | Columnas clave |
+|---|---|
+| **users** | id, nombre, email, password_hash, rol (superadmin/admin/supervisor/agent/historico), empresa (ADESLAS/DKV/NULL), telefono, activo, tenant_id, pin, shift_id, daily_hours, vacation_days |
+| **tenants** | id, nombre, slug, plan, activo, max_usuarios, max_contactos, pipedrive_token, cloudtalk_key, color_primario |
+
+### Personas y contactos (6)
+| Tabla | Columnas clave |
+|---|---|
+| **personas** | id, pipedrive_person_id (UNIQUE), nombre, dni (UNIQUE), telefono, email, direccion, fecha_nacimiento, nacionalidad, provincia, localidad, codigo_postal, iban, sexo, estado_civil, agente_id, tenant_id |
+| **familiares** | id, persona_id (FK), nombre, dni, fecha_nacimiento, parentesco, telefono, email |
+| **persona_notas** | id, persona_id (FK), user_id (FK), texto, tenant_id |
+| **persona_documentos** | id, persona_id (FK), nombre, categoria, tipo_mime, tamano, ruta, user_id, tenant_id |
+| **persona_etiquetas** | persona_id + etiqueta_id (PK compuesta) |
+| **asegurados** | id, persona_id (FK), deal_id (FK), nombre, dni, fecha_nacimiento, sexo, parentesco, orden, tenant_id |
+
+### Deals y pipeline (5)
+| Tabla | Columnas clave |
+|---|---|
+| **deals** | id, pipedrive_id (UNIQUE), persona_id, pipeline_id, stage_id, agente_id, poliza, producto, compania, prima, fecha_efecto, estado, pipedrive_status (open/won/lost), datos_extra (JSONB), stage_entered_at, estado_grabacion, grabacion_pdf_url, num_solicitud, tipo_poliza, frecuencia_pago, descuento, num_asegurados, iban, observaciones, num_poliza_definitivo, estado_poliza, tenant_id |
+| **deal_etiquetas** | deal_id + etiqueta_id (PK compuesta) |
+| **pipelines** | id, name, pipedrive_id (UNIQUE), color, orden, active, tenant_id |
+| **pipeline_stages** | id, pipeline_id (FK), pipedrive_id, name, orden, color, active, UNIQUE(pipeline_id, name), tenant_id |
+| **etiquetas** | id, tenant_id, nombre, color, origen, UNIQUE(tenant_id, nombre) |
+
+### Polizas y propuestas (3)
+| Tabla | Columnas clave |
+|---|---|
+| **polizas** | id, persona_id, deal_id, agente_id, compania, producto, tipo_producto, n_solicitud, n_poliza, n_grabacion, fecha_efecto, forma_pago, prima_mensual, prima_anual, descuento, n_asegurados, estado (grabado/solicitud_enviada/aceptado/poliza_emitida/rechazado/baja/impago), datos_titular (JSONB), asegurados_data (JSONB), script_grabacion, recibo_mensual, origen_lead |
+| **poliza_documentos** | id, poliza_id (FK), nombre, tipo, filepath |
+| **propuestas** | id, persona_id, deal_id, agente_id, compania, producto, modalidad, zona, num_asegurados, prima_mensual, prima_anual, descuento, asegurados_data (JSONB), desglose (JSONB), pdf_url, pipedrive_synced, tipo_poliza, fecha_validez |
+
+### Tickets/tramites (6)
+| Tabla | Columnas clave |
+|---|---|
+| **tickets** | id, tipo_id, column_id, estado (nuevo/en_gestion/esperando/resuelto/cerrado), descripcion, urgencia, created_by, assigned_to, agente_id, contacto_id, compania, num_poliza, num_solicitud, prioridad, tenant_id, grabacion_pdf_url |
+| **ticket_types** | id, nombre (UNIQUE), activo, orden |
+| **ticket_columns** | id, nombre (UNIQUE), visible_roles (TEXT[]), visible_user_ids (INTEGER[]), activo, orden |
+| **ticket_comments** | id, ticket_id (FK), user_id, mensaje |
+| **notifications** | id, user_id, ticket_id, mensaje, leida |
+| **tramite_comunicaciones** | id, ticket_id (FK), tipo (email/whatsapp/nota/sistema), direccion, destinatario, asunto, mensaje, agente_id |
+
+### Comunicaciones e historial (3)
+| Tabla | Columnas clave |
+|---|---|
+| **contact_history** | id, persona_id (FK), deal_id (FK), tipo (llamada/nota/etapa/email/tramite/propuesta/poliza/facebook), subtipo (contestada/no_contestada/buzon/devolver_llamada/...), titulo, descripcion, metadata (JSONB), agente_id, origen (manual/pipedrive/cloudtalk/facebook/sistema), tenant_id |
+| **whatsapp_messages** | id, persona_id (FK), agente_id, direccion (saliente/entrante), tipo (texto/plantilla/documento/imagen), contenido, media_url, whatsapp_msg_id, estado (enviado/entregado/leido/error), error_detalle |
+| **call_history** | id, persona_id, telefono, direccion, duracion, estado, agente_nombre, agente_email, recording_url, cloudtalk_call_id (UNIQUE), cloudtalk_data (JSONB) |
+
+### Facebook Lead Ads (2)
+| Tabla | Columnas clave |
+|---|---|
+| **fb_form_mappings** | id, form_id (UNIQUE), form_name, pipeline, etapa, agente_id, activo |
+| **fb_leads** | id, leadgen_id (UNIQUE), form_id, ad_id, campaign_id, persona_id, deal_id, raw_data (JSONB) |
+
+### Tareas (1)
+| Tabla | Columnas clave |
+|---|---|
+| **tareas** | id, persona_id, deal_id, agente_id, tipo, titulo, descripcion, fecha_venc, hora_venc, estado (pendiente/hecha/cancelada), pipedrive_activity_id, tenant_id |
+
+### Fichate — IONOS MySQL (10 tablas con prefijo ft_)
+| Tabla | Proposito |
+|---|---|
+| **ft_companies** | Empresas |
+| **ft_users** | Empleados con role, PIN, schedule, cloudtalk_extension |
+| **ft_sessions** | Sesiones activas |
+| **ft_time_records** | Fichajes (clock_in/clock_out) |
+| **ft_absence_requests** | Solicitudes ausencia |
+| **ft_documents** | Documentos empleados |
+| **ft_holidays** | Festivos |
+| **ft_shifts** | Turnos/horarios |
+| **ft_app_credentials** | Credenciales apps |
+| **ft_alerts** | Alertas (retraso, ausencia) |
+
+### Otras (5)
+| Tabla | Proposito |
+|---|---|
+| **import_logs** | Log de importaciones Excel |
+| **pipedrive_sync_logs** | Log de sincronizaciones Pipedrive |
+| **activity_logs** | Log de acciones de usuario |
+| **leads** | Leads simples (legacy) |
+| **impagos** | Impagos de polizas (tabla creada, modulo pendiente) |
+
+---
+
+## Pipelines de Pipedrive (16)
+
+| ID local | Pipeline | Pipedrive ID | Color |
+|---|---|---|---|
+| 1 | ADESLAS | — | #009DDD |
+| 2 | DKV | — | #3b82f6 |
+| 10 | SALUD | — | #10b981 |
+| 11 | DENTAL | — | #f59e0b |
+| 12 | DECESOS | — | #8b5cf6 |
+| 13 | MASCOTAS | — | #06b6d4 |
+| 3 | MASCOTAS (legacy) | — | #06b6d4 |
+| 5 | VIDA CALAHORRA | — | #64748b |
+| 7 | PRUEBA VIDA | — | #64748b |
+| 8 | AAPEX | — | #64748b |
+| 9 | PRUEBAS | — | #64748b |
+| 14 | HOGAR | — | #f59e0b |
+| 15 | AUTO | — | #ef4444 |
+| 16 | NEGOCIOS | — | #3b82f6 |
+| 17 | ELECTRODOMESTICOS | — | #8b5cf6 |
+| 18 | ACCIDENTES | — | #ef4444 |
+
+---
 
 ## Roles y permisos
 
 | Rol | Acceso |
 |---|---|
-| **admin** (Javier) | Todo. empresa=NULL, ve todos los trámites/deals. Config sistema |
-| **supervisor** (Laura=ADESLAS, José Antonio=DKV) | Solo trámites/deals de su empresa |
+| **superadmin** | Todo + multi-tenant |
+| **admin** (Javier) | Todo. empresa=NULL, ve todos los tramites/deals |
+| **supervisor** (Laura=ADESLAS, Jose Antonio=DKV) | Solo tramites/deals de su empresa |
 | **agent** | Solo sus propios tickets + deals de su empresa |
 
 ### Empresa por usuario
-- DKV: Beatriz Sánchez, Raúl Llerena, José Antonio Recio
-- ADESLAS: Todos los demás
+- DKV: Beatriz Sanchez, Raul Llerena, Jose Antonio Recio
+- ADESLAS: Todos los demas
 - Admin: empresa=NULL (ve todo)
-- Empresa se auto-asigna al crear trámites (no se elige manualmente)
 
-## Módulos y estado actual
+---
 
-### Personas (ficha contacto)
-- Tabs: **Historial** (default) | Propuestas | Pólizas | Trámites | Notas
-- Historial: timeline unificada (notas + propuestas + trámites + actividades)
-- Panel izquierdo: datos personales, familiares, seguros, oportunidades
-- Botones header: Llamar, WhatsApp, Email, Editar, Actividad, Grabar
-- Actividad: popup con calendario 09:00-20:00, tipos: Llamada/Cierre/Seguimiento/Gestión
-- Grabar: se abre inline en la ficha (iframe), no navega fuera
-- ID visible: #pipedrive_person_id junto al nombre
+## Variables de entorno (Railway produccion)
 
-### Pipeline (Kanban deals)
-- Grid responsive (auto-fit columns, sin scroll horizontal)
-- Cards con: nombre (14px bold), producto, agente, días en stage, #ID
-- Indicador actividad: verde (< 2h), gris (> 2h), triángulo amarillo (sin llamada), rojo (vencida)
-- Filtro por agente y pipeline (dropdown)
-- Drag & drop entre stages
-- Click card → abre ficha del contacto
+### Base de datos
+```
+DATABASE_URL=postgresql://...   # Railway auto-provisioned
+```
 
-### Trámites (Kanban tickets)
-- 5 columnas: Abierto → En gestión → Esperando → Resuelto → Cerrado
-- Panel lateral para ver/crear trámites (slide-in derecha, 520px)
-- Compañía auto-asignada por empresa del usuario
-- Permisos: admin ve todo con filtro, supervisor solo su empresa, agent solo sus tickets
-- Comunicaciones: email compañía, email cliente, WA cliente, nota interna
-- Desde ficha contacto: botón "+ Nuevo trámite" precarga contacto_id
+### Autenticacion
+```
+JWT_SECRET=...
+```
 
-### Settings
-- Tab Tipos de trámites: CRUD con nombre, orden, activo
-- Tab Columnas/Bandejas: visibilidad por roles y usuarios específicos
-- Tab Usuarios: nombre, email, rol, empresa (ADESLAS/DKV), teléfono, activo
+### Pipedrive
+```
+PIPEDRIVE_API_KEY=70b5bb90941472cb81856a0d9c2dabdb209552e2
+PIPEDRIVE_WEBHOOK_USER=avants
+PIPEDRIVE_WEBHOOK_PASS=crm2026webhook
+```
 
-## Sincronización Pipedrive
+### CloudTalk
+```
+CLOUDTALK_API_KEY=QSCWFZZPEL4MAKOB1MXQ8L6
+CLOUDTALK_API_SECRET=nHqaFm18?VdgN5owUs7LIfKlrk93OTPMi-GJSjph
+```
 
-### Webhooks activos (v1 con Basic Auth)
-- deal.added, deal.updated, deal.deleted
-- person.added, person.updated
-- Auth: Basic avants:crm2026webhook
-- URL: https://avants-crm-production.up.railway.app/api/webhooks/pipedrive
-- Soporta payload v1 ({event, current, previous}) y v2 ({event, data})
+### WhatsApp (Meta)
+```
+WHATSAPP_TOKEN=[temporal — caduca, regenerar en Meta Developers]
+WHATSAPP_PHONE_ID=[Business Account Phone ID]
+WHATSAPP_VERIFY_TOKEN=[token verificacion webhook]
+```
 
-### Handler de webhooks
-- Responde 200 inmediatamente, procesa async
-- Mapea pipeline_id y stage_id de Pipedrive → IDs locales
-- Auto-crea stages faltantes en pipeline_stages
-- Al resolver: status won → poliza_activa, lost → perdido
-- Notifica admins cuando deal se marca como won
+### Hetzner Object Storage
+```
+HETZNER_REGION=hel1
+HETZNER_ACCESS_KEY=4N7A23DVNBC36C5HHXR8
+HETZNER_SECRET_KEY=hKDuINK8cHxfK4WdiOtuO4NIvcPru4terYAml3oY
+HETZNER_BUCKET=gestavly-uploads
+HETZNER_PUBLIC_URL=https://gestavly-uploads.hel1.your-objectstorage.com
+```
 
-### Sync manual (POST /api/pipeline/sync-pipedrive)
-- Recorre todos los deals open de Pipedrive (paginado, 500/batch)
-- Crea stages faltantes automáticamente
-- Crea deals que no existen en CRM
-- Actualiza pipeline_id, stage_id, status de deals existentes
-- Restaura deals wrongly marked lost/won back to open
+### Fichate (IONOS MySQL)
+```
+FICHATE_DB_HOST=db5019447558.hosting-data.io
+FICHATE_DB_PORT=3306
+FICHATE_DB_NAME=dbs15215794
+FICHATE_DB_USER=dbu1786147
+FICHATE_DB_PASS=...
+```
 
-### Cleanup (POST /api/pipeline/cleanup-stale-deals)
-- Limpia deals open en CRM pero lost/won en Pipedrive
-- Consulta la API de Pipedrive deal por deal
-- Actualiza status y pipeline/stage correctamente
+### IA
+```
+ANTHROPIC_API_KEY=...
+```
+
+---
+
+## Datos de produccion (abril 2026)
+- ~155.000 personas importadas de Pipedrive
+- ~108.000 deals (2.800+ open con pipeline asignado)
+- 17 usuarios (2 admin, 3 DKV, resto ADESLAS)
+- 16 pipelines, 54+ stages
+- 7 webhooks Pipedrive activos
+- Webhook CloudTalk activo
+- Webhook WhatsApp activo
+
+---
 
 ## Emails de contacto por empresa
 
-### ADESLAS (trámites y gestiones)
+### ADESLAS
 - GarciaNi@segurcaixaadeslas.es
 - hernandezjja@agente.segurcaixaadeslas.es
 - avants@agente.segurcaixaadeslas.es
 
 ### DKV
-- Agentes DKV: Beatriz Sánchez, Raúl Llerena, José Antonio Recio
-- Al crear trámites, la empresa DKV se asigna automáticamente a estos usuarios
-- José Antonio Recio es supervisor DKV (ve todos los trámites DKV)
+- Agentes: Beatriz Sanchez, Raul Llerena, Jose Antonio Recio (supervisor)
 
-## Reglas de desarrollo — CRÍTICAS
+---
 
-1. **Fixes quirúrgicos** — nunca reescribir lo que funciona
+## Reglas de desarrollo — CRITICAS
+
+1. **Fixes quirurgicos** — nunca reescribir lo que funciona
 2. **Design system intocable** — colores, fuente, radios, iconos SVG
-3. **Iconos SOLO SVG** de avants_icons_v2.html — NUNCA emojis, NUNCA librerías externas
-4. **Comentarios en español, código en inglés**
+3. **Iconos SOLO SVG** de avants_icons_v2.html — NUNCA emojis, NUNCA librerias externas
+4. **Comentarios en espanol, codigo en ingles**
 5. **Fechas DD/MM/YYYY** en interfaces
 6. **API keys en .env** — nunca hardcodeadas
-7. **Toda llamada API pasa por shared/api.js** — nunca fetch directo en módulos
-8. **Cada módulo es independiente** — cargado dinámicamente
-9. **Settings** es el panel de configuración — sin tocar código
-10. **Vanilla JS/CSS** — sin frameworks, sin librerías UI
+7. **Toda llamada API pasa por shared/api.js** — nunca fetch directo en modulos
+8. **Cada modulo es independiente** — cargado dinamicamente
+9. **Settings** es el panel de configuracion — sin tocar codigo
+10. **Vanilla JS/CSS** — sin frameworks, sin librerias UI
+11. **NUNCA borrar datos** — usar estados (activo/inactivo, eliminado) en vez de DELETE
+12. **SIEMPRE paginar Pipedrive API** — limit=500 maximo
+13. **SIEMPRE dedup** — ON CONFLICT DO NOTHING al migrar, cloudtalk_call_id para llamadas
+14. **SIEMPRE cruzar agentes por email** — no por nombre
+15. **Webhook CloudTalk:** formato `event.properties.*` (ticket #495931)
+16. **WhatsApp token temporal** — error 401 = regenerar en Meta Developers
 
 ### Pipeline layout — NUNCA cambiar
 ```css
 .pl-board {
   display: grid;
   grid-template-columns: repeat(var(--col-count,10), 1fr);
-  gap: 8px;
-  padding: 16px 20px 8px;
-  width: 100%;
+  gap: 8px; padding: 16px 20px 8px; width: 100%;
 }
 .pl-col { min-width: 0; }
 ```
-```js
-board.style.setProperty('--col-count', stages.length);
-```
-Las columnas se reparten el ancho disponible automáticamente según el número de columnas del pipeline. NUNCA usar flex para el board, NUNCA usar ancho fijo en columnas, NUNCA añadir overflow-x:auto al board.
+NUNCA usar flex para el board, NUNCA ancho fijo en columnas, NUNCA overflow-x:auto.
 
 ### Pipeline cards — NUNCA cambiar
-- `.pl-card-name`: `white-space:normal` con `-webkit-line-clamp:2` — nombres en 2 líneas máximo
-- `.pl-col`: SIN `overflow:hidden` — permite que las cards se vean correctamente
-- `.pl-col-cards`: definida UNA SOLA VEZ (línea ~67). Si aparece duplicada, eliminar la primera.
+- `.pl-card-name`: `white-space:normal` con `-webkit-line-clamp:2`
+- `.pl-col`: SIN `overflow:hidden`
 
 ### Prohibiciones absolutas
-- **NUNCA usar emojis como iconos en UI** — solo SVGs de avants_icons_v2.html
-- **NUNCA cambiar CSS de Fichate** — usa #ff4a6e como accent propio, no tocar
-- **NUNCA tocar lógica JS de calculadora/grabaciones** — módulos estables, no refactorizar
-- **NUNCA borrar datos** — usar estados (activo/inactivo, abierto/cerrado) en vez de DELETE
-- **NUNCA cambiar el layout CSS del pipeline** — usa CSS Grid dinámico, ver sección anterior
-- **SIEMPRE consultar mockups antes de construir** — ../mockups/ es la fuente de verdad visual
+- **NUNCA usar emojis como iconos en UI** — solo SVGs
+- **NUNCA cambiar CSS de Fichate** — usa #ff4a6e como accent propio
+- **NUNCA tocar logica JS de calculadora/grabaciones** — modulos estables
+- **NUNCA cambiar el layout CSS del pipeline** — CSS Grid dinamico
 
-## Pendientes prioritarios (semana 21-28 marzo 2026)
-1. CloudTalk widget click-to-call desde ficha contacto
-2. Dashboard agente (en diseño — KPIs, llamadas, ventas)
-3. Verificar ficha contacto completa en producción
-4. Módulo Impagos (nuevo)
-5. Email tracker en trámites (envío real desde CRM)
-6. Notificaciones tiempo real (Socket.IO)
-7. PWA móvil responsive
-
-## Mockups aprobados
-- `../mockups/mockup_ficha_contacto.html` — Ficha de contacto 2 columnas
-- `../mockups/mockup_popup_postllamada.html` — Popup post-llamada con calendario
-- `../mockups/avants_icons_v2.html` — Set completo de iconos SVG
-
-## Datos de producción (marzo 2026)
-- 154.895 personas importadas de Pipedrive
-- ~108.000 deals (2.874 open con pipeline asignado)
-- 17 usuarios (2 admin, 3 DKV, resto ADESLAS)
-- 16 pipelines, 54 stages
-- Webhooks activos: 5 (deal CRUD + person CR)
+---
 
 ## Slash commands disponibles
 - `/deploy` — Desplegar a Railway
-- `/check-prod` — Verificar producción
-- `/db-stats` — Métricas de BD
-- `/sync-pipedrive` — Sincronización manual
-- `/pipedrive-audit` — Auditoría de sincronización
+- `/check-prod` — Verificar produccion
+- `/db-stats` — Metricas de BD
+- `/sync-pipedrive` — Sincronizacion manual
+- `/pipedrive-audit` — Auditoria de sincronizacion
 - `/migrate` — Gestionar migraciones
 - `/deal-won` — Flujo deal ganado
 - `/backup-db` — Backup de BD
+
+---
+
+## Pendientes prioritarios (abril 2026)
+1. ❌ Modulo Impagos (sidebar existe, modulo no)
+2. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
+3. ❌ Facebook Lead Ads (tablas existen, flujo no)
+4. ⏳ WhatsApp: plantillas, media, validacion firma
+5. ⏳ Bidireccional completo CRM → Pipedrive
+6. ⏳ Notificaciones tiempo real (Socket.IO)
+7. ⏳ PWA movil responsive
+8. ⏳ Migracion Railway → Hetzner VPS
