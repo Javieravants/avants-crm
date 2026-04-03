@@ -1304,17 +1304,33 @@ const PersonasModule = {
     });
   },
 
+  _normalizePhone(phone) {
+    if (!phone) return '';
+    let digits = phone.replace(/\D/g, '');
+    // Si empieza por 34 y tiene 11 digitos → ya es formato español completo
+    if (digits.startsWith('34') && digits.length === 11) return '+' + digits;
+    // Si tiene 9 digitos → añadir +34
+    if (digits.length === 9) return '+34' + digits;
+    // Si ya tiene + al inicio, devolver tal cual
+    if (phone.startsWith('+')) return phone.replace(/\s/g, '');
+    return '+' + digits;
+  },
+
   _clickToCall(phone, personaId, nombre) {
-    // Abrir el widget CloudTalk con el número precargado
+    const normalized = this._normalizePhone(phone);
+    if (!normalized) return;
+
+    // Intentar abrir el widget CloudTalk con el numero pre-rellenado
     if (typeof CloudTalkWidget !== 'undefined') {
-      CloudTalkWidget.dialNumber(phone);
+      CloudTalkWidget.dialNumber(normalized);
     } else {
-      window.open('tel:' + phone);
+      // Fallback: abrir enlace tel:
+      window.open('tel:' + normalized);
     }
 
-    // Registrar la llamada en el historial del contacto
+    // Registrar la llamada en backend (inicia via POST /v1/calls)
     if (personaId) {
-      API.post('/cloudtalk/call', { phone, persona_id: personaId, persona_nombre: nombre }).catch(() => {});
+      API.post('/cloudtalk/call', { phone: normalized, persona_id: personaId, persona_nombre: nombre }).catch(() => {});
     }
   },
 

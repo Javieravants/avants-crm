@@ -325,13 +325,19 @@
     // Abrir el widget con un número precargado
     dialNumber(phone) {
       if (!this.isOpen) this.toggle();
-      // CloudTalk Phone acepta deep links con número
       const iframe = document.getElementById('ct-phone-iframe');
       if (iframe && this.loaded) {
         try {
+          // Intentar via postMessage (protocolo CloudTalk Phone)
           iframe.contentWindow.postMessage({ type: 'dial', phone }, '*');
-        } catch(e) {}
+          // Tambien intentar formato alternativo que usa el SDK
+          iframe.contentWindow.postMessage({ action: 'call', number: phone }, '*');
+        } catch(e) {
+          console.warn('[CloudTalk] postMessage failed:', e);
+        }
       }
+      // Exponer el numero para uso global (dialer, dashboard, etc.)
+      window._lastDialNumber = phone;
     },
 
     // Indicador de llamada activa

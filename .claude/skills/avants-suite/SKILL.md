@@ -548,12 +548,142 @@ NUNCA usar flex para el board, NUNCA ancho fijo en columnas, NUNCA overflow-x:au
 
 ---
 
+## POWER DIALER — Plan y Arquitectura
+
+### Decision de diseno
+Construimos nuestro propio Power Dialer integrado en Avants Suite (no usamos el nativo de CloudTalk).
+Motivos:
+- Independencia de proveedor CTI (puede conectar con CloudTalk, Twilio, o cualquier otro)
+- Activo propio para vender como SaaS a otras corredurias
+- Control total sobre la logica de prioridad y automatizaciones
+
+### Fases de desarrollo
+
+#### FASE 1 — Power Dialer basico (sin IA)
+Objetivo: las agentes solo hablan, la maquina hace el resto.
+
+**Modulos nuevos a crear:**
+- `campanas` → admin crea campanas, asigna contactos y agentes
+- `dialer` → interfaz de la agente durante la jornada de llamadas
+
+**Cola de llamadas — orden de prioridad:**
+1. ROJO — Inbound perdido al 900 (cliente intento llamar — maxima urgencia)
+2. NARANJA — Seguimientos para cerrar poliza (citas agendadas)
+3. AMARILLO — Leads nuevos del dia asignados a la agente
+4. VERDE — Campana de recuperacion (leads anteriores, ya clientes)
+
+**Distribucion de leads:**
+- Reparto equitativo automatico entre agentes disponibles
+- Si agente ausente o con agenda llena → redistribuir a otra
+- Leads nuevos se reparten por la manana + redistribucion continua
+
+**Flujo de la agente:**
+1. Ficha en Fichate → entra al CRM → pulsa "Iniciar jornada de llamadas"
+2. Sistema marca automaticamente al primero de su cola (via CloudTalk API POST /v1/calls)
+3. Agente habla
+4. Al colgar → popup resultado: Interesado / No contesta / Volver a llamar / No interesado
+5. Segun resultado:
+   - No contesta → WhatsApp automatico → siguiente llamada automatica
+   - Volver a llamar → reagenda con fecha/hora → siguiente
+   - Interesado → agente anota en ficha → siguiente
+   - No interesado → descarta de campana → siguiente
+6. Al quedarse sin cola → sistema activa campana de recuperacion automaticamente
+
+**Click-to-call manual:**
+- Boton llamar en cualquier ficha de contacto
+- Numero se normaliza a +34XXXXXXXXX
+- Abre widget CloudTalk con numero pre-rellenado via postMessage
+- Fallback: muestra numero copiable + link tel:
+- Backend registra inicio de llamada en persona_notas
+
+#### FASE 2 — IA (pendiente, no implementar aun)
+- Transcripcion de llamadas en tiempo real
+- Deteccion de intenciones: "llamame manana", "si me interesa", "no me interesa"
+- WhatsApp con IA: detecta "quiero que me llameis" → sube a primera posicion de cola
+- Sugerencias al agente durante la llamada
+- Analisis de calidad de llamada post-llamada
+
+### Tablas BD necesarias (Fase 1)
+```sql
+-- Campanas
+campanas (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(200) NOT NULL,
+  descripcion TEXT,
+  tipo VARCHAR(30), -- 'leads_nuevos' | 'recuperacion' | 'seguimiento' | 'manual'
+  estado VARCHAR(20) DEFAULT 'activa', -- 'activa' | 'pausada' | 'completada'
+  pipeline_id INTEGER REFERENCES pipelines(id),
+  stage_id INTEGER REFERENCES pipeline_stages(id),
+  prioridad INTEGER DEFAULT 3, -- 1-4
+  created_by INTEGER REFERENCES users(id),
+  tenant_id INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+-- Asignacion agente-campana
+campana_agentes (
+  id SERIAL PRIMARY KEY,
+  campana_id INTEGER REFERENCES campanas(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id),
+  max_llamadas_dia INTEGER DEFAULT 100,
+  activa BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+
+-- Contactos en campana
+campana_contactos (
+  id SERIAL PRIMARY KEY,
+  campana_id INTEGER REFERENCES campanas(id) ON DELETE CASCADE,
+  persona_id INTEGER REFERENCES personas(id),
+  deal_id INTEGER REFERENCES deals(id),
+  user_id INTEGER REFERENCES users(id), -- agente asignado
+  estado VARCHAR(30) DEFAULT 'pendiente',
+    -- 'pendiente' | 'llamando' | 'no_contesta' | 'interesado' | 'descartado' | 'reagendado'
+  prioridad INTEGER DEFAULT 3, -- 1=rojo, 2=naranja, 3=amarillo, 4=verde
+  intentos INTEGER DEFAULT 0,
+  proximo_intento TIMESTAMP, -- para reagendados
+  resultado_ultimo TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+)
+
+-- Sesiones de dialer
+dialer_sesiones (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  inicio TIMESTAMP DEFAULT NOW(),
+  fin TIMESTAMP,
+  llamadas_realizadas INTEGER DEFAULT 0,
+  llamadas_contestadas INTEGER DEFAULT 0,
+  tenant_id INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT NOW()
+)
+```
+
+### Integraciones del Dialer
+- **CloudTalk**: POST /v1/calls para marcar, webhook call_ended para resultado
+- **WhatsApp Business API**: envio automatico si no contesta
+- **Fichate**: verificar que la agente ha fichado antes de iniciar jornada
+- **contact_history**: todas las llamadas quedan en el timeline del contacto
+
+### Estado actual
+- [ ] Tablas BD creadas
+- [ ] Modulo campanas (admin)
+- [ ] Modulo dialer (agente)
+- [ ] Logica de cola y prioridad
+- [ ] Popup resultado post-llamada
+- [ ] WhatsApp automatico en no-contesta
+- [x] Click-to-call manual con numero pre-rellenado
+
+---
+
 ## Pendientes prioritarios (abril 2026)
-1. ❌ Modulo Impagos (sidebar existe, modulo no)
-2. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
-3. ❌ Facebook Lead Ads (tablas existen, flujo no)
-4. ⏳ WhatsApp: plantillas, media, validacion firma
-5. ⏳ Bidireccional completo CRM → Pipedrive
-6. ⏳ Notificaciones tiempo real (Socket.IO)
-7. ⏳ PWA movil responsive
-8. ⏳ Migracion Railway → Hetzner VPS
+1. ⏳ Power Dialer Fase 1 (campanas + dialer + cola)
+2. ❌ Modulo Impagos (sidebar existe, modulo no)
+3. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
+4. ❌ Facebook Lead Ads (tablas existen, flujo no)
+5. ⏳ WhatsApp: plantillas, media, validacion firma
+6. ⏳ Bidireccional completo CRM → Pipedrive
+7. ⏳ Notificaciones tiempo real (Socket.IO)
+8. ⏳ PWA movil responsive
+9. ⏳ Migracion Railway → Hetzner VPS
