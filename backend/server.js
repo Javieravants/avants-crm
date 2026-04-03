@@ -37,6 +37,7 @@ const etiquetasRoutes = require('./routes/etiquetas');
 const informesRoutes = require('./routes/informes');
 const polizasRoutes = require('./routes/polizas');
 const whatsappRoutes = require('./routes/whatsapp');
+const dialerRoutes = require('./routes/dialer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +82,8 @@ app.use('/api/etiquetas', etiquetasRoutes);
 app.use('/api/informes', informesRoutes);
 app.use('/api/polizas', polizasRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/dialer', dialerRoutes);
+app.use('/api/campanas', dialerRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
