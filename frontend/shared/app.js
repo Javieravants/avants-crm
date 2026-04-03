@@ -42,7 +42,7 @@ const App = {
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'llamada',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'llamada',dialer:'llamada',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
@@ -139,6 +139,7 @@ const App = {
       leads: () => PipelineModule.render(),
       pipeline: () => PipelineModule.render(),
       campanas: () => CampanasModule.render(),
+      dialer: () => DialerModule.render(),
       informes: () => InformesModule.render(),
       'importar-polizas': () => ImportarPolizasModule.render(),
       impagos: () => this.renderPlaceholder('Impagos', 'Módulo de impagos — próximamente en Fase 5'),
