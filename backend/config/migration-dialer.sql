@@ -1,5 +1,7 @@
 -- Migracion: Power Dialer — campanas, contactos, sesiones
 -- Fecha: 2026-04-03
+-- REGLA DE ORO: nunca hardcodear nombres de empresa/producto/pipeline.
+-- Todo se referencia por ID. Los nombres se leen de BD en runtime.
 
 -- Campanas de llamadas
 CREATE TABLE IF NOT EXISTS campanas (
@@ -9,8 +11,6 @@ CREATE TABLE IF NOT EXISTS campanas (
   descripcion      TEXT,
   tipo             VARCHAR(50) DEFAULT 'manual',
   estado           VARCHAR(50) DEFAULT 'activa',
-  pipeline_id      INTEGER REFERENCES pipelines(id),
-  stage_id         INTEGER REFERENCES pipeline_stages(id),
   prioridad        INTEGER DEFAULT 3,
   hora_inicio      TIME DEFAULT '09:00',
   hora_fin         TIME DEFAULT '21:00',
@@ -26,6 +26,19 @@ CREATE TABLE IF NOT EXISTS campanas (
 CREATE INDEX IF NOT EXISTS idx_campanas_tenant ON campanas(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_campanas_estado ON campanas(estado);
 
+-- Pipelines origen de una campana (N:M)
+-- Una campana puede alimentarse de multiples pipelines/stages
+CREATE TABLE IF NOT EXISTS campana_pipelines_origen (
+  id               SERIAL PRIMARY KEY,
+  campana_id       INTEGER NOT NULL REFERENCES campanas(id) ON DELETE CASCADE,
+  pipeline_id      INTEGER NOT NULL REFERENCES pipelines(id),
+  stage_ids        INTEGER[] DEFAULT '{}',
+  created_at       TIMESTAMP DEFAULT NOW(),
+  UNIQUE(campana_id, pipeline_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campana_pipelines_campana ON campana_pipelines_origen(campana_id);
+
 -- Agentes asignados a campana
 CREATE TABLE IF NOT EXISTS campana_agentes (
   id               SERIAL PRIMARY KEY,
@@ -33,6 +46,8 @@ CREATE TABLE IF NOT EXISTS campana_agentes (
   user_id          INTEGER NOT NULL REFERENCES users(id),
   max_llamadas_dia INTEGER DEFAULT 100,
   activa           BOOLEAN DEFAULT true,
+  pipelines_permitidos INTEGER[] DEFAULT '{}',
+  orden_pipelines      INTEGER[] DEFAULT '{}',
   created_at       TIMESTAMP DEFAULT NOW(),
   UNIQUE(campana_id, user_id)
 );
@@ -78,3 +93,18 @@ CREATE TABLE IF NOT EXISTS dialer_sesiones (
 
 CREATE INDEX IF NOT EXISTS idx_dialer_sesiones_user ON dialer_sesiones(user_id);
 CREATE INDEX IF NOT EXISTS idx_dialer_sesiones_activa ON dialer_sesiones(user_id, fin) WHERE fin IS NULL;
+
+-- Migracion retrocompatible: eliminar columnas legacy si existen
+ALTER TABLE campanas DROP COLUMN IF EXISTS pipeline_id;
+ALTER TABLE campanas DROP COLUMN IF EXISTS stage_id;
+
+-- Migracion retrocompatible: anadir columnas a campana_agentes si faltan
+DO $$ BEGIN
+  ALTER TABLE campana_agentes ADD COLUMN pipelines_permitidos INTEGER[] DEFAULT '{}';
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE campana_agentes ADD COLUMN orden_pipelines INTEGER[] DEFAULT '{}';
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;

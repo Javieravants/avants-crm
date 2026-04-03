@@ -512,6 +512,7 @@ ANTHROPIC_API_KEY=...
 14. **SIEMPRE cruzar agentes por email** — no por nombre
 15. **Webhook CloudTalk:** formato `event.properties.*` (ticket #495931)
 16. **WhatsApp token temporal** — error 401 = regenerar en Meta Developers
+17. **SaaS-ready / Regla de oro** — NUNCA hardcodear nombres de empresa, producto o pipeline en logica de negocio. Ni 'adeslas', ni 'dkv', ni ningun pipeline_id fijo. Todo se referencia por ID dinamico. Los nombres se leen de BD en runtime. Un cliente nuevo solo necesita configurar sus pipelines y agentes en Settings.
 
 ### Pipeline layout — NUNCA cambiar
 ```css
@@ -603,62 +604,19 @@ Objetivo: las agentes solo hablan, la maquina hace el resto.
 - Sugerencias al agente durante la llamada
 - Analisis de calidad de llamada post-llamada
 
-### Tablas BD necesarias (Fase 1)
+### Tablas BD (Fase 1) — 5 tablas
 ```sql
--- Campanas
-campanas (
-  id SERIAL PRIMARY KEY,
-  nombre VARCHAR(200) NOT NULL,
-  descripcion TEXT,
-  tipo VARCHAR(30), -- 'leads_nuevos' | 'recuperacion' | 'seguimiento' | 'manual'
-  estado VARCHAR(20) DEFAULT 'activa', -- 'activa' | 'pausada' | 'completada'
-  pipeline_id INTEGER REFERENCES pipelines(id),
-  stage_id INTEGER REFERENCES pipeline_stages(id),
-  prioridad INTEGER DEFAULT 3, -- 1-4
-  created_by INTEGER REFERENCES users(id),
-  tenant_id INTEGER DEFAULT 1,
-  created_at TIMESTAMP DEFAULT NOW()
-)
-
--- Asignacion agente-campana
-campana_agentes (
-  id SERIAL PRIMARY KEY,
-  campana_id INTEGER REFERENCES campanas(id) ON DELETE CASCADE,
-  user_id INTEGER REFERENCES users(id),
-  max_llamadas_dia INTEGER DEFAULT 100,
-  activa BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW()
-)
-
--- Contactos en campana
-campana_contactos (
-  id SERIAL PRIMARY KEY,
-  campana_id INTEGER REFERENCES campanas(id) ON DELETE CASCADE,
-  persona_id INTEGER REFERENCES personas(id),
-  deal_id INTEGER REFERENCES deals(id),
-  user_id INTEGER REFERENCES users(id), -- agente asignado
-  estado VARCHAR(30) DEFAULT 'pendiente',
-    -- 'pendiente' | 'llamando' | 'no_contesta' | 'interesado' | 'descartado' | 'reagendado'
-  prioridad INTEGER DEFAULT 3, -- 1=rojo, 2=naranja, 3=amarillo, 4=verde
-  intentos INTEGER DEFAULT 0,
-  proximo_intento TIMESTAMP, -- para reagendados
-  resultado_ultimo TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-)
-
--- Sesiones de dialer
-dialer_sesiones (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  inicio TIMESTAMP DEFAULT NOW(),
-  fin TIMESTAMP,
-  llamadas_realizadas INTEGER DEFAULT 0,
-  llamadas_contestadas INTEGER DEFAULT 0,
-  tenant_id INTEGER DEFAULT 1,
-  created_at TIMESTAMP DEFAULT NOW()
-)
+campanas                   — config campana (horarios, max_intentos, WA auto)
+campana_pipelines_origen   — N:M pipelines/stages origen (configurable desde UI)
+campana_agentes            — agente-campana con pipelines_permitidos[] y orden_pipelines[]
+campana_contactos          — cola con prioridad, intentos, reagendado
+dialer_sesiones            — tracking sesion agente (inicio/fin, stats)
 ```
+
+**REGLA DE ORO:** campanas NO tienen pipeline_id/stage_id directo.
+Los pipelines origen se configuran en campana_pipelines_origen (N:M).
+Cada agente hereda todos los pipelines de la campana por defecto,
+pero se puede restringir/reordenar individualmente via pipelines_permitidos[].
 
 ### Integraciones del Dialer
 - **CloudTalk**: POST /v1/calls para marcar, webhook call_ended para resultado
@@ -667,12 +625,12 @@ dialer_sesiones (
 - **contact_history**: todas las llamadas quedan en el timeline del contacto
 
 ### Estado actual
-- [ ] Tablas BD creadas
-- [ ] Modulo campanas (admin)
-- [ ] Modulo dialer (agente)
-- [ ] Logica de cola y prioridad
+- [x] Tablas BD creadas (migration-dialer.sql)
+- [x] Backend completo (routes/dialer.js — 17 endpoints)
+- [ ] Modulo campanas.js (admin — frontend)
+- [ ] Modulo dialer.js (agente — frontend)
 - [ ] Popup resultado post-llamada
-- [ ] WhatsApp automatico en no-contesta
+- [x] WhatsApp automatico en no-contesta
 - [x] Click-to-call manual con numero pre-rellenado
 
 ---

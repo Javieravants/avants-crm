@@ -1,3 +1,6 @@
+// Power Dialer — Avants Suite
+// REGLA DE ORO: nunca hardcodear nombres de empresa/producto/pipeline.
+// Todo se referencia por ID. Los nombres se leen de BD en runtime.
 const express = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
@@ -16,7 +19,6 @@ function isAdmin(req) {
   return ['admin', 'superadmin'].includes(req.user.rol);
 }
 
-// Normalizar telefono a +34XXXXXXXXX
 function normalizarTelefono(tel) {
   const digits = (tel || '').replace(/\D/g, '');
   if (digits.startsWith('34') && digits.length === 11) return '+' + digits;
@@ -24,7 +26,6 @@ function normalizarTelefono(tel) {
   return '+' + digits;
 }
 
-// CloudTalk API auth
 function ctAuth() {
   const key = process.env.CLOUDTALK_API_KEY;
   const secret = process.env.CLOUDTALK_API_SECRET;
@@ -32,7 +33,7 @@ function ctAuth() {
   return 'Basic ' + Buffer.from(key + ':' + secret).toString('base64');
 }
 
-// Query cola ordenada por prioridad para un agente
+// Cola ordenada por prioridad para un agente
 async function queryCola(userId, tenantId, limit = 1) {
   const { rows } = await pool.query(`
     SELECT cc.id, cc.campana_id, cc.persona_id, cc.deal_id, cc.prioridad,
@@ -41,11 +42,15 @@ async function queryCola(userId, tenantId, limit = 1) {
            c.hora_inicio, c.hora_fin, c.dias_semana,
            p.nombre as persona_nombre, p.telefono, p.email as persona_email,
            p.dni, p.provincia,
-           d.producto, d.compania, d.pipedrive_id as deal_pipedrive_id
+           d.producto, d.compania, d.pipeline_id,
+           d.pipedrive_id as deal_pipedrive_id,
+           pl.name as pipeline_nombre, ps.name as stage_nombre
     FROM campana_contactos cc
     JOIN campanas c ON c.id = cc.campana_id AND c.estado = 'activa'
     JOIN personas p ON p.id = cc.persona_id
     LEFT JOIN deals d ON d.id = cc.deal_id
+    LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
+    LEFT JOIN pipeline_stages ps ON ps.id = d.stage_id
     WHERE cc.user_id = $1
       AND cc.tenant_id = $2
       AND cc.estado IN ('pendiente', 'no_contesta', 'reagendado')
@@ -57,7 +62,6 @@ async function queryCola(userId, tenantId, limit = 1) {
   return rows;
 }
 
-// Obtener ultimas interacciones de un contacto
 async function ultimasInteracciones(personaId, limit = 3) {
   const { rows } = await pool.query(`
     SELECT tipo, subtipo, titulo, descripcion, agente_id, created_at,
@@ -74,23 +78,19 @@ async function ultimasInteracciones(personaId, limit = 3) {
 // COLA DEL AGENTE
 // ══════════════════════════════════════════════
 
-// GET /api/dialer/cola/:userId — cola de contactos para un agente
+// GET /api/dialer/cola/:userId
 router.get('/cola/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    // Agentes solo pueden ver su propia cola, admins cualquiera
     if (!isAdmin(req) && req.user.id !== userId) {
       return res.status(403).json({ error: 'Sin permisos' });
     }
 
     const rows = await queryCola(userId, req.tenantId, 50);
-
-    // Enriquecer con ultimas interacciones
     for (const row of rows) {
       row.historial = await ultimasInteracciones(row.persona_id);
     }
 
-    // Stats rapidas
     const statsR = await pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE cc.estado IN ('pendiente','no_contesta','reagendado')
@@ -113,7 +113,7 @@ router.get('/cola/:userId', async (req, res) => {
   }
 });
 
-// GET /api/dialer/siguiente/:userId — siguiente contacto sin marcarlo
+// GET /api/dialer/siguiente/:userId
 router.get('/siguiente/:userId', async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
@@ -122,7 +122,6 @@ router.get('/siguiente/:userId', async (req, res) => {
     }
     const rows = await queryCola(userId, req.tenantId, 1);
     if (!rows.length) return res.json({ siguiente: null });
-
     rows[0].historial = await ultimasInteracciones(rows[0].persona_id);
     res.json({ siguiente: rows[0] });
   } catch (e) {
@@ -139,18 +138,16 @@ router.post('/sesion/iniciar', async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Cerrar sesion anterior si quedó abierta
+    // Cerrar sesion anterior si quedo abierta
     await pool.query(
       `UPDATE dialer_sesiones SET fin = NOW()
        WHERE user_id = $1 AND fin IS NULL`, [userId]);
 
-    // Crear nueva sesion
     const sesion = await pool.query(
       `INSERT INTO dialer_sesiones (user_id, tenant_id)
        VALUES ($1, $2) RETURNING *`,
       [userId, req.tenantId]);
 
-    // Obtener primera llamada de la cola
     const cola = await queryCola(userId, req.tenantId, 1);
     let siguiente = null;
     if (cola.length) {
@@ -158,7 +155,6 @@ router.post('/sesion/iniciar', async (req, res) => {
       siguiente = cola[0];
     }
 
-    // Stats de la cola
     const statsR = await pool.query(`
       SELECT COUNT(*) as total
       FROM campana_contactos cc
@@ -181,16 +177,11 @@ router.post('/sesion/iniciar', async (req, res) => {
 // POST /api/dialer/sesion/finalizar
 router.post('/sesion/finalizar', async (req, res) => {
   try {
-    const userId = req.user.id;
     const sesion = await pool.query(
       `UPDATE dialer_sesiones SET fin = NOW()
        WHERE user_id = $1 AND fin IS NULL
-       RETURNING *`, [userId]);
-
-    if (!sesion.rows.length) {
-      return res.json({ ok: true, sesion: null });
-    }
-    res.json({ ok: true, sesion: sesion.rows[0] });
+       RETURNING *`, [req.user.id]);
+    res.json({ ok: true, sesion: sesion.rows[0] || null });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -200,13 +191,12 @@ router.post('/sesion/finalizar', async (req, res) => {
 // LLAMADAS
 // ══════════════════════════════════════════════
 
-// POST /api/dialer/llamar/:campanaContactoId — iniciar llamada
+// POST /api/dialer/llamar/:campanaContactoId
 router.post('/llamar/:campanaContactoId', async (req, res) => {
   try {
     const ccId = parseInt(req.params.campanaContactoId);
     const userId = req.user.id;
 
-    // Obtener contacto + persona
     const ccR = await pool.query(`
       SELECT cc.*, p.telefono, p.nombre as persona_nombre
       FROM campana_contactos cc
@@ -227,12 +217,11 @@ router.post('/llamar/:campanaContactoId', async (req, res) => {
            ultimo_intento = NOW(), updated_at = NOW()
        WHERE id = $1`, [ccId]);
 
-    // Iniciar llamada real via CloudTalk POST /v1/calls
+    // Iniciar llamada via CloudTalk (CTI abstraccion — hoy CloudTalk, manana otro)
     let callResult = null;
     const auth = ctAuth();
     if (auth) {
       try {
-        // Buscar agente en CloudTalk por email
         const agentsR = await fetch('https://api.cloudtalk.io/api/agents.json', {
           headers: { Authorization: auth }
         });
@@ -255,11 +244,11 @@ router.post('/llamar/:campanaContactoId', async (req, res) => {
           callResult = { fallback: true, phone, reason: 'agent_not_found' };
         }
       } catch (ctErr) {
-        console.error('[Dialer] CloudTalk error:', ctErr.message);
+        console.error('[Dialer] CTI error:', ctErr.message);
         callResult = { fallback: true, phone };
       }
     } else {
-      callResult = { fallback: true, phone, reason: 'cloudtalk_not_configured' };
+      callResult = { fallback: true, phone, reason: 'cti_not_configured' };
     }
 
     // Actualizar stats sesion
@@ -273,7 +262,7 @@ router.post('/llamar/:campanaContactoId', async (req, res) => {
   }
 });
 
-// POST /api/dialer/llamada/resultado — registrar resultado y obtener siguiente
+// POST /api/dialer/llamada/resultado
 router.post('/llamada/resultado', async (req, res) => {
   try {
     const { campana_contacto_id, resultado, nota, proximo_intento } = req.body;
@@ -288,7 +277,6 @@ router.post('/llamada/resultado', async (req, res) => {
       return res.status(400).json({ error: 'Resultado invalido: ' + resultado });
     }
 
-    // Obtener contacto actual con datos de campana
     const ccR = await pool.query(`
       SELECT cc.*, c.whatsapp_si_no_contesta, p.telefono, p.nombre as persona_nombre
       FROM campana_contactos cc
@@ -302,18 +290,18 @@ router.post('/llamada/resultado', async (req, res) => {
     }
     const cc = ccR.rows[0];
 
-    // Actualizar estado del contacto
+    // Actualizar estado
     const nuevoEstado = resultado === 'reagendado' ? 'reagendado' : resultado;
-    const proximoIntentoTs = resultado === 'reagendado' && proximo_intento
+    const proximoTs = resultado === 'reagendado' && proximo_intento
       ? new Date(proximo_intento) : null;
 
     await pool.query(
       `UPDATE campana_contactos
        SET estado = $1, resultado_ultimo = $2, proximo_intento = $3, updated_at = NOW()
        WHERE id = $4`,
-      [nuevoEstado, nota || resultado, proximoIntentoTs, campana_contacto_id]);
+      [nuevoEstado, nota || resultado, proximoTs, campana_contacto_id]);
 
-    // Si no_contesta y la campana tiene WA automatico → enviar WhatsApp
+    // WhatsApp automatico si no contesta
     if (resultado === 'no_contesta' && cc.whatsapp_si_no_contesta && cc.telefono) {
       try {
         const waToken = process.env.WHATSAPP_TOKEN;
@@ -332,20 +320,19 @@ router.post('/llamada/resultado', async (req, res) => {
             }),
           });
 
-          // Registrar en whatsapp_messages
           await pool.query(
             `INSERT INTO whatsapp_messages (persona_id, agente_id, direccion, tipo, contenido)
              VALUES ($1, $2, 'saliente', 'texto', $3)`,
             [cc.persona_id, userId, mensaje]);
 
-          console.log(`[Dialer] WA auto enviado a ${cc.persona_nombre} (${waNum})`);
+          console.log(`[Dialer] WA auto enviado a persona #${cc.persona_id}`);
         }
       } catch (waErr) {
         console.error('[Dialer] WhatsApp auto error:', waErr.message);
       }
     }
 
-    // Actualizar stats de sesion si fue contestada
+    // Stats sesion
     if (['interesado', 'completado'].includes(resultado)) {
       await pool.query(
         `UPDATE dialer_sesiones SET llamadas_contestadas = llamadas_contestadas + 1
@@ -354,9 +341,8 @@ router.post('/llamada/resultado', async (req, res) => {
 
     // Registrar en contact_history
     const { registrarEvento } = require('./history');
-    const tipoHistorial = resultado === 'no_contesta' ? 'no_contestada' : 'contestada';
     registrarEvento(cc.persona_id, 'llamada', {
-      subtipo: tipoHistorial,
+      subtipo: resultado === 'no_contesta' ? 'no_contestada' : 'contestada',
       titulo: `Dialer: ${resultado}`,
       descripcion: nota || `Resultado: ${resultado}`,
       agente_id: userId,
@@ -364,7 +350,7 @@ router.post('/llamada/resultado', async (req, res) => {
       metadata: { dialer: true, campana_id: cc.campana_id, resultado }
     });
 
-    // Obtener siguiente contacto
+    // Siguiente contacto
     const cola = await queryCola(userId, req.tenantId, 1);
     let siguiente = null;
     if (cola.length) {
@@ -402,12 +388,20 @@ router.get('/', requireRole('admin', 'supervisor'), async (req, res) => {
       ORDER BY c.created_at DESC
     `, [req.tenantId]);
 
-    // Calcular tasa de contacto
-    rows.forEach(r => {
+    // Enriquecer con pipelines origen
+    for (const r of rows) {
+      const plR = await pool.query(`
+        SELECT cpo.pipeline_id, cpo.stage_ids, pl.name as pipeline_nombre, pl.color
+        FROM campana_pipelines_origen cpo
+        JOIN pipelines pl ON pl.id = cpo.pipeline_id
+        WHERE cpo.campana_id = $1
+      `, [r.id]);
+      r.pipelines_origen = plR.rows;
+
       const total = parseInt(r.total_contactos) || 0;
       const contactados = parseInt(r.completados) + parseInt(r.descartados);
       r.tasa_contacto = total > 0 ? Math.round((contactados / total) * 100) : 0;
-    });
+    }
 
     res.json({ campanas: rows });
   } catch (e) {
@@ -419,28 +413,42 @@ router.get('/', requireRole('admin', 'supervisor'), async (req, res) => {
 router.post('/', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const {
-      nombre, descripcion, tipo, pipeline_id, stage_id, prioridad,
+      nombre, descripcion, tipo, prioridad,
       hora_inicio, hora_fin, dias_semana, max_intentos,
-      minutos_entre_intentos, whatsapp_si_no_contesta, whatsapp_template_id
+      minutos_entre_intentos, whatsapp_si_no_contesta, whatsapp_template_id,
+      pipelines_origen // Array de { pipeline_id, stage_ids? }
     } = req.body;
 
     if (!nombre) return res.status(400).json({ error: 'Nombre obligatorio' });
 
     const r = await pool.query(`
       INSERT INTO campanas
-        (tenant_id, nombre, descripcion, tipo, pipeline_id, stage_id, prioridad,
+        (tenant_id, nombre, descripcion, tipo, prioridad,
          hora_inicio, hora_fin, dias_semana, max_intentos,
          minutos_entre_intentos, whatsapp_si_no_contesta, whatsapp_template_id, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       RETURNING *`,
       [req.tenantId, nombre, descripcion || null, tipo || 'manual',
-       pipeline_id || null, stage_id || null, prioridad || 3,
+       prioridad || 3,
        hora_inicio || '09:00', hora_fin || '21:00', dias_semana || '1,2,3,4,5',
        max_intentos || 3, minutos_entre_intentos || 60,
        whatsapp_si_no_contesta !== false, whatsapp_template_id || null,
        req.user.id]);
 
-    res.status(201).json(r.rows[0]);
+    const campana = r.rows[0];
+
+    // Insertar pipelines origen si se proporcionan
+    if (Array.isArray(pipelines_origen)) {
+      for (const po of pipelines_origen) {
+        await pool.query(`
+          INSERT INTO campana_pipelines_origen (campana_id, pipeline_id, stage_ids)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (campana_id, pipeline_id) DO UPDATE SET stage_ids = $3
+        `, [campana.id, po.pipeline_id, po.stage_ids || []]);
+      }
+    }
+
+    res.status(201).json(campana);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -454,7 +462,7 @@ router.put('/:id', requireRole('admin', 'supervisor'), async (req, res) => {
     let idx = 1;
 
     const editables = [
-      'nombre', 'descripcion', 'tipo', 'estado', 'pipeline_id', 'stage_id',
+      'nombre', 'descripcion', 'tipo', 'estado',
       'prioridad', 'hora_inicio', 'hora_fin', 'dias_semana', 'max_intentos',
       'minutos_entre_intentos', 'whatsapp_si_no_contesta', 'whatsapp_template_id'
     ];
@@ -466,40 +474,135 @@ router.put('/:id', requireRole('admin', 'supervisor'), async (req, res) => {
         idx++;
       }
     }
-    if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
+    if (!fields.length && !req.body.pipelines_origen) {
+      return res.status(400).json({ error: 'Nada que actualizar' });
+    }
 
-    vals.push(req.params.id, req.tenantId);
-    const r = await pool.query(
-      `UPDATE campanas SET ${fields.join(', ')} WHERE id = $${idx} AND tenant_id = $${idx + 1} RETURNING *`,
-      vals);
+    if (fields.length) {
+      vals.push(req.params.id, req.tenantId);
+      await pool.query(
+        `UPDATE campanas SET ${fields.join(', ')} WHERE id = $${idx} AND tenant_id = $${idx + 1}`,
+        vals);
+    }
 
-    if (!r.rows.length) return res.status(404).json({ error: 'Campana no encontrada' });
-    res.json(r.rows[0]);
+    // Actualizar pipelines origen si se proporcionan
+    if (Array.isArray(req.body.pipelines_origen)) {
+      // Borrar los que no estan en la nueva lista
+      const newPipelineIds = req.body.pipelines_origen.map(p => p.pipeline_id);
+      if (newPipelineIds.length) {
+        await pool.query(
+          `DELETE FROM campana_pipelines_origen
+           WHERE campana_id = $1 AND pipeline_id != ALL($2)`,
+          [req.params.id, newPipelineIds]);
+      } else {
+        await pool.query(
+          'DELETE FROM campana_pipelines_origen WHERE campana_id = $1',
+          [req.params.id]);
+      }
+      // Upsert los nuevos
+      for (const po of req.body.pipelines_origen) {
+        await pool.query(`
+          INSERT INTO campana_pipelines_origen (campana_id, pipeline_id, stage_ids)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (campana_id, pipeline_id) DO UPDATE SET stage_ids = $3
+        `, [req.params.id, po.pipeline_id, po.stage_ids || []]);
+      }
+    }
+
+    const campana = await pool.query(
+      'SELECT * FROM campanas WHERE id = $1', [req.params.id]);
+    if (!campana.rows.length) return res.status(404).json({ error: 'Campana no encontrada' });
+    res.json(campana.rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
+// ══════════════════════════════════════════════
+// PIPELINES ORIGEN
+// ══════════════════════════════════════════════
+
+// GET /api/campanas/:id/pipelines — listar pipelines origen de campana
+router.get('/:id/pipelines', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT cpo.*, pl.name as pipeline_nombre, pl.color as pipeline_color
+      FROM campana_pipelines_origen cpo
+      JOIN pipelines pl ON pl.id = cpo.pipeline_id
+      WHERE cpo.campana_id = $1
+    `, [req.params.id]);
+    res.json({ pipelines: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/campanas/:id/pipelines — reemplazar pipelines origen
+router.put('/:id/pipelines', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const { pipelines } = req.body; // Array de { pipeline_id, stage_ids? }
+    if (!Array.isArray(pipelines)) {
+      return res.status(400).json({ error: 'Se espera array de pipelines' });
+    }
+
+    await pool.query('DELETE FROM campana_pipelines_origen WHERE campana_id = $1', [req.params.id]);
+
+    for (const po of pipelines) {
+      await pool.query(`
+        INSERT INTO campana_pipelines_origen (campana_id, pipeline_id, stage_ids)
+        VALUES ($1, $2, $3)
+      `, [req.params.id, po.pipeline_id, po.stage_ids || []]);
+    }
+
+    const { rows } = await pool.query(`
+      SELECT cpo.*, pl.name as pipeline_nombre, pl.color as pipeline_color
+      FROM campana_pipelines_origen cpo
+      JOIN pipelines pl ON pl.id = cpo.pipeline_id
+      WHERE cpo.campana_id = $1
+    `, [req.params.id]);
+
+    res.json({ pipelines: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════
+// AGENTES
+// ══════════════════════════════════════════════
+
 // POST /api/campanas/:id/agentes — asignar agentes
 router.post('/:id/agentes', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const campanaId = parseInt(req.params.id);
-    const { agentes } = req.body; // Array de { user_id, max_llamadas_dia? }
+    const { agentes } = req.body; // Array de { user_id, max_llamadas_dia?, pipelines_permitidos?, orden_pipelines? }
 
     if (!Array.isArray(agentes)) {
       return res.status(400).json({ error: 'Se espera array de agentes' });
     }
 
+    // Obtener pipelines de la campana para herencia por defecto
+    const poR = await pool.query(
+      'SELECT pipeline_id FROM campana_pipelines_origen WHERE campana_id = $1',
+      [campanaId]);
+    const defaultPipelines = poR.rows.map(r => r.pipeline_id);
+
     for (const ag of agentes) {
+      const pipPermitidos = ag.pipelines_permitidos || defaultPipelines;
+      const pipOrden = ag.orden_pipelines || pipPermitidos;
+
       await pool.query(`
-        INSERT INTO campana_agentes (campana_id, user_id, max_llamadas_dia)
-        VALUES ($1, $2, $3)
+        INSERT INTO campana_agentes
+          (campana_id, user_id, max_llamadas_dia, pipelines_permitidos, orden_pipelines)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (campana_id, user_id) DO UPDATE SET
-          activa = true, max_llamadas_dia = EXCLUDED.max_llamadas_dia
-      `, [campanaId, ag.user_id, ag.max_llamadas_dia || 100]);
+          activa = true,
+          max_llamadas_dia = EXCLUDED.max_llamadas_dia,
+          pipelines_permitidos = EXCLUDED.pipelines_permitidos,
+          orden_pipelines = EXCLUDED.orden_pipelines
+      `, [campanaId, ag.user_id, ag.max_llamadas_dia || 100, pipPermitidos, pipOrden]);
     }
 
-    // Devolver lista actualizada
     const { rows } = await pool.query(`
       SELECT ca.*, u.nombre as agente_nombre, u.email as agente_email
       FROM campana_agentes ca
@@ -513,7 +616,38 @@ router.post('/:id/agentes', requireRole('admin', 'supervisor'), async (req, res)
   }
 });
 
-// DELETE /api/campanas/:id/agentes/:userId — quitar agente
+// PUT /api/campanas/:id/agentes/:userId — actualizar config de agente
+router.put('/:id/agentes/:userId', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const { max_llamadas_dia, pipelines_permitidos, orden_pipelines } = req.body;
+    const fields = [];
+    const vals = [];
+    let idx = 1;
+
+    if (max_llamadas_dia !== undefined) {
+      fields.push(`max_llamadas_dia = $${idx}`); vals.push(max_llamadas_dia); idx++;
+    }
+    if (pipelines_permitidos !== undefined) {
+      fields.push(`pipelines_permitidos = $${idx}`); vals.push(pipelines_permitidos); idx++;
+    }
+    if (orden_pipelines !== undefined) {
+      fields.push(`orden_pipelines = $${idx}`); vals.push(orden_pipelines); idx++;
+    }
+    if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
+
+    vals.push(req.params.id, req.params.userId);
+    await pool.query(
+      `UPDATE campana_agentes SET ${fields.join(', ')}
+       WHERE campana_id = $${idx} AND user_id = $${idx + 1}`,
+      vals);
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/campanas/:id/agentes/:userId — quitar agente (soft)
 router.delete('/:id/agentes/:userId', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     await pool.query(
@@ -526,19 +660,43 @@ router.delete('/:id/agentes/:userId', requireRole('admin', 'supervisor'), async 
   }
 });
 
-// POST /api/campanas/:id/contactos/importar — importar desde pipeline/stage
+// GET /api/campanas/:id/agentes — listar agentes de campana con stats
+router.get('/:id/agentes', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT ca.*, u.nombre as agente_nombre, u.email as agente_email,
+        (SELECT COUNT(*) FROM campana_contactos
+         WHERE campana_id = ca.campana_id AND user_id = ca.user_id
+           AND estado IN ('pendiente','no_contesta','reagendado')) as pendientes,
+        (SELECT COUNT(*) FROM campana_contactos
+         WHERE campana_id = ca.campana_id AND user_id = ca.user_id
+           AND estado IN ('completado','interesado')) as completados
+      FROM campana_agentes ca
+      JOIN users u ON u.id = ca.user_id
+      WHERE ca.campana_id = $1 AND ca.activa = true
+    `, [req.params.id]);
+    res.json({ agentes: rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════
+// IMPORTAR CONTACTOS
+// ══════════════════════════════════════════════
+
+// POST /api/campanas/:id/contactos/importar
+// Importa desde los pipelines/stages configurados en campana_pipelines_origen
+// O desde pipeline_id/stage_id del body (override manual)
 router.post('/:id/contactos/importar', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const campanaId = parseInt(req.params.id);
-    const { pipeline_id, stage_id } = req.body;
 
-    // Verificar campana existe
     const campR = await pool.query(
       'SELECT * FROM campanas WHERE id = $1 AND tenant_id = $2',
       [campanaId, req.tenantId]);
     if (!campR.rows.length) return res.status(404).json({ error: 'Campana no encontrada' });
 
-    // Obtener agentes activos de la campana
     const agentesR = await pool.query(
       `SELECT user_id FROM campana_agentes
        WHERE campana_id = $1 AND activa = true`, [campanaId]);
@@ -547,44 +705,72 @@ router.post('/:id/contactos/importar', requireRole('admin', 'supervisor'), async
       return res.status(400).json({ error: 'Asigna agentes a la campana antes de importar' });
     }
 
-    // Obtener deals del pipeline/stage
-    let dealsSql = `
-      SELECT d.id as deal_id, d.persona_id, d.agente_id
-      FROM deals d
-      WHERE d.pipedrive_status = 'open' AND d.persona_id IS NOT NULL`;
-    const params = [];
-    let idx = 1;
-
-    if (pipeline_id) {
-      dealsSql += ` AND d.pipeline_id = $${idx}`;
-      params.push(pipeline_id);
-      idx++;
-    }
-    if (stage_id) {
-      dealsSql += ` AND d.stage_id = $${idx}`;
-      params.push(stage_id);
-      idx++;
+    // Determinar pipelines origen: body override o campana_pipelines_origen
+    let pipelineFilters = [];
+    if (req.body.pipeline_id) {
+      // Override manual desde UI
+      pipelineFilters = [{ pipeline_id: req.body.pipeline_id, stage_ids: req.body.stage_id ? [req.body.stage_id] : [] }];
+    } else {
+      // Leer de la configuracion de la campana
+      const poR = await pool.query(
+        'SELECT pipeline_id, stage_ids FROM campana_pipelines_origen WHERE campana_id = $1',
+        [campanaId]);
+      pipelineFilters = poR.rows;
     }
 
-    const dealsR = await pool.query(dealsSql, params);
+    if (!pipelineFilters.length) {
+      return res.status(400).json({ error: 'Configura pipelines origen en la campana antes de importar' });
+    }
+
+    // Construir query dinamica para obtener deals de todos los pipelines origen
+    let allDeals = [];
+    for (const pf of pipelineFilters) {
+      let sql = `
+        SELECT d.id as deal_id, d.persona_id, d.agente_id
+        FROM deals d
+        WHERE d.pipedrive_status = 'open'
+          AND d.persona_id IS NOT NULL
+          AND d.pipeline_id = $1`;
+      const params = [pf.pipeline_id];
+
+      // Filtrar por stages si se especificaron
+      const stageIds = pf.stage_ids || [];
+      if (stageIds.length > 0) {
+        sql += ` AND d.stage_id = ANY($2)`;
+        params.push(stageIds);
+      }
+
+      const dealsR = await pool.query(sql, params);
+      allDeals = allDeals.concat(dealsR.rows);
+    }
+
+    // Dedup por persona_id (un contacto puede estar en multiples pipelines)
+    const seenPersonas = new Set();
+    const uniqueDeals = [];
+    for (const d of allDeals) {
+      if (!seenPersonas.has(d.persona_id)) {
+        seenPersonas.add(d.persona_id);
+        uniqueDeals.push(d);
+      }
+    }
 
     // Filtrar contactos ya en esta campana
     const existR = await pool.query(
       'SELECT persona_id FROM campana_contactos WHERE campana_id = $1',
       [campanaId]);
     const existentes = new Set(existR.rows.map(r => r.persona_id));
-    const nuevos = dealsR.rows.filter(d => !existentes.has(d.persona_id));
+    const nuevos = uniqueDeals.filter(d => !existentes.has(d.persona_id));
 
     if (!nuevos.length) {
       return res.json({ importados: 0, mensaje: 'Todos los contactos ya estan en la campana' });
     }
 
-    // Calcular prioridad para cada contacto
+    // Importar con calculo de prioridad y reparto round-robin
     let importados = 0;
     let agIdx = 0;
 
     for (const deal of nuevos) {
-      // Verificar si tiene inbound perdido en ultimas 48h → prioridad 1
+      // Prioridad 1 si tiene inbound perdido reciente
       const inboundR = await pool.query(`
         SELECT id FROM contact_history
         WHERE persona_id = $1 AND subtipo = 'devolver_llamada'
@@ -595,8 +781,7 @@ router.post('/:id/contactos/importar', requireRole('admin', 'supervisor'), async
       let prioridad = campR.rows[0].prioridad || 3;
       if (inboundR.rows.length) prioridad = 1;
 
-      // Reparto round-robin equitativo entre agentes
-      // Si el deal tiene agente y ese agente esta en la campana, asignarselo
+      // Reparto: respetar agente del deal si esta en la campana
       let assignedAgent = agentes[agIdx % agentes.length];
       if (deal.agente_id && agentes.includes(deal.agente_id)) {
         assignedAgent = deal.agente_id;
@@ -614,16 +799,24 @@ router.post('/:id/contactos/importar', requireRole('admin', 'supervisor'), async
       importados++;
     }
 
-    res.json({ importados, total_deals: dealsR.rows.length, ya_existentes: existentes.size });
+    res.json({
+      importados,
+      total_encontrados: uniqueDeals.length,
+      ya_existentes: existentes.size,
+      pipelines_consultados: pipelineFilters.length
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// POST /api/dialer/reparto/automatico — redistribuir leads
+// ══════════════════════════════════════════════
+// REPARTO AUTOMATICO
+// ══════════════════════════════════════════════
+
+// POST /api/dialer/reparto/automatico
 router.post('/reparto/automatico', requireRole('admin'), async (req, res) => {
   try {
-    // Obtener contactos sin agente o con agente inactivo
     const sinAgente = await pool.query(`
       SELECT cc.id, cc.campana_id
       FROM campana_contactos cc
@@ -635,7 +828,6 @@ router.post('/reparto/automatico', requireRole('admin'), async (req, res) => {
     `, [req.tenantId]);
 
     let reasignados = 0;
-    // Agrupar por campana
     const porCampana = {};
     sinAgente.rows.forEach(r => {
       if (!porCampana[r.campana_id]) porCampana[r.campana_id] = [];
@@ -660,27 +852,6 @@ router.post('/reparto/automatico', requireRole('admin'), async (req, res) => {
     }
 
     res.json({ ok: true, reasignados });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// GET /api/campanas/:id/agentes — listar agentes de campana
-router.get('/:id/agentes', async (req, res) => {
-  try {
-    const { rows } = await pool.query(`
-      SELECT ca.*, u.nombre as agente_nombre, u.email as agente_email,
-        (SELECT COUNT(*) FROM campana_contactos
-         WHERE campana_id = ca.campana_id AND user_id = ca.user_id
-           AND estado IN ('pendiente','no_contesta','reagendado')) as pendientes,
-        (SELECT COUNT(*) FROM campana_contactos
-         WHERE campana_id = ca.campana_id AND user_id = ca.user_id
-           AND estado IN ('completado','interesado')) as completados
-      FROM campana_agentes ca
-      JOIN users u ON u.id = ca.user_id
-      WHERE ca.campana_id = $1 AND ca.activa = true
-    `, [req.params.id]);
-    res.json({ agentes: rows });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
