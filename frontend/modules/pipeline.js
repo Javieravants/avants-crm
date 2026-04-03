@@ -355,7 +355,15 @@ const PipelineModule = {
       ? `App.navigate('personas');setTimeout(()=>PersonasModule.showFicha(${d.persona_id}),300)`
       : `PipelineModule.showDealModal(${d.id})`;
 
-    return `<div class="pl-card ${actClass}" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
+    // Badge devolver llamada (inbound + talking_time=0 en últimas 48h)
+    const devolverBadge = d.llamadas_devolver > 0
+      ? `<div style="padding:4px 8px;background:#fef2f2;border-top:1px solid #fca5a5;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;font-weight:800;color:#dc2626;animation:ct-pulse-red 1.5s infinite;">Devolver llamada</span>
+          <span style="font-size:10px;color:#991b1b;margin-left:auto;">${d.llamadas_devolver}x</span>
+        </div>`
+      : '';
+
+    return `<div class="pl-card ${actClass}${d.llamadas_devolver > 0 ? ' act-red' : ''}" draggable="true" data-deal-id="${d.id}" onclick="${onclick}" data-agent-id="${d.agente_id||''}">
       <div class="pl-card-body">
         <div class="pl-card-row1">
           <div class="pl-card-dot ${isTri?'tri':''}" ${!isTri?`style="background:${dotColor}"`:''} title="${isTri?'Sin llamada agendada':''}"></div>
@@ -364,6 +372,7 @@ const PipelineModule = {
         </div>
         ${sub ? `<div class="pl-card-sub">${this.esc(sub)}</div>` : ''}
       </div>
+      ${devolverBadge}
       <div class="pl-card-foot">
         <div class="pl-card-ag" style="background:hsl(${this.hu(d.agente_id||d.id)},55%,55%)">${d.agente_nombre ? this.ini(d.agente_nombre) : '—'}</div>
         <div class="pl-card-agname">${d.agente_nombre ? d.agente_nombre.split(' ')[0] : 'Sin agente'}</div>

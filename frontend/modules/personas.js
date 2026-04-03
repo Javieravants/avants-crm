@@ -1180,12 +1180,17 @@ const PersonasModule = {
       : diffH < 24 ? 'hace ' + Math.round(diffH) + 'h'
       : d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
 
-    // Badge estado llamada + dirección
+    // Badge estado llamada + dirección + devolver llamada
     let badge = '';
     if (h.tipo === 'llamada' && h.subtipo) {
-      const badgeCfg = { contestada: { bg:'#d1fae5', color:'#065f46', label:'Contestada' }, no_contestada: { bg:'#fee2e2', color:'#991b1b', label:'No contestó' }, buzon: { bg:'#f3f4f6', color:'#6b7280', label:'Buzón' } };
-      const bc = badgeCfg[h.subtipo] || badgeCfg.buzon;
-      badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${bc.bg};color:${bc.color};">${bc.label}</span>`;
+      if (h.subtipo === 'devolver_llamada') {
+        // Caso crítico: cliente intentó llamar al 900 — prioridad alta
+        badge = `<span style="padding:3px 10px;border-radius:10px;font-size:11px;font-weight:800;background:#ef4444;color:#fff;animation:ct-pulse-red 1.5s infinite;">Devolver llamada</span>`;
+      } else {
+        const badgeCfg = { contestada: { bg:'#d1fae5', color:'#065f46', label:'Contestada' }, no_contestada: { bg:'#fee2e2', color:'#991b1b', label:'No contestó' }, buzon: { bg:'#f3f4f6', color:'#6b7280', label:'Buzón' } };
+        const bc = badgeCfg[h.subtipo] || badgeCfg.buzon;
+        badge = `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${bc.bg};color:${bc.color};">${bc.label}</span>`;
+      }
       if (meta.direction === 'inbound') {
         badge += `<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#e6f6fd;color:#0284c7;">↓ Entrante</span>`;
       } else if (meta.direction === 'outbound') {
@@ -1218,6 +1223,15 @@ const PersonasModule = {
         ${meta.puntos ? `<div style="font-size:11px;color:#7c3aed;margin-top:2px;">${meta.puntos} pts campaña</div>` : ''}`;
     } else if (desc) {
       body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(desc.substring(0, 300))}${desc.length > 300 ? '...' : ''}</div>`;
+    }
+
+    // Botón devolver llamada — caso de negocio crítico
+    if (h.tipo === 'llamada' && h.subtipo === 'devolver_llamada' && meta.direction === 'inbound') {
+      const callPhone = (h.descripcion || '').split('→').pop()?.trim() || '';
+      body += `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;">
+        <span style="font-size:13px;font-weight:700;color:#991b1b;">Cliente intentó llamar al 900</span>
+        ${callPhone ? `<button onclick="event.stopPropagation();PersonasModule._clickToCall('${callPhone}',${h.persona_id},'')" style="margin-left:auto;padding:6px 14px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;">${_ICO.llamada(14,'#fff')} Devolver</button>` : ''}
+      </div>`;
     }
 
     // Grabación de CloudTalk

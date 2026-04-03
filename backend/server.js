@@ -84,26 +84,29 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
+// Formato confirmado por soporte (ticket #495931): event.properties.*
 app.post('/webhook/cloudtalk', async (req, res) => {
-  res.json({ success: true }); // Responder rápido
+  res.json({ success: true }); // Responder rápido a CloudTalk
 
   try {
     const body = req.body;
-    // Campos confirmados por Paula (CloudTalk Support)
-    const call_id        = body.call_id || body.id;
-    const talking_time   = body.talking_time   ?? body.duration_seconds ?? 0; // seg reales de conversación
-    const waiting_time   = body.waiting_time   ?? 0;
-    const status         = body.status;
-    const direction      = body.direction;        // inbound | outbound
-    const recording_url  = body.recording_url;
-    const tags           = body.tags || [];
-    const external_number = body.external_number || body.contact_phone || '';
-    const internal_number = body.internal_number || '';
+    // Formato real: event.properties.* — fallback a campos planos por compatibilidad
+    const props = body.event?.properties || body;
 
-    // Datos del agente — preferir objeto agent, fallback a campos planos
-    const agentEmail = body.agent?.email || body.agent_email || '';
-    const agentName  = body.agent ? `${body.agent.first_name || ''} ${body.agent.last_name || ''}`.trim()
-                                  : (body.agent_name || '');
+    const call_id         = props.call_id || props.id || body.call_id;
+    const talking_time    = parseInt(props.talking_time ?? props.duration_seconds ?? 0, 10);
+    const waiting_time    = parseInt(props.waiting_time ?? 0, 10);
+    const direction       = props.direction || body.direction;   // inbound | outbound
+    const recording_url   = props.recording_url;
+    const tags            = props.tags || [];
+    const external_number = props.external_number || body.contact_phone || '';
+    const internal_number = props.internal_number || '';
+
+    // Agente: event.properties.agent.* o campos planos
+    const agent = props.agent || {};
+    const agentEmail = agent.email || body.agent_email || '';
+    const agentName  = [agent.first_name, agent.last_name].filter(Boolean).join(' ')
+                       || body.agent_name || '';
 
     const phone = external_number.replace(/\s/g, '');
     if (!phone) return;
@@ -111,7 +114,7 @@ app.post('/webhook/cloudtalk', async (req, res) => {
     const phoneDigits = phone.replace(/\D/g, '').slice(-9);
     if (!phoneDigits || phoneDigits.length < 9) return;
 
-    // Dedup: si ya existe este call_id, ignorar
+    // Dedup por cloudtalk_call_id
     if (call_id) {
       const dup = await pool.query(
         `SELECT id FROM contact_history WHERE metadata->>'cloudtalk_call_id' = $1 LIMIT 1`,
@@ -138,32 +141,50 @@ app.post('/webhook/cloudtalk', async (req, res) => {
     }
     const tenantId = persona.rows[0]?.tenant_id || 1;
 
-    // Buscar agente por email (fiable) o fallback a nombre
+    // Buscar agente por email (fiable) → fallback a nombre
     let agenteId = null;
     if (agentEmail) {
       const agR = await pool.query(
-        'SELECT id FROM users WHERE email = $1 AND activo = true LIMIT 1',
-        [agentEmail]
-      );
+        'SELECT id FROM users WHERE email = $1 AND activo = true LIMIT 1', [agentEmail]);
       agenteId = agR.rows[0]?.id || null;
     }
     if (!agenteId && agentName) {
       const agR = await pool.query(
         'SELECT id FROM users WHERE nombre ILIKE $1 AND activo = true LIMIT 1',
-        ['%' + agentName.split(' ')[0] + '%']
-      );
+        ['%' + agentName.split(' ')[0] + '%']);
       agenteId = agR.rows[0]?.id || null;
     }
 
-    // Determinar subtipo
-    const contestada = talking_time > 0 || status === 'answered';
-    const subtipo = contestada ? 'contestada'
-      : status === 'voicemail' ? 'buzon' : 'no_contestada';
+    // ── Clasificación según tabla de negocio ──
+    // | direction | talking_time | subtipo             | prioridad          |
+    // |-----------|-------------|---------------------|--------------------|
+    // | outbound  | > 0         | contestada          | normal             |
+    // | outbound  | = 0         | no_contestada       | media              |
+    // | inbound   | = 0         | devolver_llamada    | ALTA               |
+    // | inbound   | > 0         | contestada          | normal             |
+    const isInbound = direction === 'inbound';
+    let subtipo, prioridad;
 
-    const dirLabel = direction === 'inbound' ? 'entrante' : direction === 'outbound' ? 'saliente' : '';
-    const titulo = `Llamada ${dirLabel} ${subtipo === 'contestada' ? 'contestada' : 'no contestada'}`.replace(/\s+/g, ' ').trim();
+    if (talking_time > 0) {
+      subtipo = 'contestada';
+      prioridad = 'normal';
+    } else if (isInbound) {
+      subtipo = 'devolver_llamada';
+      prioridad = 'alta';
+    } else {
+      subtipo = 'no_contestada';
+      prioridad = 'media';
+    }
 
-    // Registrar en contact_history con tenant_id
+    const dirLabel = isInbound ? 'entrante' : direction === 'outbound' ? 'saliente' : '';
+    const tituloMap = {
+      contestada:       `Llamada ${dirLabel} contestada`,
+      no_contestada:    `Llamada ${dirLabel} no contestada`,
+      devolver_llamada: 'Cliente intentó llamar — devolver llamada',
+    };
+    const titulo = tituloMap[subtipo].replace(/\s+/g, ' ').trim();
+
+    // Registrar en contact_history
     await pool.query(
       `INSERT INTO contact_history
          (persona_id, tipo, subtipo, titulo, descripcion, metadata, agente_id, origen, tenant_id)
@@ -177,8 +198,8 @@ app.post('/webhook/cloudtalk', async (req, res) => {
           cloudtalk_call_id: call_id,
           duracion_seg: talking_time,
           waiting_time_seg: waiting_time,
-          resultado: status,
           direction: direction || null,
+          prioridad,
           grabacion_url: recording_url || null,
           extension: internal_number || null,
           tags: tags.length ? tags : undefined,
@@ -188,7 +209,7 @@ app.post('/webhook/cloudtalk', async (req, res) => {
       ]
     );
 
-    console.log(`[CloudTalk] Llamada registrada: ${phone} → persona #${personaId} (${subtipo}, ${dirLabel || 'sin dirección'}, ${talking_time}s)`);
+    console.log(`[CloudTalk] ${subtipo}: ${phone} → persona #${personaId} (${dirLabel}, ${talking_time}s, prioridad: ${prioridad})`);
   } catch (err) {
     console.error('[CloudTalk] Webhook error:', err.message);
   }

@@ -146,7 +146,10 @@ router.get('/:id/board', async (req, res) => {
         d.datos_extra->>'next_activity_date' as next_activity_date,
         p.nombre as persona_nombre, p.telefono as persona_telefono, p.email as persona_email,
         u.nombre as agente_nombre,
-        EXTRACT(DAY FROM NOW() - COALESCE(d.stage_entered_at, d.created_at))::int as days_in_stage
+        EXTRACT(DAY FROM NOW() - COALESCE(d.stage_entered_at, d.created_at))::int as days_in_stage,
+        (SELECT COUNT(*) FROM contact_history ch
+         WHERE ch.persona_id = d.persona_id AND ch.subtipo = 'devolver_llamada'
+           AND ch.created_at > NOW() - INTERVAL '48 hours')::int as llamadas_devolver
       FROM deals d
       LEFT JOIN personas p ON d.persona_id = p.id
       LEFT JOIN users u ON d.agente_id = u.id
