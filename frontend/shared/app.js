@@ -187,6 +187,25 @@ const App = {
     } catch {
       // Silenciar
     }
+    // Dialer: badge rojo con llamadas urgentes (prioridad 1)
+    try {
+      const user = Auth.getUser();
+      if (user) {
+        const dData = await API.get(`/dialer/cola/${user.id}`);
+        const urgentes = parseInt(dData.stats?.urgentes) || 0;
+        const dBadge = document.getElementById('badge-dialer');
+        if (dBadge) {
+          if (urgentes > 0) {
+            dBadge.textContent = urgentes;
+            dBadge.classList.remove('hidden');
+          } else {
+            dBadge.classList.add('hidden');
+          }
+        }
+      }
+    } catch {
+      // Silenciar
+    }
   },
 
   // === Dashboard ===

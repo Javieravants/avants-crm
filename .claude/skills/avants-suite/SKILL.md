@@ -625,18 +625,22 @@ pero se puede restringir/reordenar individualmente via pipelines_permitidos[].
 - **contact_history**: todas las llamadas quedan en el timeline del contacto
 
 ### Estado actual
-- [x] Tablas BD creadas (migration-dialer.sql)
+- [x] Tablas BD creadas (migration-dialer.sql — 5 tablas)
 - [x] Backend completo (routes/dialer.js — 17 endpoints)
-- [ ] Modulo campanas.js (admin — frontend)
-- [ ] Modulo dialer.js (agente — frontend)
-- [ ] Popup resultado post-llamada
+- [x] Modulo campanas.js (admin — config campanas, pipelines origen, agentes)
+- [x] Modulo dialer.js (agente — idle/active/calling/result/done/paused)
+- [x] Popup resultado post-llamada (overlay obligatorio, 4 opciones + reagendar)
 - [x] WhatsApp automatico en no-contesta
 - [x] Click-to-call manual con numero pre-rellenado
+- [x] Badge rojo sidebar con llamadas urgentes (polling 30s)
+- [x] Polling 3s para detectar call_ended automatico
+
+**Fase 1 completada: 03/04/2026**
 
 ---
 
 ## Pendientes prioritarios (abril 2026)
-1. ⏳ Power Dialer Fase 1 (campanas + dialer + cola)
+1. ✅ Power Dialer Fase 1 — completado 03/04/2026
 2. ❌ Modulo Impagos (sidebar existe, modulo no)
 3. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
 4. ❌ Facebook Lead Ads (tablas existen, flujo no)
