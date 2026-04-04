@@ -22,18 +22,29 @@ async function generarBriefing(personaId) {
   const client = getClient();
 
   // Obtener TODOS los datos relevantes del contacto
-  const [personaR, polizasR, dealsR, llamadasR, notasR, propuestasR] = await Promise.all([
+  const [personaR, polizasR, dealsWonR, dealsOpenR, llamadasR, notasR, propuestasR] = await Promise.all([
     pool.query(`SELECT nombre, telefono, email, dni, provincia, fecha_nacimiento
                 FROM personas WHERE id = $1`, [personaId]),
+    // Fuente 1: tabla polizas (grabadas)
     pool.query(`SELECT compania, producto, prima_mensual, estado, n_poliza
                 FROM polizas WHERE persona_id = $1
                 AND estado NOT IN ('baja','rechazado') ORDER BY created_at DESC LIMIT 10`, [personaId]),
-    pool.query(`SELECT d.producto, d.compania, d.pipedrive_status, pl.name as pipeline,
-                       ps.name as etapa
+    // Fuente 2: deals ganados (won) — seguros via pipeline
+    pool.query(`SELECT d.producto, d.compania, d.prima,
+                       pl.name as pipeline
+                FROM deals d
+                LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
+                WHERE d.persona_id = $1
+                  AND (d.pipedrive_status = 'won' OR d.estado = 'poliza_activa')
+                ORDER BY d.created_at DESC LIMIT 10`, [personaId]),
+    // Deals en curso (no ganados, no perdidos)
+    pool.query(`SELECT d.producto, d.compania, d.pipedrive_status,
+                       pl.name as pipeline, ps.name as etapa
                 FROM deals d
                 LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
                 LEFT JOIN pipeline_stages ps ON ps.id = d.stage_id
-                WHERE d.persona_id = $1 AND d.pipedrive_status != 'lost'
+                WHERE d.persona_id = $1
+                  AND d.pipedrive_status = 'open'
                 ORDER BY d.created_at DESC LIMIT 5`, [personaId]),
     pool.query(`SELECT subtipo, titulo, metadata->>'duracion_seg' as duracion, created_at
                 FROM contact_history
@@ -51,22 +62,41 @@ async function generarBriefing(personaId) {
   if (!personaR.rows.length) return null;
   const persona = personaR.rows[0];
   const polizas = polizasR.rows;
-  const deals = dealsR.rows;
+  const dealsWon = dealsWonR.rows;
+  const dealsOpen = dealsOpenR.rows;
   const llamadas = llamadasR.rows;
   const notas = notasR.rows;
   const propuestas = propuestasR.rows;
+
+  // Combinar seguros de ambas fuentes (polizas + deals won) sin duplicar
+  const seguros = [];
+  const productosVistos = new Set();
+  polizas.forEach(p => {
+    const key = `${p.compania}-${p.producto}`.toLowerCase();
+    if (!productosVistos.has(key)) {
+      productosVistos.add(key);
+      seguros.push({ compania: p.compania, producto: p.producto, prima: parseFloat(p.prima_mensual) || 0, fuente: 'poliza' });
+    }
+  });
+  dealsWon.forEach(d => {
+    const key = `${d.compania || d.pipeline}-${d.producto}`.toLowerCase();
+    if (!productosVistos.has(key)) {
+      productosVistos.add(key);
+      seguros.push({ compania: d.compania || d.pipeline, producto: d.producto, prima: parseFloat(d.prima) || 0, fuente: 'deal_won' });
+    }
+  });
 
   // Calcular edad
   const edad = persona.fecha_nacimiento
     ? Math.floor((Date.now() - new Date(persona.fecha_nacimiento).getTime()) / 31557600000)
     : null;
 
-  // Total prima mensual
-  const totalPrima = polizas.reduce((sum, p) => sum + (parseFloat(p.prima_mensual) || 0), 0);
+  // Total prima mensual de todas las fuentes
+  const totalPrima = seguros.reduce((sum, s) => sum + s.prima, 0);
 
   // Construir contexto estructurado
   const contexto = {
-    persona, edad, polizas, deals, llamadas, notas, propuestas, totalPrima,
+    persona, edad, seguros, dealsOpen, llamadas, notas, propuestas, totalPrima,
   };
 
   if (!client) return _briefingBasico(contexto);
@@ -78,16 +108,16 @@ CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provinc
 
 `;
 
-  if (polizas.length) {
-    prompt += `SEGUROS YA CONTRATADOS (${polizas.length} seguros, ${totalPrima.toFixed(2)} EUR/mes total):\n`;
-    polizas.forEach(p => { prompt += `- ${p.compania} ${p.producto}: ${p.prima_mensual || '?'} EUR/mes (${p.estado})\n`; });
+  if (seguros.length) {
+    prompt += `SEGUROS CONTRATADOS (${seguros.length} seguros, ${totalPrima.toFixed(2)} EUR/mes total):\n`;
+    seguros.forEach(s => { prompt += `- ${s.compania} ${s.producto}: ${s.prima ? s.prima.toFixed(2) : '?'} EUR/mes\n`; });
   } else {
-    prompt += 'SEGUROS: Ninguno contratado\n';
+    prompt += 'SEGUROS CONTRATADOS: Ninguno — primera venta\n';
   }
 
-  if (deals.length) {
+  if (dealsOpen.length) {
     prompt += '\nDEALS EN CURSO:\n';
-    deals.forEach(d => { prompt += `- ${d.pipeline || ''} → ${d.etapa || ''}: ${d.producto || d.compania || ''} (${d.pipedrive_status})\n`; });
+    dealsOpen.forEach(d => { prompt += `- ${d.pipeline || ''} → ${d.etapa || ''}: ${d.producto || d.compania || ''}\n`; });
   }
 
   if (llamadas.length) {
@@ -150,12 +180,12 @@ Responde SOLO con JSON valido (sin markdown, sin backticks):
 
 // Briefing basico sin IA
 function _briefingBasico(ctx) {
-  const { polizas, propuestas, llamadas, totalPrima } = ctx;
+  const { seguros, propuestas, llamadas, totalPrima } = ctx;
   const lastCall = llamadas[0];
 
   return {
-    tactica: polizas.length
-      ? `Cliente con ${polizas.length} seguros (${totalPrima.toFixed(0)} EUR/mes) — buscar venta cruzada`
+    tactica: seguros.length
+      ? `Cliente con ${seguros.length} seguros (${totalPrima.toFixed(0)} EUR/mes) — buscar venta cruzada`
       : 'Lead sin seguros — primera venta',
     tono: 'cercano',
     oportunidad: propuestas.length
@@ -164,7 +194,7 @@ function _briefingBasico(ctx) {
     evitar: [],
     resumen: [
       lastCall ? `Ultima llamada: ${lastCall.subtipo || '?'} (${_fmtRelative(lastCall.created_at)})` : 'Sin llamadas previas',
-      polizas.length ? `Seguros: ${polizas.map(p => p.producto).join(', ')}` : 'Sin seguros',
+      seguros.length ? `Seguros: ${seguros.map(s => s.producto).join(', ')}` : 'Sin seguros',
     ].join('. '),
     productos_recomendados: [],
   };
