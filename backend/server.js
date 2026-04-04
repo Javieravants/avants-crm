@@ -90,6 +90,7 @@ app.use('/api/polizas', polizasRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/dialer', dialerRoutes);
 app.use('/api/campanas', dialerRoutes);
+app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)

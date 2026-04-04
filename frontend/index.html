@@ -133,21 +133,28 @@
     </main>
   </div>
 
-  <!-- CloudTalk Phone Widget — flotante global -->
-  <div id="ct-phone-widget">
-    <button id="ct-phone-btn" onclick="CloudTalkWidget.toggle()" title="Teléfono CloudTalk">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
-    </button>
-    <div id="ct-phone-panel" class="ct-panel-hidden">
-      <div id="ct-phone-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
-        <span>CloudTalk Phone</span>
-        <button onclick="CloudTalkWidget.toggle()" title="Cerrar">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
+  <!-- Gestavly Phone — marcador flotante propio -->
+  <div id="gv-phone" class="gv-phone-hidden">
+    <div id="gv-phone-head">
+      <div id="gv-phone-contact">
+        <div id="gv-phone-name">—</div>
+        <div id="gv-phone-number">—</div>
       </div>
-      <iframe id="ct-phone-iframe" src="about:blank" allow="microphone; camera; autoplay"></iframe>
+      <button id="gv-phone-close" onclick="GVPhone.hide()" title="Minimizar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
     </div>
+    <div id="gv-phone-body">
+      <div id="gv-phone-status">Listo</div>
+      <div id="gv-phone-timer" class="gv-hidden">0:00</div>
+    </div>
+    <div id="gv-phone-actions">
+      <button id="gv-phone-hangup" class="gv-hidden" onclick="GVPhone.hangup()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
+        Colgar
+      </button>
+    </div>
+    <div id="gv-phone-provider" title="Proveedor CTI"></div>
   </div>
 
   <style>
@@ -169,45 +176,26 @@
     .sr-item-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
     .sr-empty{padding:24px;text-align:center;color:#94a3b8;font-size:13px;}
 
-    #ct-phone-widget{position:fixed;bottom:20px;right:20px;z-index:900;}
-    #ct-phone-btn{
-      width:52px;height:52px;border-radius:50%;border:none;
-      background:#009DDD;color:#fff;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;
-      box-shadow:0 4px 16px rgba(0,157,221,.4);
-      transition:all .2s;
-    }
-    #ct-phone-btn:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(0,157,221,.5);}
-    #ct-phone-btn.active{animation:ct-pulse 1.5s ease infinite;}
-    @keyframes ct-pulse{0%,100%{box-shadow:0 4px 16px rgba(16,185,129,.4);background:#10b981;}50%{box-shadow:0 4px 24px rgba(16,185,129,.6);background:#059669;}}
+    /* Gestavly Phone — marcador flotante */
+    #gv-phone{position:fixed;bottom:20px;right:20px;z-index:900;width:280px;background:#0f172a;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;font-family:inherit;transition:all .25s ease;transform-origin:bottom right;}
+    #gv-phone.gv-phone-hidden{opacity:0;transform:scale(.9) translateY(10px);pointer-events:none;}
+    #gv-phone-head{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 8px;}
+    #gv-phone-name{font-size:14px;font-weight:700;color:#fff;}
+    #gv-phone-number{font-size:12px;color:#94a3b8;margin-top:2px;letter-spacing:.5px;}
+    #gv-phone-close{background:none;border:none;color:#64748b;cursor:pointer;padding:2px;border-radius:4px;}
+    #gv-phone-close:hover{color:#fff;background:rgba(255,255,255,.1);}
+    #gv-phone-body{padding:8px 16px 12px;text-align:center;}
+    #gv-phone-status{font-size:12px;color:#94a3b8;font-weight:500;}
+    #gv-phone-status.dialing{color:#f59e0b;}
+    #gv-phone-status.connected{color:#10b981;}
+    #gv-phone-timer{font-size:28px;font-weight:800;color:#fff;margin-top:4px;font-variant-numeric:tabular-nums;}
+    #gv-phone-actions{padding:0 16px 14px;display:flex;justify-content:center;}
+    #gv-phone-hangup{display:flex;align-items:center;gap:6px;padding:10px 24px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+    #gv-phone-hangup:hover{background:#dc2626;}
+    #gv-phone-provider{padding:6px 16px;font-size:10px;color:#475569;border-top:1px solid #1e293b;text-align:center;}
+    .gv-hidden{display:none!important;}
+    @keyframes gv-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
     @keyframes ct-pulse-red{0%,100%{opacity:1;}50%{opacity:.7;}}
-    #ct-phone-panel{
-      position:absolute;bottom:62px;right:0;
-      width:360px;height:600px;
-      background:#fff;border-radius:12px;
-      box-shadow:0 8px 32px rgba(0,0,0,.16);
-      overflow:hidden;display:flex;flex-direction:column;
-      transition:all .25s ease;
-      transform-origin:bottom right;
-    }
-    #ct-phone-panel.ct-panel-hidden{
-      opacity:0;transform:scale(.9);pointer-events:none;
-    }
-    #ct-phone-header{
-      display:flex;align-items:center;gap:8px;
-      padding:10px 14px;background:#f4f6f9;
-      border-bottom:1px solid #e8edf2;
-      font-size:13px;font-weight:600;color:#475569;
-      flex-shrink:0;
-    }
-    #ct-phone-header button{
-      margin-left:auto;background:none;border:none;
-      cursor:pointer;color:#94a3b8;padding:2px;border-radius:4px;
-    }
-    #ct-phone-header button:hover{color:#0f172a;background:#e8edf2;}
-    #ct-phone-iframe{
-      flex:1;border:none;width:100%;
-    }
   </style>
 
   <script>
@@ -306,49 +294,139 @@
     setTimeout(() => { document.getElementById('global-search-results').style.display = 'none'; }, 200);
   });
 
-  // CloudTalk Phone Widget — controlador global
-  const CloudTalkWidget = {
-    isOpen: false,
-    loaded: false,
+  // Gestavly Phone — marcador flotante propio (CTI-agnostico)
+  const GVPhone = {
+    state: 'idle', // idle | dialing | connected | ended
+    callId: null,
+    timerInterval: null,
+    callStart: null,
+    pollInterval: null,
+    currentPersonaId: null,
 
-    toggle() {
-      const panel = document.getElementById('ct-phone-panel');
-      if (!panel) return;
-      this.isOpen = !this.isOpen;
-      if (this.isOpen) {
-        panel.classList.remove('ct-panel-hidden');
-        if (!this.loaded) {
-          document.getElementById('ct-phone-iframe').src = 'https://phone.cloudtalk.io';
-          this.loaded = true;
+    // Iniciar llamada — punto de entrada unico para todo el CRM
+    async call(phoneNumber, personaId, personaNombre) {
+      this.currentPersonaId = personaId;
+      this.show();
+      this.setState('dialing');
+      document.getElementById('gv-phone-name').textContent = personaNombre || 'Contacto';
+      document.getElementById('gv-phone-number').textContent = phoneNumber;
+
+      try {
+        const result = await API.post('/cti/llamar', { phoneNumber, personaId });
+        this.callId = result.callId || null;
+        document.getElementById('gv-phone-provider').textContent = result.manual ? 'Marca manual' : (result.agent?.name || '');
+
+        if (result.manual) {
+          this.setState('connected');
+          this._startTimer();
+        } else {
+          // Llamada automatica — esperar conexion
+          setTimeout(() => {
+            if (this.state === 'dialing') {
+              this.setState('connected');
+              this._startTimer();
+            }
+          }, 3000);
         }
+
+        // Polling para detectar fin de llamada via webhook
+        if (personaId) this._startPoll(personaId);
+      } catch (e) {
+        document.getElementById('gv-phone-status').textContent = 'Error: ' + e.message;
+      }
+    },
+
+    hangup() {
+      if (this.callId) {
+        API.post('/cti/colgar', { callId: this.callId }).catch(() => {});
+      }
+      this.setState('ended');
+      this._stopTimer();
+      this._stopPoll();
+      setTimeout(() => this.hide(), 2000);
+    },
+
+    setState(s) {
+      this.state = s;
+      const el = document.getElementById('gv-phone-status');
+      const timer = document.getElementById('gv-phone-timer');
+      const hangup = document.getElementById('gv-phone-hangup');
+      if (!el) return;
+
+      el.className = '';
+      timer.classList.add('gv-hidden');
+      hangup.classList.add('gv-hidden');
+
+      if (s === 'dialing') {
+        el.textContent = 'Marcando...';
+        el.classList.add('dialing');
+        el.style.animation = 'gv-pulse 1.2s infinite';
+      } else if (s === 'connected') {
+        el.textContent = 'En llamada';
+        el.classList.add('connected');
+        el.style.animation = '';
+        timer.classList.remove('gv-hidden');
+        hangup.classList.remove('gv-hidden');
+      } else if (s === 'ended') {
+        el.textContent = 'Llamada finalizada';
+        el.style.animation = '';
       } else {
-        panel.classList.add('ct-panel-hidden');
+        el.textContent = 'Listo';
+        el.style.animation = '';
       }
     },
 
-    // Abrir el widget con un número precargado
-    dialNumber(phone) {
-      if (!this.isOpen) this.toggle();
-      const iframe = document.getElementById('ct-phone-iframe');
-      if (iframe && this.loaded) {
+    show() {
+      document.getElementById('gv-phone')?.classList.remove('gv-phone-hidden');
+    },
+    hide() {
+      document.getElementById('gv-phone')?.classList.add('gv-phone-hidden');
+      this.state = 'idle';
+      this._stopTimer();
+      this._stopPoll();
+    },
+
+    _startTimer() {
+      this.callStart = Date.now();
+      this._stopTimer();
+      this.timerInterval = setInterval(() => {
+        const secs = Math.floor((Date.now() - this.callStart) / 1000);
+        const m = Math.floor(secs / 60);
+        const s = secs % 60;
+        const el = document.getElementById('gv-phone-timer');
+        if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+      }, 1000);
+    },
+    _stopTimer() {
+      if (this.timerInterval) { clearInterval(this.timerInterval); this.timerInterval = null; }
+    },
+
+    _startPoll(personaId) {
+      this._stopPoll();
+      const start = new Date().toISOString();
+      this.pollInterval = setInterval(async () => {
         try {
-          // Intentar via postMessage (protocolo CloudTalk Phone)
-          iframe.contentWindow.postMessage({ type: 'dial', phone }, '*');
-          // Tambien intentar formato alternativo que usa el SDK
-          iframe.contentWindow.postMessage({ action: 'call', number: phone }, '*');
-        } catch(e) {
-          console.warn('[CloudTalk] postMessage failed:', e);
-        }
-      }
-      // Exponer el numero para uso global (dialer, dashboard, etc.)
-      window._lastDialNumber = phone;
+          const r = await API.get(`/history/${personaId}?tipo=llamada&limit=1`);
+          const last = (r.data || [])[0];
+          if (last && new Date(last.created_at) > new Date(start) && last.origen === 'cloudtalk') {
+            this._stopPoll();
+            this.setState('ended');
+            this._stopTimer();
+            setTimeout(() => this.hide(), 2000);
+          }
+        } catch {}
+      }, 3000);
     },
+    _stopPoll() {
+      if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
+    },
+  };
 
-    // Indicador de llamada activa
-    setActive(active) {
-      const btn = document.getElementById('ct-phone-btn');
-      if (btn) btn.classList.toggle('active', active);
-    }
+  // Retrocompatibilidad: CloudTalkWidget redirige a GVPhone
+  const CloudTalkWidget = {
+    toggle() { /* no-op — widget eliminado */ },
+    dialNumber(phone) { GVPhone.call(phone, null, ''); },
+    setActive() {},
   };
   </script>
 

@@ -1323,18 +1323,11 @@ const PersonasModule = {
   _clickToCall(phone, personaId, nombre) {
     const normalized = this._normalizePhone(phone);
     if (!normalized) return;
-
-    // Intentar abrir el widget CloudTalk con el numero pre-rellenado
-    if (typeof CloudTalkWidget !== 'undefined') {
-      CloudTalkWidget.dialNumber(normalized);
+    // Usar marcador Gestavly (CTI-agnostico)
+    if (typeof GVPhone !== 'undefined') {
+      GVPhone.call(normalized, personaId, nombre);
     } else {
-      // Fallback: abrir enlace tel:
       window.open('tel:' + normalized);
-    }
-
-    // Registrar la llamada en backend (inicia via POST /v1/calls)
-    if (personaId) {
-      API.post('/cloudtalk/call', { phone: normalized, persona_id: personaId, persona_nombre: nombre }).catch(() => {});
     }
   },
 

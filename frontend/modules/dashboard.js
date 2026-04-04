@@ -271,7 +271,7 @@ const DashboardModule = {
                     ${a.titulo ? `<div style="font-size:10px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._esc(a.titulo)}</div>` : ''}
                   </div>
                   <span class="dash-ag-tag t-${tipo}">${tipo}</span>
-                  ${a.telefono && tipo === 'llamada' ? `<button onclick="event.stopPropagation();window.cloudtalkDial?.('${a.telefono}')" style="padding:3px 8px;border-radius:6px;border:none;background:#10b981;color:#fff;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Llamar</button>` : ''}
+                  ${a.telefono && tipo === 'llamada' ? `<button onclick="event.stopPropagation();GVPhone?.call('${a.telefono}',null,'')" style="padding:3px 8px;border-radius:6px;border:none;background:#10b981;color:#fff;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Llamar</button>` : ''}
                   <button onclick="event.stopPropagation();DashboardModule._completarTarea(${a.id})" style="padding:3px 8px;border-radius:6px;border:1px solid #e8edf2;background:#fff;color:#475569;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">Hecho</button>
                 </div>`;
               }).join('')}

@@ -1,11 +1,13 @@
 // Power Dialer — Avants Suite
 // REGLA DE ORO: nunca hardcodear nombres de empresa/producto/pipeline.
 // Todo se referencia por ID. Los nombres se leen de BD en runtime.
+// REGLA CTI: nunca llamar directamente a CloudTalk — usar CTI service.
 const express = require('express');
 const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
 const tenantMiddleware = require('../middleware/tenant');
 const requireRole = require('../middleware/roles');
+const CTI = require('../services/cti');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -24,13 +26,6 @@ function normalizarTelefono(tel) {
   if (digits.startsWith('34') && digits.length === 11) return '+' + digits;
   if (digits.length === 9) return '+34' + digits;
   return '+' + digits;
-}
-
-function ctAuth() {
-  const key = process.env.CLOUDTALK_API_KEY;
-  const secret = process.env.CLOUDTALK_API_SECRET;
-  if (!key || !secret) return null;
-  return 'Basic ' + Buffer.from(key + ':' + secret).toString('base64');
 }
 
 // Cola ordenada por prioridad para un agente
@@ -217,39 +212,8 @@ router.post('/llamar/:campanaContactoId', async (req, res) => {
            ultimo_intento = NOW(), updated_at = NOW()
        WHERE id = $1`, [ccId]);
 
-    // Iniciar llamada via CloudTalk (CTI abstraccion — hoy CloudTalk, manana otro)
-    let callResult = null;
-    const auth = ctAuth();
-    if (auth) {
-      try {
-        const agentsR = await fetch('https://api.cloudtalk.io/api/agents.json', {
-          headers: { Authorization: auth }
-        });
-        const agentsData = await agentsR.json();
-        const agents = agentsData.data || agentsData.responseData || [];
-        const ctAgent = agents.find(a => a.email === req.user.email);
-
-        if (ctAgent) {
-          const callR = await fetch('https://api.cloudtalk.io/v1/calls', {
-            method: 'POST',
-            headers: { Authorization: auth, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ agent_id: ctAgent.id, external_number: phone }),
-          });
-          callResult = await callR.json();
-          if (!callR.ok) {
-            console.error('[Dialer] CloudTalk call error:', callResult);
-            callResult = { fallback: true, phone };
-          }
-        } else {
-          callResult = { fallback: true, phone, reason: 'agent_not_found' };
-        }
-      } catch (ctErr) {
-        console.error('[Dialer] CTI error:', ctErr.message);
-        callResult = { fallback: true, phone };
-      }
-    } else {
-      callResult = { fallback: true, phone, reason: 'cti_not_configured' };
-    }
+    // Iniciar llamada via CTI abstraction layer
+    const callResult = await CTI.call(req.user.email, phone);
 
     // Actualizar stats sesion
     await pool.query(
@@ -852,6 +816,54 @@ router.post('/reparto/automatico', requireRole('admin'), async (req, res) => {
     }
 
     res.json({ ok: true, reasignados });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════
+// ENDPOINT UNIFICADO CTI
+// Todo boton de llamar en el CRM usa este endpoint.
+// ══════════════════════════════════════════════
+
+// POST /api/cti/llamar — llamada desde cualquier parte del CRM
+router.post('/cti/llamar', async (req, res) => {
+  try {
+    const { phoneNumber, personaId } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: 'phoneNumber obligatorio' });
+
+    const phone = normalizarTelefono(phoneNumber);
+    const result = await CTI.call(req.user.email, phone);
+
+    // Registrar en contact_history
+    if (personaId) {
+      const { registrarEvento } = require('./history');
+      registrarEvento(personaId, 'llamada', {
+        subtipo: 'saliente',
+        titulo: 'Llamada iniciada',
+        descripcion: `${req.user.nombre || 'Agente'} → ${phone}`,
+        agente_id: req.user.id,
+        origen: 'sistema',
+        metadata: {
+          cti_provider: CTI.getProvider(),
+          manual: result.manual || false,
+          callId: result.callId || null,
+        }
+      });
+    }
+
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/cti/colgar — colgar llamada activa
+router.post('/cti/colgar', async (req, res) => {
+  try {
+    const { callId } = req.body;
+    const result = await CTI.hangup(callId);
+    res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

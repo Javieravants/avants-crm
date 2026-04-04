@@ -272,14 +272,15 @@ const DialerModule = {
       this.state = 'calling';
       this.callStartTime = Date.now();
       this.sesionStats.realizadas++;
+      // Dialer endpoint marca contacto + llama via CTI backend
       await API.post(`/dialer/llamar/${this.current.id}`, {});
-      // Abrir widget CloudTalk
+      // Abrir marcador flotante Gestavly (CTI-agnostico)
       const phone = this._normPhone(this.current.telefono);
-      if (typeof CloudTalkWidget !== 'undefined') {
-        CloudTalkWidget.dialNumber(phone);
+      if (typeof GVPhone !== 'undefined') {
+        GVPhone.call(phone, this.current.persona_id, this.current.persona_nombre);
       }
       this._renderActive(document.getElementById('main-content'));
-      // Empezar polling para detectar fin de llamada
+      // Polling para detectar fin de llamada
       this._startCallPolling();
     } catch (err) {
       alert('Error: ' + err.message);

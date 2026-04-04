@@ -512,7 +512,18 @@ ANTHROPIC_API_KEY=...
 14. **SIEMPRE cruzar agentes por email** — no por nombre
 15. **Webhook CloudTalk:** formato `event.properties.*` (ticket #495931)
 16. **WhatsApp token temporal** — error 401 = regenerar en Meta Developers
-17. **SaaS-ready / Regla de oro** — NUNCA hardcodear nombres de empresa, producto o pipeline en logica de negocio. Ni 'adeslas', ni 'dkv', ni ningun pipeline_id fijo. Todo se referencia por ID dinamico. Los nombres se leen de BD en runtime. Un cliente nuevo solo necesita configurar sus pipelines y agentes en Settings.
+17. **SaaS-ready / Regla de oro** — NUNCA hardcodear nombres de empresa, producto o pipeline en logica de negocio. Todo por ID dinamico. Un cliente nuevo solo necesita configurar sus pipelines y agentes en Settings.
+18. **CTI Abstraction Layer** — NUNCA llamar directamente a CloudTalk/Twilio desde rutas o frontend. Backend: toda llamada pasa por `backend/services/cti.js` (CTI.call / CTI.hangup). Frontend: toda llamada pasa por `GVPhone.call()` que hace POST a `/api/cti/llamar`. El proveedor se configura con `CTI_PROVIDER` env var (cloudtalk | twilio | manual). Nuevo proveedor = nuevo adaptador en cti.js, cero cambios en rutas o frontend.
+
+### CTI Architecture
+```
+Frontend (GVPhone.call)
+  → POST /api/cti/llamar
+    → backend/services/cti.js
+      → adapters[CTI_PROVIDER].call()
+        → CloudTalk API / Twilio API / manual
+```
+Env var: `CTI_PROVIDER=cloudtalk` (default)
 
 ### Pipeline layout — NUNCA cambiar
 ```css
