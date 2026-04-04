@@ -629,10 +629,29 @@ Los pipelines origen se configuran en campana_pipelines_origen (N:M).
 Cada agente hereda todos los pipelines de la campana por defecto,
 pero se puede restringir/reordenar individualmente via pipelines_permitidos[].
 
+### Configuracion del countdown pre-llamada (Settings)
+Tabla `dialer_config` (por tenant):
+```sql
+dialer_config (
+  id SERIAL PRIMARY KEY,
+  tenant_id INTEGER NOT NULL DEFAULT 1,
+  countdown_activo BOOLEAN DEFAULT false,
+  countdown_segundos INTEGER DEFAULT 10, -- 5, 10, 15, 30
+  whatsapp_auto_no_contesta BOOLEAN DEFAULT true,
+  max_intentos_dia INTEGER DEFAULT 3,
+  horario_inicio TIME DEFAULT '09:00',
+  horario_fin TIME DEFAULT '21:00'
+)
+```
+- OFF (default): llama automaticamente sin pausa
+- ON: muestra briefing X segundos antes de marcar
+- La agente NO puede cancelar (evita que eviten contactos)
+- Cada cliente SaaS configura su propio comportamiento en Settings → Power Dialer
+
 ### Integraciones del Dialer
-- **CloudTalk**: POST /v1/calls para marcar, webhook call_ended para resultado
+- **CTI abstraction layer**: backend/services/cti.js (cloudtalk | twilio | manual)
 - **WhatsApp Business API**: envio automatico si no contesta
-- **Fichate**: verificar que la agente ha fichado antes de iniciar jornada
+- **IA Briefing**: backend/services/ia-briefing.js (pre-llamada + post-llamada)
 - **contact_history**: todas las llamadas quedan en el timeline del contacto
 
 ### Estado actual
