@@ -869,4 +869,30 @@ router.post('/cti/colgar', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════════
+// IA BRIEFING & ANALISIS
+// ══════════════════════════════════════════════
+
+// GET /api/ia/briefing/:personaId — briefing IA pre-llamada
+router.get('/ia/briefing/:personaId', async (req, res) => {
+  try {
+    const { generarBriefing } = require('../services/ia-briefing');
+    const briefing = await generarBriefing(req.params.personaId);
+    res.json({ briefing });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/ia/analizar-llamada/:callHistoryId — analisis post-llamada
+router.post('/ia/analizar-llamada/:callHistoryId', async (req, res) => {
+  try {
+    const { analizarLlamada } = require('../services/ia-briefing');
+    const analisis = await analizarLlamada(req.params.callHistoryId);
+    res.json({ analisis });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

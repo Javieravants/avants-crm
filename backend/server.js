@@ -90,7 +90,7 @@ app.use('/api/polizas', polizasRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/dialer', dialerRoutes);
 app.use('/api/campanas', dialerRoutes);
-app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar
+app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar, /api/ia/briefing, /api/ia/analizar-llamada
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -195,10 +195,11 @@ app.post('/webhook/cloudtalk', async (req, res) => {
     const titulo = tituloMap[subtipo].replace(/\s+/g, ' ').trim();
 
     // Registrar en contact_history
-    await pool.query(
+    const chResult = await pool.query(
       `INSERT INTO contact_history
          (persona_id, tipo, subtipo, titulo, descripcion, metadata, agente_id, origen, tenant_id)
-       VALUES ($1, 'llamada', $2, $3, $4, $5, $6, 'cloudtalk', $7)`,
+       VALUES ($1, 'llamada', $2, $3, $4, $5, $6, 'cloudtalk', $7)
+       RETURNING id`,
       [
         personaId,
         subtipo,
@@ -219,7 +220,20 @@ app.post('/webhook/cloudtalk', async (req, res) => {
       ]
     );
 
+    const callHistoryId = chResult.rows[0]?.id;
     console.log(`[CloudTalk] ${subtipo}: ${phone} → persona #${personaId} (${dirLabel}, ${talking_time}s, prioridad: ${prioridad})`);
+
+    // IA post-llamada: analizar 30s despues (dar tiempo a CloudTalk para procesar grabacion)
+    if (callHistoryId && talking_time > 0 && process.env.ANTHROPIC_API_KEY) {
+      setTimeout(async () => {
+        try {
+          const { analizarLlamada } = require('./services/ia-briefing');
+          await analizarLlamada(callHistoryId);
+        } catch (e) {
+          console.error('[IA] Auto-analisis error:', e.message);
+        }
+      }, 30000);
+    }
   } catch (err) {
     console.error('[CloudTalk] Webhook error:', err.message);
   }

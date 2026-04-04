@@ -154,6 +154,15 @@ router.get('/call-drawer/:id', async (req, res) => {
 
     if (!personaR.rows.length) return res.status(404).json({ error: 'Persona no encontrada' });
 
+    // Generar briefing IA (async, no bloquea si falla)
+    let ia_briefing = null;
+    try {
+      const { generarBriefing } = require('../services/ia-briefing');
+      ia_briefing = await generarBriefing(pid);
+    } catch (e) {
+      console.error('[IA] Briefing error en call-drawer:', e.message);
+    }
+
     res.json({
       persona: personaR.rows[0],
       seguros_activos: polizasR.rows,
@@ -161,7 +170,7 @@ router.get('/call-drawer/:id', async (req, res) => {
       historial_reciente: historialR.rows,
       propuestas_recientes: propuestasR.rows,
       ultima_nota: notaR.rows[0] || null,
-      ia_briefing: null, // Fase 2: IA pre-llamada
+      ia_briefing,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
