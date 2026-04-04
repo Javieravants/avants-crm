@@ -314,7 +314,11 @@
       try {
         const result = await API.post('/cti/llamar', { phoneNumber, personaId });
         this.callId = result.callId || null;
-        document.getElementById('gv-phone-provider').textContent = result.manual ? 'Marca manual' : (result.agent?.name || '');
+        console.log('[GVPhone] CTI result:', result);
+        const providerText = result.manual
+          ? 'Manual' + (result.reason ? ' — ' + result.reason : '')
+          : (result.agent?.name || 'Conectado');
+        document.getElementById('gv-phone-provider').textContent = providerText;
 
         if (result.manual) {
           this.setState('connected');

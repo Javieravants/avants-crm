@@ -41,30 +41,63 @@ const cloudtalkAdapter = {
       return { success: false, manual: true, phone: phoneNumber, reason: 'cloudtalk_not_configured' };
     }
 
-    const agents = await this._getAgents();
-    const agent = agents.find(a => a.email === agentEmail);
-    if (!agent) {
-      return { success: false, manual: true, phone: phoneNumber, reason: 'agent_not_found', agentEmail };
-    }
+    // Intentar primero con agentEmail directo (API v1 documentada)
+    console.log(`[CTI:cloudtalk] Calling ${phoneNumber} via agent ${agentEmail}`);
 
-    const r = await fetch('https://api.cloudtalk.io/v1/calls', {
+    const r = await fetch('https://api.cloudtalk.io/api/v1/calls', {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent_id: agent.id, external_number: phoneNumber }),
+      body: JSON.stringify({ to: phoneNumber, agentEmail }),
     });
-    const data = await r.json();
+
+    let data;
+    const text = await r.text();
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
     if (!r.ok) {
-      console.error('[CTI:cloudtalk] Call error:', data);
+      console.error(`[CTI:cloudtalk] Call error (${r.status}):`, data);
+
+      // Fallback: intentar formato alternativo con agent_id
+      const agents = await this._getAgents();
+      const agent = agents.find(a => a.email === agentEmail);
+      if (agent) {
+        console.log(`[CTI:cloudtalk] Retrying with agent_id=${agent.id}`);
+        const r2 = await fetch('https://api.cloudtalk.io/api/v1/calls', {
+          method: 'POST',
+          headers: { Authorization: auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: phoneNumber, agent_id: agent.id }),
+        });
+        const text2 = await r2.text();
+        let data2;
+        try { data2 = JSON.parse(text2); } catch { data2 = { raw: text2 }; }
+
+        if (r2.ok) {
+          return {
+            success: true, manual: false,
+            callId: data2.id || data2.call_id || null,
+            phone: phoneNumber,
+            agent: { id: agent.id, name: `${agent.firstname} ${agent.lastname}`, extension: agent.extension },
+          };
+        }
+        console.error(`[CTI:cloudtalk] Retry also failed (${r2.status}):`, data2);
+        return { success: false, manual: true, phone: phoneNumber, reason: 'api_error', detail: data2 };
+      }
+
       return { success: false, manual: true, phone: phoneNumber, reason: 'api_error', detail: data };
     }
+
+    // Buscar info del agente para la respuesta
+    const agents = await this._getAgents();
+    const agent = agents.find(a => a.email === agentEmail);
 
     return {
       success: true,
       manual: false,
       callId: data.id || data.call_id || null,
       phone: phoneNumber,
-      agent: { id: agent.id, name: `${agent.firstname} ${agent.lastname}`, extension: agent.extension },
+      agent: agent
+        ? { id: agent.id, name: `${agent.firstname} ${agent.lastname}`, extension: agent.extension }
+        : { name: agentEmail },
     };
   },
 
@@ -72,7 +105,7 @@ const cloudtalkAdapter = {
     const auth = this._auth();
     if (!auth || !callId) return { success: false };
     try {
-      const r = await fetch(`https://api.cloudtalk.io/v1/calls/${callId}`, {
+      const r = await fetch(`https://api.cloudtalk.io/api/v1/calls/${callId}`, {
         method: 'DELETE',
         headers: { Authorization: auth },
       });
