@@ -119,6 +119,55 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/personas/call-drawer/:id — datos compactos para el drawer de llamada
+router.get('/call-drawer/:id', async (req, res) => {
+  try {
+    const pid = req.params.id;
+
+    const [personaR, polizasR, aseguradosR, historialR, propuestasR, notaR] = await Promise.all([
+      pool.query('SELECT id, nombre, telefono, email, dni, provincia, fecha_nacimiento, pipedrive_person_id FROM personas WHERE id = $1', [pid]),
+      pool.query(`
+        SELECT id, compania, producto, prima_mensual, estado, n_poliza, fecha_efecto
+        FROM polizas WHERE persona_id = $1 AND estado NOT IN ('baja','rechazado')
+        ORDER BY created_at DESC`, [pid]),
+      pool.query(`
+        SELECT nombre, fecha_nacimiento, parentesco, dni
+        FROM asegurados WHERE persona_id = $1 ORDER BY orden`, [pid]),
+      pool.query(`
+        SELECT ch.tipo, ch.subtipo, ch.titulo, ch.descripcion, ch.created_at,
+               ch.metadata, u.nombre as agente_nombre
+        FROM contact_history ch
+        LEFT JOIN users u ON u.id = ch.agente_id
+        WHERE ch.persona_id = $1
+        ORDER BY ch.created_at DESC LIMIT 4`, [pid]),
+      pool.query(`
+        SELECT id, producto, tipo_poliza, prima_mensual, created_at, pdf_url
+        FROM propuestas WHERE persona_id = $1
+        ORDER BY created_at DESC LIMIT 3`, [pid]),
+      pool.query(`
+        SELECT n.texto as contenido, n.created_at as fecha, u.nombre as agente
+        FROM persona_notas n
+        LEFT JOIN users u ON u.id = n.user_id
+        WHERE n.persona_id = $1
+        ORDER BY n.created_at DESC LIMIT 1`, [pid]),
+    ]);
+
+    if (!personaR.rows.length) return res.status(404).json({ error: 'Persona no encontrada' });
+
+    res.json({
+      persona: personaR.rows[0],
+      seguros_activos: polizasR.rows,
+      asegurados: aseguradosR.rows,
+      historial_reciente: historialR.rows,
+      propuestas_recientes: propuestasR.rows,
+      ultima_nota: notaR.rows[0] || null,
+      ia_briefing: null, // Fase 2: IA pre-llamada
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/personas/:id — ficha completa
 router.get('/:id', async (req, res) => {
   try {

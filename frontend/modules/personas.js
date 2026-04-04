@@ -1323,7 +1323,10 @@ const PersonasModule = {
   _clickToCall(phone, personaId, nombre) {
     const normalized = this._normalizePhone(phone);
     if (!normalized) return;
-    // Usar marcador Gestavly (CTI-agnostico)
+    // Abrir CallDrawer con briefing + iniciar llamada
+    if (personaId && typeof CallDrawer !== 'undefined') {
+      CallDrawer.open(personaId, 'manual');
+    }
     if (typeof GVPhone !== 'undefined') {
       GVPhone.call(normalized, personaId, nombre);
     } else {
