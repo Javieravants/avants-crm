@@ -165,7 +165,7 @@ const CallDrawer = {
     return `<div class="cd-asegurados">${aseg.slice(0, 6).map(a =>
       `<div class="cd-aseg" title="${this.esc(a.nombre)} · ${a.parentesco || ''}">
         <div class="cd-aseg-av">${this._ini(a.nombre)}</div>
-        <span class="cd-aseg-name">${(a.nombre||'').split(' ')[0]} ${this._fmtAge(a.fecha_nacimiento)}</span>
+        <span class="cd-aseg-name">${(a.nombre||'').split(' ')[0]} ${this._fmtAge(a.fecha_nac || a.fecha_nacimiento)}</span>
       </div>`
     ).join('')}</div>`;
   },

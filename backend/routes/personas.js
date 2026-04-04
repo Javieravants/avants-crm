@@ -125,14 +125,14 @@ router.get('/call-drawer/:id', async (req, res) => {
     const pid = req.params.id;
 
     const [personaR, polizasR, aseguradosR, historialR, propuestasR, notaR] = await Promise.all([
-      pool.query('SELECT id, nombre, telefono, email, dni, provincia, fecha_nacimiento, pipedrive_person_id FROM personas WHERE id = $1', [pid]),
+      pool.query('SELECT id, nombre, telefono, email, dni, provincia, pipedrive_person_id FROM personas WHERE id = $1', [pid]),
       pool.query(`
         SELECT id, compania, producto, prima_mensual, estado, n_poliza, fecha_efecto
         FROM polizas WHERE persona_id = $1 AND estado NOT IN ('baja','rechazado')
         ORDER BY created_at DESC`, [pid]),
       pool.query(`
-        SELECT nombre, fecha_nacimiento, parentesco, dni
-        FROM asegurados WHERE persona_id = $1 ORDER BY orden`, [pid]),
+        SELECT nombre, fecha_nac, parentesco, dni
+        FROM asegurados WHERE persona_id = $1 ORDER BY COALESCE(orden, 1)`, [pid]),
       pool.query(`
         SELECT ch.tipo, ch.subtipo, ch.titulo, ch.descripcion, ch.created_at,
                ch.metadata, u.nombre as agente_nombre
