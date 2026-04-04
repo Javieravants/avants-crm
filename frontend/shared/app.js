@@ -42,7 +42,7 @@ const App = {
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'llamada',dialer:'llamada',fichate:'fichate',tickets:'tickets',llamada:'llamada',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'agenda',dialer:'llamada',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
@@ -129,7 +129,7 @@ const App = {
       assistant: () => AssistantModule.render(),
       usuarios: () => this.renderUsuarios(),
       fichate: () => FichateModule.render(),
-      llamada: () => LlamadaModule.render(),
+      llamada: () => LlamadaModule.render(), // accesible via URL directa, sin sidebar
       calculadora: () => {
         container.style.padding = '0';
         container.style.overflow = 'hidden';
