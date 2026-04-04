@@ -132,7 +132,7 @@ router.get('/call-drawer/:id', async (req, res) => {
         ORDER BY created_at DESC`, [pid]),
       pool.query(`
         SELECT nombre, fecha_nac, parentesco, dni
-        FROM asegurados WHERE persona_id = $1 ORDER BY COALESCE(orden, 1)`, [pid]),
+        FROM asegurados WHERE persona_id = $1 ORDER BY id`, [pid]),
       pool.query(`
         SELECT ch.tipo, ch.subtipo, ch.titulo, ch.descripcion, ch.created_at,
                ch.metadata, u.nombre as agente_nombre
