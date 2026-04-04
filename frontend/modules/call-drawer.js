@@ -191,10 +191,10 @@ const CallDrawer = {
 
     let items = '';
     if (hist) {
-      items += `<div class="cd-brief-item">${Icons.historial(14, '#009DDD')} <strong>Ultima interaccion:</strong> ${hist.tipo}${hist.subtipo ? ' · ' + hist.subtipo : ''} — ${this._fmtRelative(hist.created_at)}</div>`;
+      items += `<div class="cd-brief-item">${Icons.fichate(14, '#009DDD')} <strong>Ultima interaccion:</strong> ${hist.tipo}${hist.subtipo ? ' · ' + hist.subtipo : ''} — ${this._fmtRelative(hist.created_at)}</div>`;
     }
     if (prop) {
-      items += `<div class="cd-brief-item">${Icons.propuesta ? Icons.propuesta(14, '#7c3aed') : ''} <strong>Propuesta:</strong> ${this.esc(prop.producto || prop.tipo_poliza || '')} ${prop.prima_mensual ? prop.prima_mensual + '/mes' : ''} — ${this._fmtRelative(prop.created_at)}</div>`;
+      items += `<div class="cd-brief-item">${Icons.editar ? Icons.editar(14, '#7c3aed') : ''} <strong>Propuesta:</strong> ${this.esc(prop.producto || prop.tipo_poliza || '')} ${prop.prima_mensual ? prop.prima_mensual + '/mes' : ''} — ${this._fmtRelative(prop.created_at)}</div>`;
     }
     if (seguros.length) {
       items += `<div class="cd-brief-item">${Icons.polizas(14, '#10b981')} <strong>Seguros:</strong> ${seguros.map(s => this.esc(s.producto)).join(', ')}</div>`;
@@ -218,15 +218,15 @@ const CallDrawer = {
     const tipoCfg = {
       llamada:   { ico: () => Icons.llamada(14, '#009DDD'),   color: '#009DDD' },
       nota:      { ico: () => Icons.editar(14, '#d97706'),    color: '#d97706' },
-      etapa:     { ico: () => Icons.historial(14, '#8b5cf6'), color: '#8b5cf6' },
+      etapa:     { ico: () => Icons.fichate(14, '#8b5cf6'), color: '#8b5cf6' },
       email:     { ico: () => Icons.email(14, '#10b981'),     color: '#10b981' },
       whatsapp:  { ico: () => Icons.whatsapp(14, '#25D366'),  color: '#25D366' },
       tramite:   { ico: () => Icons.tickets(14, '#f97316'),   color: '#f97316' },
-      propuesta: { ico: () => Icons.propuesta ? Icons.propuesta(14, '#7c3aed') : '', color: '#7c3aed' },
+      propuesta: { ico: () => Icons.editar ? Icons.editar(14, '#7c3aed') : '', color: '#7c3aed' },
     };
 
     return `<div class="cd-section">
-      <div class="cd-section-title">${Icons.historial(16, '#475569')} Historial reciente</div>
+      <div class="cd-section-title">${Icons.fichate(16, '#475569')} Historial reciente</div>
       ${historial.map(h => {
         const cfg = tipoCfg[h.tipo] || tipoCfg.nota;
         return `<div class="cd-hist-item">
@@ -257,7 +257,7 @@ const CallDrawer = {
           ${Icons.calculadora(18, '#475569')}<span>Calculadora</span>
         </button>
         <button class="cd-quick-btn" onclick="App.navigate('personas');setTimeout(()=>{PersonasModule.showFicha(${this.personaId});setTimeout(()=>PersonasModule.renderTab('propuestas'),400)},300);CallDrawer.close();">
-          ${Icons.propuesta ? Icons.propuesta(18, '#475569') : Icons.editar(18, '#475569')}<span>Propuesta</span>
+          ${Icons.editar ? Icons.editar(18, '#475569') : Icons.editar(18, '#475569')}<span>Propuesta</span>
         </button>
         <button class="cd-quick-btn" onclick="App.navigate('grabaciones');CallDrawer.close();">
           ${Icons.grabaciones(18, '#475569')}<span>Grabaciones</span>
