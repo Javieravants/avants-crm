@@ -37,12 +37,14 @@ const App = {
       document.getElementById('nav-settings')?.classList.add('hidden');
       document.getElementById('nav-assistant')?.classList.add('hidden');
       document.getElementById('nav-importar-polizas')?.classList.add('hidden');
+    }
+    if (!Auth.hasRole('admin', 'superadmin', 'supervisor')) {
       document.getElementById('nav-campanas')?.classList.add('hidden');
     }
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'agenda',dialer:'llamada',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'grabaciones',dialer:'agenda',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);

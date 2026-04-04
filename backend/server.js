@@ -55,8 +55,14 @@ app.get('/', (req, res) => {
   res.send(html);
 });
 
-// Servir frontend estático
-app.use(express.static(path.join(__dirname, '../frontend')));
+// Servir frontend estatico — sin cache para JS/CSS (cache bust por ?v=timestamp)
+app.use(express.static(path.join(__dirname, '../frontend'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.set('Cache-Control', 'no-cache, must-revalidate');
+    }
+  }
+}));
 
 // Rutas API
 app.use('/api/auth', authRoutes);
