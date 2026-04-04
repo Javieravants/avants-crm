@@ -165,10 +165,7 @@ const DialerModule = {
     const cc = this.current;
     const prio = this._prioLabel(cc.prioridad);
 
-    // Abrir CallDrawer con el briefing del contacto
-    if (cc.persona_id && typeof CallDrawer !== 'undefined') {
-      CallDrawer.open(cc.persona_id, 'dialer');
-    }
+    // NO abrir CallDrawer — el dialer tiene su propia UI de contacto
     const phone = this._normPhone(cc.telefono);
     const historial = (cc.historial || []).slice(0, 3);
     const isCalling = this.state === 'calling';

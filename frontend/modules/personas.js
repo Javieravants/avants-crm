@@ -1323,15 +1323,200 @@ const PersonasModule = {
   _clickToCall(phone, personaId, nombre) {
     const normalized = this._normalizePhone(phone);
     if (!normalized) return;
-    // Abrir CallDrawer con briefing + iniciar llamada
-    if (personaId && typeof CallDrawer !== 'undefined') {
-      CallDrawer.open(personaId, 'manual');
-    }
+    // Entrar en modo llamada en la ficha del contacto
+    this._enterCallMode(personaId, normalized, nombre);
+    // Iniciar llamada via CTI
     if (typeof GVPhone !== 'undefined') {
       GVPhone.call(normalized, personaId, nombre);
     } else {
       window.open('tel:' + normalized);
     }
+  },
+
+  // ══════════════════════════════════════════
+  // MODO LLAMADA — reemplaza el area central de la ficha
+  // ══════════════════════════════════════════
+
+  _callMode: false,
+  _callData: null,
+
+  async _enterCallMode(personaId, phone, nombre) {
+    this._callMode = true;
+
+    // Cambiar tabs del header a tabs de llamada
+    const tabs = document.getElementById('persona-tabs');
+    if (tabs) {
+      const ts = 'padding:11px 16px;font-size:13px;font-weight:600;color:#94a3b8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-family:inherit;';
+      tabs.innerHTML = `
+        <button class="tab-btn active" data-tab="call-briefing" style="${ts}">${_ICO.gestion(14)} Briefing</button>
+        <button class="tab-btn" data-tab="call-historial" style="${ts}">${_ICO.historial(14)} Historial</button>
+        <button class="tab-btn" data-tab="call-nota" style="${ts}">${_ICO.nota(14)} Nota</button>
+        <button class="tab-btn" data-tab="call-calculadora" style="${ts}">${typeof Icons !== 'undefined' ? Icons.calculadora(14) : ''} Calculadora</button>
+        <button class="tab-btn" data-tab="call-propuesta" style="${ts}">${_ICO.propuesta(14)} Propuesta</button>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+          <span id="call-mode-indicator" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#10b981;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;animation:ct-pulse-red 1.2s infinite;"></span>
+            En llamada
+          </span>
+          <button onclick="PersonasModule._exitCallMode()" style="padding:5px 12px;border-radius:8px;border:1px solid #fca5a5;background:#fff;color:#ef4444;cursor:pointer;font-size:11px;font-weight:600;font-family:inherit;">Finalizar</button>
+        </div>
+      `;
+      // Re-attach tab click listeners
+      tabs.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabs.querySelectorAll('.tab-btn').forEach(b => { b.style.color = '#94a3b8'; b.style.borderBottomColor = 'transparent'; });
+          btn.style.color = 'var(--accent)';
+          btn.style.borderBottomColor = 'var(--accent)';
+          this._renderCallTab(btn.dataset.tab, personaId);
+        });
+      });
+      // Activar primer tab
+      tabs.querySelector('.tab-btn').style.color = 'var(--accent)';
+      tabs.querySelector('.tab-btn').style.borderBottomColor = 'var(--accent)';
+    }
+
+    // Cargar datos del briefing
+    try {
+      this._callData = await API.get(`/personas/call-drawer/${personaId}`);
+    } catch (e) {
+      this._callData = { persona: { nombre }, historial_reciente: [], seguros_activos: [], propuestas_recientes: [], ultima_nota: null, ia_briefing: null };
+    }
+
+    this._renderCallTab('call-briefing', personaId);
+  },
+
+  _exitCallMode() {
+    this._callMode = false;
+    this._callData = null;
+    const p = this._fichaPersona;
+    if (p) {
+      // Restaurar tabs originales
+      this.renderFicha(p);
+    }
+  },
+
+  _renderCallTab(tab, personaId) {
+    const content = document.getElementById('persona-tab-content');
+    if (!content) return;
+    const d = this._callData || {};
+
+    if (tab === 'call-briefing') {
+      this._renderCallBriefing(content, d);
+    } else if (tab === 'call-historial') {
+      // Reutilizar historial existente
+      this._renderHistorial(content, this._fichaPersona);
+    } else if (tab === 'call-nota') {
+      this._renderCallNota(content, personaId);
+    } else if (tab === 'call-calculadora') {
+      const p = this._fichaPersona;
+      const params = new URLSearchParams();
+      if (p?.nombre) params.set('nombre', p.nombre);
+      if (p?.id) params.set('persona_id', p.id);
+      const qs = params.toString() ? '?' + params.toString() : '';
+      content.innerHTML = `<iframe src="/calculadora/index.html${qs}" style="width:100%;height:calc(100vh - 240px);border:1px solid #e8edf2;border-radius:12px;"></iframe>`;
+    } else if (tab === 'call-propuesta') {
+      this.renderTab('propuestas', this._fichaPersona);
+    }
+  },
+
+  _renderCallBriefing(content, d) {
+    const ia = d.ia_briefing;
+    const hist = d.historial_reciente || [];
+    const seguros = d.seguros_activos || [];
+    const props = d.propuestas_recientes || [];
+    const nota = d.ultima_nota;
+
+    // Seccion IA (si existe) o datos reales
+    let briefingHtml = '';
+    if (ia) {
+      briefingHtml = `
+        <div style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:8px;">${_ICO.gestion(14, '#1d4ed8')} Recomendacion IA</div>
+          ${ia.tactica ? `<div style="font-size:13px;color:#0f172a;margin-bottom:6px;"><strong>Tactica:</strong> ${this._esc(ia.tactica)}</div>` : ''}
+          ${ia.oportunidad ? `<div style="font-size:13px;color:#0f172a;margin-bottom:6px;"><strong>Oportunidad:</strong> ${this._esc(ia.oportunidad)}</div>` : ''}
+          ${ia.tono ? `<div style="font-size:12px;color:#475569;margin-bottom:6px;"><strong>Tono:</strong> ${this._esc(ia.tono)}</div>` : ''}
+          ${ia.evitar?.length ? `<div style="font-size:12px;color:#991b1b;"><strong>Evitar:</strong> ${ia.evitar.map(e => this._esc(e)).join(', ')}</div>` : ''}
+          ${ia.resumen ? `<div style="font-size:12px;color:#475569;margin-top:8px;padding-top:8px;border-top:1px solid #bfdbfe;">${this._esc(ia.resumen)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // Datos reales del sistema
+    let datosHtml = '<div style="background:#e6f6fd;border-radius:10px;padding:14px;margin-bottom:16px;">';
+    datosHtml += `<div style="font-size:12px;font-weight:700;color:#009DDD;margin-bottom:10px;">${_ICO.gestion(14, '#009DDD')} Briefing antes de llamar</div>`;
+
+    if (hist.length) {
+      const h = hist[0];
+      const timeStr = this._fmtRelative(h.created_at);
+      datosHtml += `<div style="font-size:12px;color:#475569;margin-bottom:6px;display:flex;align-items:center;gap:6px;">${_ICO.historial(14, '#009DDD')} <strong>Ultima:</strong> ${h.tipo}${h.subtipo ? ' · ' + h.subtipo : ''} — ${timeStr}</div>`;
+    }
+    if (props.length) {
+      const pr = props[0];
+      datosHtml += `<div style="font-size:12px;color:#475569;margin-bottom:6px;display:flex;align-items:center;gap:6px;">${_ICO.propuesta(14, '#7c3aed')} <strong>Propuesta:</strong> ${this._esc(pr.producto || pr.tipo_poliza || '')} ${pr.prima_mensual ? pr.prima_mensual + '/mes' : ''} — ${this._fmtRelative(pr.created_at)}</div>`;
+    }
+    if (seguros.length) {
+      datosHtml += `<div style="font-size:12px;color:#475569;margin-bottom:6px;display:flex;align-items:center;gap:6px;">${_ICO.polizas(14, '#10b981')} <strong>Seguros:</strong> ${seguros.map(s => this._esc(s.producto) + (s.prima_mensual ? ' ' + s.prima_mensual + '/mes' : '')).join(', ')}</div>`;
+    }
+    if (nota) {
+      datosHtml += `<div style="font-size:12px;color:#475569;display:flex;align-items:center;gap:6px;">${_ICO.nota(14, '#f59e0b')} <strong>Nota:</strong> ${this._esc((nota.contenido || '').substring(0, 120))}</div>`;
+    }
+    if (!hist.length && !props.length && !seguros.length && !nota) {
+      datosHtml += '<div style="font-size:12px;color:#94a3b8;">Sin interacciones previas</div>';
+    }
+    datosHtml += '</div>';
+
+    // Historial compacto (ultimas 4)
+    let histHtml = '';
+    if (hist.length) {
+      histHtml = `<div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;">${_ICO.historial(14, '#475569')} Interacciones recientes</div>
+        ${hist.map(h => {
+          const timeStr = this._fmtRelative(h.created_at);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f2f5;font-size:12px;">
+            <span style="font-weight:600;color:#009DDD;min-width:70px;">${h.tipo}</span>
+            <span style="color:#475569;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this._esc((h.descripcion || h.titulo || '').substring(0, 60))}</span>
+            <span style="color:#94a3b8;flex-shrink:0;">${timeStr}</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
+
+    content.innerHTML = `<div style="max-width:640px;">${briefingHtml}${datosHtml}${histHtml}</div>`;
+  },
+
+  _renderCallNota(content, personaId) {
+    content.innerHTML = `
+      <div style="max-width:640px;">
+        <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;">${_ICO.nota(14, '#475569')} Nota durante la llamada</div>
+        <textarea id="call-nota-text" style="width:100%;height:200px;padding:12px;border:1px solid #e8edf2;border-radius:10px;font-size:13px;font-family:inherit;color:#0f172a;resize:vertical;box-sizing:border-box;" placeholder="Escribe notas durante la llamada..."></textarea>
+        <button id="call-nota-save" style="margin-top:8px;padding:8px 20px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Guardar nota</button>
+        <span id="call-nota-status" style="margin-left:8px;font-size:12px;color:#10b981;display:none;">Guardada</span>
+      </div>
+    `;
+    document.getElementById('call-nota-save')?.addEventListener('click', async () => {
+      const texto = document.getElementById('call-nota-text')?.value?.trim();
+      if (!texto) return;
+      try {
+        await API.post('/history', {
+          persona_id: personaId, tipo: 'nota',
+          titulo: 'Nota en llamada', descripcion: texto, origen: 'manual',
+        });
+        const st = document.getElementById('call-nota-status');
+        if (st) { st.style.display = 'inline'; setTimeout(() => st.style.display = 'none', 2000); }
+      } catch (e) { alert(e.message); }
+    });
+  },
+
+  _fmtRelative(date) {
+    if (!date) return '';
+    const h = (Date.now() - new Date(date).getTime()) / 3600000;
+    if (h < 1) return 'hace ' + Math.round(h * 60) + 'min';
+    if (h < 24) return 'hace ' + Math.round(h) + 'h';
+    const d = Math.round(h / 24);
+    if (d === 1) return 'ayer';
+    if (d < 30) return 'hace ' + d + ' dias';
+    return new Date(date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   },
 
   // === Grabar póliza — formulario completo con 3 secciones ===
