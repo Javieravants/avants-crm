@@ -21,86 +21,152 @@ const MODEL = 'claude-haiku-4-5-20251001';
 async function generarBriefing(personaId) {
   const client = getClient();
 
-  // Obtener datos del contacto
-  const [personaR, polizasR, historialR, propuestasR, notaR] = await Promise.all([
-    pool.query('SELECT nombre, telefono, email, dni, provincia FROM personas WHERE id = $1', [personaId]),
-    pool.query(`SELECT compania, producto, prima_mensual, estado FROM polizas
-                WHERE persona_id = $1 AND estado NOT IN ('baja','rechazado') LIMIT 5`, [personaId]),
-    pool.query(`SELECT tipo, subtipo, titulo, descripcion, created_at
-                FROM contact_history WHERE persona_id = $1
-                ORDER BY created_at DESC LIMIT 6`, [personaId]),
+  // Obtener TODOS los datos relevantes del contacto
+  const [personaR, polizasR, dealsR, llamadasR, notasR, propuestasR] = await Promise.all([
+    pool.query(`SELECT nombre, telefono, email, dni, provincia, fecha_nacimiento
+                FROM personas WHERE id = $1`, [personaId]),
+    pool.query(`SELECT compania, producto, prima_mensual, estado, n_poliza
+                FROM polizas WHERE persona_id = $1
+                AND estado NOT IN ('baja','rechazado') ORDER BY created_at DESC LIMIT 10`, [personaId]),
+    pool.query(`SELECT d.producto, d.compania, d.pipedrive_status, pl.name as pipeline,
+                       ps.name as etapa
+                FROM deals d
+                LEFT JOIN pipelines pl ON pl.id = d.pipeline_id
+                LEFT JOIN pipeline_stages ps ON ps.id = d.stage_id
+                WHERE d.persona_id = $1 AND d.pipedrive_status != 'lost'
+                ORDER BY d.created_at DESC LIMIT 5`, [personaId]),
+    pool.query(`SELECT subtipo, titulo, metadata->>'duracion_seg' as duracion, created_at
+                FROM contact_history
+                WHERE persona_id = $1 AND tipo = 'llamada'
+                ORDER BY created_at DESC LIMIT 10`, [personaId]),
+    pool.query(`SELECT n.texto, u.nombre as agente, n.created_at
+                FROM persona_notas n LEFT JOIN users u ON u.id = n.user_id
+                WHERE n.persona_id = $1
+                ORDER BY n.created_at DESC LIMIT 5`, [personaId]),
     pool.query(`SELECT producto, tipo_poliza, prima_mensual, created_at
                 FROM propuestas WHERE persona_id = $1
                 ORDER BY created_at DESC LIMIT 3`, [personaId]),
-    pool.query(`SELECT texto FROM persona_notas WHERE persona_id = $1
-                ORDER BY created_at DESC LIMIT 2`, [personaId]),
   ]);
 
   if (!personaR.rows.length) return null;
+  const persona = personaR.rows[0];
+  const polizas = polizasR.rows;
+  const deals = dealsR.rows;
+  const llamadas = llamadasR.rows;
+  const notas = notasR.rows;
+  const propuestas = propuestasR.rows;
 
-  const datos = {
-    persona: personaR.rows[0],
-    seguros: polizasR.rows,
-    historial: historialR.rows,
-    propuestas: propuestasR.rows,
-    notas: notaR.rows.map(n => n.texto?.substring(0, 200)),
+  // Calcular edad
+  const edad = persona.fecha_nacimiento
+    ? Math.floor((Date.now() - new Date(persona.fecha_nacimiento).getTime()) / 31557600000)
+    : null;
+
+  // Total prima mensual
+  const totalPrima = polizas.reduce((sum, p) => sum + (parseFloat(p.prima_mensual) || 0), 0);
+
+  // Construir contexto estructurado
+  const contexto = {
+    persona, edad, polizas, deals, llamadas, notas, propuestas, totalPrima,
   };
 
-  // Si no hay API key, devolver resumen basico sin IA
-  if (!client) {
-    return _briefingBasico(datos);
+  if (!client) return _briefingBasico(contexto);
+
+  // Construir prompt estructurado
+  let prompt = `Eres un experto en ventas de seguros de salud en España. Analiza este cliente y dame recomendaciones concretas para la proxima llamada.
+
+CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provincia ? ', ' + persona.provincia : ''}
+
+`;
+
+  if (polizas.length) {
+    prompt += `SEGUROS YA CONTRATADOS (${polizas.length} seguros, ${totalPrima.toFixed(2)} EUR/mes total):\n`;
+    polizas.forEach(p => { prompt += `- ${p.compania} ${p.producto}: ${p.prima_mensual || '?'} EUR/mes (${p.estado})\n`; });
+  } else {
+    prompt += 'SEGUROS: Ninguno contratado\n';
   }
+
+  if (deals.length) {
+    prompt += '\nDEALS EN CURSO:\n';
+    deals.forEach(d => { prompt += `- ${d.pipeline || ''} → ${d.etapa || ''}: ${d.producto || d.compania || ''} (${d.pipedrive_status})\n`; });
+  }
+
+  if (llamadas.length) {
+    prompt += '\nHISTORIAL LLAMADAS (ultimas ' + llamadas.length + '):\n';
+    llamadas.forEach(l => {
+      const fecha = new Date(l.created_at).toLocaleDateString('es-ES');
+      prompt += `- ${fecha}: ${l.subtipo || l.titulo || '?'} ${l.duracion ? '(' + l.duracion + 's)' : ''}\n`;
+    });
+  }
+
+  if (notas.length) {
+    prompt += '\nNOTAS DEL EQUIPO:\n';
+    notas.forEach(n => {
+      const fecha = new Date(n.created_at).toLocaleDateString('es-ES');
+      prompt += `- ${fecha} ${n.agente || ''}: ${(n.texto || '').substring(0, 150)}\n`;
+    });
+  }
+
+  if (propuestas.length) {
+    prompt += '\nPROPUESTAS ENVIADAS:\n';
+    propuestas.forEach(p => {
+      const fecha = new Date(p.created_at).toLocaleDateString('es-ES');
+      prompt += `- ${fecha}: ${p.producto || p.tipo_poliza || ''} ${p.prima_mensual ? p.prima_mensual + ' EUR/mes' : ''}\n`;
+    });
+  }
+
+  prompt += `
+IMPORTANTE:
+- Si tiene seguros → buscar huecos (dental, vida, hogar, mascotas, decesos)
+- Si no tiene seguros → primera venta, empezar por el producto mas facil de vender
+- Si tiene propuesta pendiente → recordarle y cerrar
+- No sugerir productos que ya tiene
+
+Responde SOLO con JSON valido (sin markdown, sin backticks):
+{
+  "tactica": "que enfoque tomar en esta llamada",
+  "oportunidad": "que producto o situacion aprovechar",
+  "tono": "cercano|profesional|urgente",
+  "evitar": ["cosa1 a no mencionar", "cosa2"],
+  "resumen": "2-3 frases del contexto del cliente",
+  "productos_recomendados": ["producto1 que le falta", "producto2"]
+}`;
 
   try {
     const response = await client.messages.create({
       model: MODEL,
-      max_tokens: 400,
-      messages: [{
-        role: 'user',
-        content: `Eres un asistente de ventas de seguros de salud en España.
-Analiza este contacto y genera recomendaciones para la proxima llamada.
-
-Datos del contacto:
-${JSON.stringify(datos, null, 2)}
-
-Responde SOLO con JSON valido (sin markdown, sin backticks):
-{
-  "tactica": "una frase corta de que enfoque tomar en la llamada",
-  "tono": "cercano|profesional|urgente",
-  "oportunidad": "que producto o situacion aprovechar, o null si no hay",
-  "evitar": ["cosa a no mencionar"],
-  "resumen": "2-3 frases del contexto del cliente"
-}`
-      }],
+      max_tokens: 500,
+      messages: [{ role: 'user', content: prompt }],
     });
 
     const text = response.content[0]?.text || '';
-    // Parsear JSON de la respuesta (puede venir con whitespace)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-    return _briefingBasico(datos);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    return _briefingBasico(contexto);
   } catch (e) {
     console.error('[IA] Briefing error:', e.message);
-    return _briefingBasico(datos);
+    return _briefingBasico(contexto);
   }
 }
 
-// Briefing basico sin IA (cuando no hay API key o falla)
-function _briefingBasico(datos) {
-  const hist = datos.historial[0];
-  const seguros = datos.seguros.map(s => `${s.producto} (${s.prima_mensual || '?'}/mes)`).join(', ');
+// Briefing basico sin IA
+function _briefingBasico(ctx) {
+  const { polizas, propuestas, llamadas, totalPrima } = ctx;
+  const lastCall = llamadas[0];
 
   return {
-    tactica: datos.seguros.length ? 'Cliente con seguros activos — venta cruzada' : 'Lead sin seguros — primera venta',
+    tactica: polizas.length
+      ? `Cliente con ${polizas.length} seguros (${totalPrima.toFixed(0)} EUR/mes) — buscar venta cruzada`
+      : 'Lead sin seguros — primera venta',
     tono: 'cercano',
-    oportunidad: datos.propuestas.length ? `Propuesta pendiente: ${datos.propuestas[0].producto}` : null,
+    oportunidad: propuestas.length
+      ? `Propuesta pendiente: ${propuestas[0].producto || propuestas[0].tipo_poliza}`
+      : null,
     evitar: [],
     resumen: [
-      hist ? `Ultima interaccion: ${hist.tipo} ${hist.subtipo || ''} (${_fmtRelative(hist.created_at)})` : 'Sin interacciones previas',
-      seguros ? `Seguros: ${seguros}` : 'Sin seguros contratados',
+      lastCall ? `Ultima llamada: ${lastCall.subtipo || '?'} (${_fmtRelative(lastCall.created_at)})` : 'Sin llamadas previas',
+      polizas.length ? `Seguros: ${polizas.map(p => p.producto).join(', ')}` : 'Sin seguros',
     ].join('. '),
+    productos_recomendados: [],
   };
 }
 
