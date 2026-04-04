@@ -147,12 +147,18 @@
     <div id="gv-phone-body">
       <div id="gv-phone-status">Listo</div>
       <div id="gv-phone-timer" class="gv-hidden">0:00</div>
+      <div id="gv-phone-manual" class="gv-hidden">
+        <div id="gv-phone-manual-num"></div>
+        <button id="gv-phone-copy" onclick="GVPhone.copyNumber()">Copiar numero</button>
+        <div id="gv-phone-manual-hint">Marca manualmente en CloudTalk</div>
+      </div>
     </div>
     <div id="gv-phone-actions">
       <button id="gv-phone-hangup" class="gv-hidden" onclick="GVPhone.hangup()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
         Colgar
       </button>
+      <button id="gv-phone-register" class="gv-hidden" onclick="GVPhone.hangup()">Registrar llamada</button>
     </div>
     <div id="gv-phone-provider" title="Proveedor CTI"></div>
   </div>
@@ -193,6 +199,14 @@
     #gv-phone-hangup{display:flex;align-items:center;gap:6px;padding:10px 24px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
     #gv-phone-hangup:hover{background:#dc2626;}
     #gv-phone-provider{padding:6px 16px;font-size:10px;color:#475569;border-top:1px solid #1e293b;text-align:center;}
+    #gv-phone-manual{text-align:center;padding:4px 0;}
+    #gv-phone-manual-num{font-size:22px;font-weight:800;color:#fff;letter-spacing:1px;margin-bottom:8px;user-select:all;}
+    #gv-phone-copy{padding:6px 16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+    #gv-phone-copy:hover{background:#334155;color:#fff;}
+    #gv-phone-copy.copied{background:#10b981;color:#fff;border-color:#10b981;}
+    #gv-phone-manual-hint{font-size:11px;color:#64748b;margin-top:8px;}
+    #gv-phone-register{padding:8px 16px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:all .15s;}
+    #gv-phone-register:hover{background:#0088c2;}
     .gv-hidden{display:none!important;}
     @keyframes gv-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
     @keyframes ct-pulse-red{0%,100%{opacity:1;}50%{opacity:.7;}}
@@ -321,8 +335,7 @@
         document.getElementById('gv-phone-provider').textContent = providerText;
 
         if (result.manual) {
-          this.setState('connected');
-          this._startTimer();
+          this.setState('manual');
         } else {
           // Llamada automatica — esperar conexion
           setTimeout(() => {
@@ -355,11 +368,15 @@
       const el = document.getElementById('gv-phone-status');
       const timer = document.getElementById('gv-phone-timer');
       const hangup = document.getElementById('gv-phone-hangup');
+      const manual = document.getElementById('gv-phone-manual');
+      const register = document.getElementById('gv-phone-register');
       if (!el) return;
 
       el.className = '';
       timer.classList.add('gv-hidden');
       hangup.classList.add('gv-hidden');
+      manual.classList.add('gv-hidden');
+      register.classList.add('gv-hidden');
 
       if (s === 'dialing') {
         el.textContent = 'Marcando...';
@@ -371,6 +388,15 @@
         el.style.animation = '';
         timer.classList.remove('gv-hidden');
         hangup.classList.remove('gv-hidden');
+      } else if (s === 'manual') {
+        el.textContent = '';
+        el.style.animation = '';
+        manual.classList.remove('gv-hidden');
+        register.classList.remove('gv-hidden');
+        hangup.classList.remove('gv-hidden');
+        document.getElementById('gv-phone-manual-num').textContent =
+          document.getElementById('gv-phone-number').textContent;
+        this._startTimer();
       } else if (s === 'ended') {
         el.textContent = 'Llamada finalizada';
         el.style.animation = '';
@@ -378,6 +404,16 @@
         el.textContent = 'Listo';
         el.style.animation = '';
       }
+    },
+
+    copyNumber() {
+      const num = document.getElementById('gv-phone-manual-num')?.textContent || '';
+      navigator.clipboard.writeText(num).then(() => {
+        const btn = document.getElementById('gv-phone-copy');
+        btn.textContent = 'Copiado';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copiar numero'; btn.classList.remove('copied'); }, 2000);
+      });
     },
 
     show() {
