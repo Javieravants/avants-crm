@@ -187,12 +187,12 @@ const ProductosSettings = {
               ${Icons.settings(12, '#7c3aed')} Generar con IA
             </button>
           </div>
-          <textarea class="pt-input" id="pt-ed-coberturas" rows="3" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
+          <textarea class="pt-input" id="pt-ed-coberturas" style="min-height:200px;resize:vertical;" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
           ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
         </div>
         <div class="pt-field">
           <label class="pt-label">Argumentario de venta</label>
-          <textarea class="pt-input" id="pt-ed-argumentario" rows="6" placeholder="Se genera automaticamente con IA al pulsar el boton...">${this.esc(prod.argumentario_venta || '')}</textarea>
+          <textarea class="pt-input" id="pt-ed-argumentario" style="min-height:300px;resize:vertical;" placeholder="Se genera automaticamente con IA al pulsar el boton...">${this.esc(prod.argumentario_venta || '')}</textarea>
           ${prod.argumentario_venta ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
         </div>
         <div class="pt-field">
@@ -578,6 +578,31 @@ const ProductosSettings = {
             </div>
           </div>
 
+          <div class="pt-field">
+            <label class="pt-label">Volumen minimo (€)</label>
+            <input class="pt-input" id="pt-rap-volmin" type="number" step="0.01" value="${rapel?.volumen_minimo || 0}" placeholder="0 = sin minimo">
+          </div>
+          <div class="pt-field">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#475569;">
+              <input type="checkbox" id="pt-rap-porprod" ${rapel?.por_producto ? 'checked' : ''}
+                onchange="document.getElementById('pt-rap-prods').style.display=this.checked?'block':'none'">
+              Aplica solo a productos especificos
+            </label>
+            <div id="pt-rap-prods" style="display:${rapel?.por_producto ? 'block' : 'none'};margin-top:6px;">
+              ${(() => {
+                const comp = this.companias.find(c => c.id === compId);
+                const allProds = []; (comp?._categorias || []).forEach(cat => (cat._productos || []).forEach(p => allProds.push(p)));
+                const selIds = new Set(rapel?.producto_ids || []);
+                return allProds.map(p => `
+                  <label style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:11px;color:#475569;cursor:pointer;">
+                    <input type="checkbox" class="pt-rap-prod-cb" value="${p.id}" ${selIds.has(p.id) ? 'checked' : ''}>
+                    ${this.esc(p.nombre)}
+                  </label>
+                `).join('') || '<span style="font-size:11px;color:#94a3b8;">Sin productos en esta compania</span>';
+              })()}
+            </div>
+          </div>
+
           <div class="pt-section-title">Tramos</div>
           <table style="width:100%;font-size:12px;border-collapse:collapse;" id="pt-rap-tramos">
             <thead>
@@ -637,6 +662,15 @@ const ProductosSettings = {
       });
     });
 
+    // Leer productos seleccionados
+    const porProducto = document.getElementById('pt-rap-porprod')?.checked || false;
+    const productoIds = [];
+    if (porProducto) {
+      document.querySelectorAll('.pt-rap-prod-cb:checked').forEach(cb => {
+        productoIds.push(parseInt(cb.value));
+      });
+    }
+
     const data = {
       nombre: document.getElementById('pt-rap-nombre')?.value,
       descripcion: document.getElementById('pt-rap-desc')?.value || null,
@@ -644,6 +678,9 @@ const ProductosSettings = {
       periodicidad: document.getElementById('pt-rap-periodo')?.value,
       fecha_inicio: document.getElementById('pt-rap-inicio')?.value || null,
       fecha_fin: document.getElementById('pt-rap-fin')?.value || null,
+      volumen_minimo: parseFloat(document.getElementById('pt-rap-volmin')?.value) || 0,
+      por_producto: porProducto,
+      producto_ids: productoIds,
       tramos,
     };
 
@@ -697,7 +734,7 @@ const ProductosSettings = {
     return `
       .pt-layout{display:flex;gap:16px;min-height:400px;}
       .pt-tree{flex:1;min-width:0;}
-      .pt-panel{width:380px;flex-shrink:0;background:#f8fafc;border:1px solid #e8edf2;border-radius:12px;overflow:hidden;}
+      .pt-panel{width:550px;flex-shrink:0;background:#f8fafc;border:1px solid #e8edf2;border-radius:12px;overflow:hidden;}
 
       .pt-node{margin-bottom:2px;}
       .pt-node-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background .1s;font-size:13px;}

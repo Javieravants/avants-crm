@@ -541,14 +541,17 @@ router.get('/companias/:id/rapeles', async (req, res) => {
 // POST /api/companias/:id/rapeles
 router.post('/companias/:id/rapeles', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
-    const { nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos } = req.body;
+    const { nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos,
+            por_producto, producto_ids, volumen_minimo } = req.body;
     if (!nombre) return res.status(400).json({ error: 'Nombre obligatorio' });
     const r = await pool.query(
-      `INSERT INTO rapeles (compania_id, nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO rapeles (compania_id, nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos,
+                            por_producto, producto_ids, volumen_minimo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [req.params.id, nombre, descripcion || null, tipo || 'produccion',
        periodicidad || 'trimestral', fecha_inicio || null, fecha_fin || null,
-       JSON.stringify(tramos || [])]);
+       JSON.stringify(tramos || []),
+       por_producto || false, producto_ids || [], volumen_minimo || 0]);
     res.status(201).json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -557,13 +560,16 @@ router.post('/companias/:id/rapeles', requireRole('admin', 'supervisor'), async 
 router.put('/rapeles/:id', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const fields = []; const vals = []; let idx = 1;
-    for (const key of ['nombre', 'descripcion', 'tipo', 'periodicidad', 'fecha_inicio', 'fecha_fin', 'activo']) {
+    for (const key of ['nombre', 'descripcion', 'tipo', 'periodicidad', 'fecha_inicio', 'fecha_fin', 'activo', 'por_producto', 'volumen_minimo']) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = $${idx}`); vals.push(req.body[key]); idx++;
       }
     }
     if (req.body.tramos !== undefined) {
       fields.push(`tramos = $${idx}`); vals.push(JSON.stringify(req.body.tramos)); idx++;
+    }
+    if (req.body.producto_ids !== undefined) {
+      fields.push(`producto_ids = $${idx}`); vals.push(req.body.producto_ids); idx++;
     }
     if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
     vals.push(req.params.id);

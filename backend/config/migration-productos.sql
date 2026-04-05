@@ -153,6 +153,11 @@ CREATE TABLE IF NOT EXISTS rapeles (
 
 CREATE INDEX IF NOT EXISTS idx_rapeles_compania ON rapeles(compania_id);
 
+-- Rapeles: campos extra para producto y volumen
+ALTER TABLE rapeles ADD COLUMN IF NOT EXISTS por_producto BOOLEAN DEFAULT false;
+ALTER TABLE rapeles ADD COLUMN IF NOT EXISTS producto_ids INTEGER[] DEFAULT '{}';
+ALTER TABLE rapeles ADD COLUMN IF NOT EXISTS volumen_minimo DECIMAL(10,2) DEFAULT 0;
+
 -- Precio flexible en productos
 ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_tipo VARCHAR(20) DEFAULT 'fijo';
 
