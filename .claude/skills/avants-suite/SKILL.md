@@ -12,11 +12,14 @@ Objetivo final: SaaS vendible a otras corredurías.
 
 ## Stack técnico
 - **Backend:** Node.js + Express
-- **BD:** PostgreSQL (Railway producción)
+- **BD:** PostgreSQL (en el VPS Hetzner)
 - **Frontend:** HTML/CSS/JS vanilla — SIN frameworks (no React, no Vue, no Tailwind)
 - **Auth:** JWT (8h expiry)
 - **Storage:** Hetzner Object Storage (S3-compatible)
-- **Hosting:** Railway (temporal) → Hetzner VPS CX23
+- **Hosting:** VPS Hetzner — gestavly-prod, IP 116.203.90.76, CX23, Ubuntu 24.04, Nuremberg
+- **Runtime:** Node.js + PM2
+- **Proxy:** Nginx + Cloudflare
+- **Deploy:** `./deploy.sh` desde Mac + purgar cache Cloudflare
 - **Repo:** https://github.com/Javieravants/avants-crm
 - **Producción:** https://app.gestavly.com
 
@@ -414,11 +417,11 @@ Buscar, Filtrar, Notificacion, Colgar, Subir, Descargar, Arrastrar, Reunion
 
 ---
 
-## Variables de entorno (Railway produccion)
+## Variables de entorno (VPS Hetzner — /var/www/gestavly/.env)
 
 ### Base de datos
 ```
-DATABASE_URL=postgresql://...   # Railway auto-provisioned
+DATABASE_URL=postgresql://...   # PostgreSQL local en el VPS
 ```
 
 ### Autenticacion
@@ -565,7 +568,7 @@ NUNCA usar flex para el board, NUNCA ancho fijo en columnas, NUNCA overflow-x:au
 ---
 
 ## Slash commands disponibles
-- `/deploy` — Desplegar a Railway
+- `/deploy` — Desplegar a VPS Hetzner (./deploy.sh + purgar Cloudflare)
 - `/check-prod` — Verificar produccion
 - `/db-stats` — Metricas de BD
 - `/sync-pipedrive` — Sincronizacion manual
@@ -718,4 +721,4 @@ Panel lateral: edicion, docs con upload, agentes con checkboxes
 7. ⏳ Bidireccional completo CRM → Pipedrive
 8. ⏳ Notificaciones tiempo real (Socket.IO)
 9. ⏳ PWA movil responsive
-10. ⏳ Migracion Railway → Hetzner VPS
+10. ✅ Migracion a Hetzner VPS — completada
