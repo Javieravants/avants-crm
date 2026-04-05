@@ -133,44 +133,50 @@
     </main>
   </div>
 
-  <!-- Gestavly Phone — marcador flotante propio -->
-  <div id="gv-phone" class="gv-phone-hidden">
-    <div id="gv-phone-head">
-      <div id="gv-phone-contact">
-        <div id="gv-phone-name">—</div>
-        <div id="gv-phone-number">—</div>
+  <!-- Gestavly Phone — marcador flotante -->
+  <div id="gv-phone" class="gv-phone-hidden gv-mini">
+    <!-- MINIMIZADO: pillola compacta -->
+    <div id="gv-mini" onclick="GVPhone.expand()">
+      <span id="gv-mini-pulse"></span>
+      <span id="gv-mini-name">—</span>
+      <span id="gv-mini-timer">0:00</span>
+      <span id="gv-mini-expand">&#9650;</span>
+    </div>
+    <!-- EXPANDIDO: panel completo -->
+    <div id="gv-full" class="gv-hidden">
+      <div id="gv-phone-head">
+        <div>
+          <div id="gv-phone-name">—</div>
+          <div id="gv-phone-number">—</div>
+        </div>
+        <button onclick="GVPhone.minimize()" title="Minimizar" style="background:none;border:none;color:#64748b;cursor:pointer;padding:2px;">&#9660;</button>
       </div>
-      <button id="gv-phone-close" onclick="GVPhone.hide()" title="Minimizar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div id="gv-phone-body">
-      <div id="gv-phone-status">Listo</div>
-      <div id="gv-phone-timer" class="gv-hidden">0:00</div>
-      <div id="gv-phone-manual" class="gv-hidden">
-        <div id="gv-phone-manual-num"></div>
-        <button id="gv-phone-copy" onclick="GVPhone.copyNumber()">Copiar numero</button>
-        <div id="gv-phone-manual-hint">Marca manualmente en CloudTalk</div>
+      <div id="gv-phone-body">
+        <div id="gv-phone-status">Listo</div>
+        <div id="gv-phone-timer" class="gv-hidden">0:00</div>
+        <div id="gv-phone-manual" class="gv-hidden">
+          <div id="gv-phone-manual-num"></div>
+          <button id="gv-phone-copy" onclick="GVPhone.copyNumber()">Copiar numero</button>
+          <div id="gv-phone-manual-hint">Marca manualmente en CloudTalk</div>
+        </div>
       </div>
-    </div>
-    <div id="gv-phone-actions">
-      <button id="gv-phone-hangup" class="gv-hidden" onclick="GVPhone.hangup()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
-        Colgar
-      </button>
-      <button id="gv-phone-register" class="gv-hidden" onclick="GVPhone.hangup()">Registrar llamada</button>
-    </div>
-    <div id="gv-phone-ia" class="gv-hidden">
-      <div id="gv-ia-msgs" style="max-height:80px;overflow-y:auto;padding:0 12px;"></div>
-      <div style="display:flex;gap:4px;padding:6px 12px;">
-        <input id="gv-ia-input" placeholder="Pregunta rapida..." style="flex:1;padding:5px 8px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#e2e8f0;font-size:11px;font-family:inherit;" onkeydown="if(event.key==='Enter')GVPhone.sendIA()">
-        <button onclick="GVPhone.sendIA()" style="padding:5px 8px;border-radius:6px;border:none;background:#7c3aed;color:#fff;font-size:10px;font-weight:600;cursor:pointer;">IA</button>
+      <div id="gv-phone-actions">
+        <button id="gv-phone-hangup" class="gv-hidden" onclick="GVPhone.hangup()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
+          Colgar
+        </button>
+        <button id="gv-phone-register" class="gv-hidden" onclick="GVPhone.hangup()">Registrar</button>
+        <button id="gv-phone-ia-toggle" class="gv-hidden" onclick="GVPhone.toggleIA()" style="padding:6px 12px;border-radius:8px;border:1px solid #7c3aed40;background:#1e1040;color:#7c3aed;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">IA Chat</button>
       </div>
+      <div id="gv-phone-ia" class="gv-hidden">
+        <div id="gv-ia-msgs" style="max-height:80px;overflow-y:auto;padding:0 12px;"></div>
+        <div style="display:flex;gap:4px;padding:6px 12px 10px;">
+          <input id="gv-ia-input" placeholder="Pregunta rapida..." style="flex:1;padding:5px 8px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#e2e8f0;font-size:11px;font-family:inherit;" onkeydown="if(event.key==='Enter')GVPhone.sendIA()">
+          <button onclick="GVPhone.sendIA()" style="padding:5px 8px;border-radius:6px;border:none;background:#7c3aed;color:#fff;font-size:10px;font-weight:600;cursor:pointer;">IA</button>
+        </div>
+      </div>
+      <div id="gv-phone-provider" style="padding:4px 16px;font-size:9px;color:#475569;border-top:1px solid #1e293b;text-align:center;"></div>
     </div>
-    <div id="gv-phone-ia-toggle" class="gv-hidden" style="text-align:center;padding:4px;">
-      <button onclick="GVPhone.toggleIA()" style="background:none;border:none;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">IA Chat</button>
-    </div>
-    <div id="gv-phone-provider" title="Proveedor CTI"></div>
   </div>
 
   <style>
@@ -193,36 +199,45 @@
     .sr-empty{padding:24px;text-align:center;color:#94a3b8;font-size:13px;}
 
     /* Gestavly Phone — marcador flotante */
-    #gv-phone{position:fixed;bottom:20px;right:20px;z-index:900;width:280px;background:#0f172a;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;font-family:inherit;transition:all .25s ease;transform-origin:bottom right;}
+    #gv-phone{position:fixed;bottom:20px;right:20px;z-index:9999;font-family:inherit;transition:all .2s ease;transform-origin:bottom right;}
     #gv-phone.gv-phone-hidden{opacity:0;transform:scale(.9) translateY(10px);pointer-events:none;}
-    #gv-phone-head{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 16px 8px;}
-    #gv-phone-name{font-size:14px;font-weight:700;color:#fff;}
-    #gv-phone-number{font-size:12px;color:#94a3b8;margin-top:2px;letter-spacing:.5px;}
-    #gv-phone-close{background:none;border:none;color:#64748b;cursor:pointer;padding:2px;border-radius:4px;}
-    #gv-phone-close:hover{color:#fff;background:rgba(255,255,255,.1);}
-    #gv-phone-body{padding:8px 16px 12px;text-align:center;}
-    #gv-phone-status{font-size:12px;color:#94a3b8;font-weight:500;}
+
+    /* Estado minimizado — pillola */
+    #gv-mini{display:flex;align-items:center;gap:8px;padding:0 14px;height:44px;background:#0f172a;border-radius:22px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.25);white-space:nowrap;max-width:240px;}
+    #gv-mini-pulse{width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;animation:gv-pulse 1.2s infinite;}
+    #gv-mini-name{font-size:12px;font-weight:600;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;}
+    #gv-mini-timer{font-size:12px;font-weight:700;color:#10b981;font-variant-numeric:tabular-nums;flex-shrink:0;}
+    #gv-mini-expand{font-size:8px;color:#64748b;flex-shrink:0;}
+    #gv-mini:hover{background:#1e293b;}
+    #gv-phone.gv-mini #gv-full{display:none;}
+    #gv-phone:not(.gv-mini) #gv-mini{display:none;}
+
+    /* Estado expandido */
+    #gv-full{width:280px;background:#0f172a;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.4);overflow:hidden;}
+    #gv-phone-head{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 14px 6px;}
+    #gv-phone-name{font-size:13px;font-weight:700;color:#fff;}
+    #gv-phone-number{font-size:11px;color:#94a3b8;margin-top:1px;letter-spacing:.5px;}
+    #gv-phone-body{padding:6px 14px 10px;text-align:center;}
+    #gv-phone-status{font-size:11px;color:#94a3b8;font-weight:500;}
     #gv-phone-status.dialing{color:#f59e0b;}
     #gv-phone-status.connected{color:#10b981;}
-    #gv-phone-timer{font-size:28px;font-weight:800;color:#fff;margin-top:4px;font-variant-numeric:tabular-nums;}
-    #gv-phone-actions{padding:0 16px 14px;display:flex;justify-content:center;}
-    #gv-phone-hangup{display:flex;align-items:center;gap:6px;padding:10px 24px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+    #gv-phone-timer{font-size:24px;font-weight:800;color:#fff;margin-top:2px;font-variant-numeric:tabular-nums;}
+    #gv-phone-actions{padding:0 14px 10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+    #gv-phone-hangup{display:flex;align-items:center;gap:5px;padding:8px 18px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
     #gv-phone-hangup:hover{background:#dc2626;}
+    #gv-phone-register{padding:8px 14px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
     #gv-phone-ia{border-top:1px solid #1e293b;}
     #gv-ia-msgs .gv-ia-msg{padding:4px 8px;border-radius:6px;margin:3px 0;font-size:10px;line-height:1.4;}
     #gv-ia-msgs .gv-ia-user{background:#334155;color:#e2e8f0;margin-left:20%;}
     #gv-ia-msgs .gv-ia-bot{background:#2d1b69;color:#c4b5fd;margin-right:20%;}
-    #gv-phone-provider{padding:6px 16px;font-size:10px;color:#475569;border-top:1px solid #1e293b;text-align:center;}
     #gv-phone-manual{text-align:center;padding:4px 0;}
-    #gv-phone-manual-num{font-size:22px;font-weight:800;color:#fff;letter-spacing:1px;margin-bottom:8px;user-select:all;}
-    #gv-phone-copy{padding:6px 16px;border-radius:8px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+    #gv-phone-manual-num{font-size:20px;font-weight:800;color:#fff;letter-spacing:1px;margin-bottom:6px;user-select:all;}
+    #gv-phone-copy{padding:5px 14px;border-radius:6px;border:1px solid #334155;background:#1e293b;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
     #gv-phone-copy:hover{background:#334155;color:#fff;}
     #gv-phone-copy.copied{background:#10b981;color:#fff;border-color:#10b981;}
-    #gv-phone-manual-hint{font-size:11px;color:#64748b;margin-top:8px;}
-    #gv-phone-register{padding:8px 16px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:all .15s;}
-    #gv-phone-register:hover{background:#0088c2;}
+    #gv-phone-manual-hint{font-size:10px;color:#64748b;margin-top:6px;}
     .gv-hidden{display:none!important;}
-    @keyframes gv-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
+    @keyframes gv-pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
     @keyframes ct-pulse-red{0%,100%{opacity:1;}50%{opacity:.7;}}
   </style>
 
@@ -338,6 +353,7 @@
       this.setState('dialing');
       document.getElementById('gv-phone-name').textContent = personaNombre || 'Contacto';
       document.getElementById('gv-phone-number').textContent = phoneNumber;
+      document.getElementById('gv-mini-name').textContent = personaNombre || 'Contacto';
 
       try {
         const result = await API.post('/cti/llamar', { phoneNumber, personaId });
@@ -434,6 +450,10 @@
       this._iaOpen = false;
       this._iaHistory = [];
 
+      // Sync mini bar pulse color
+      const miniPulse = document.getElementById('gv-mini-pulse');
+      if (miniPulse) miniPulse.style.background = (s === 'dialing') ? '#f59e0b' : '#10b981';
+
       if (s === 'dialing') {
         el.textContent = 'Marcando...';
         el.classList.add('dialing');
@@ -475,13 +495,21 @@
     },
 
     show() {
-      document.getElementById('gv-phone')?.classList.remove('gv-phone-hidden');
+      const el = document.getElementById('gv-phone');
+      if (el) { el.classList.remove('gv-phone-hidden'); el.classList.add('gv-mini'); }
     },
     hide() {
-      document.getElementById('gv-phone')?.classList.add('gv-phone-hidden');
+      const el = document.getElementById('gv-phone');
+      if (el) { el.classList.add('gv-phone-hidden'); el.classList.add('gv-mini'); }
       this.state = 'idle';
       this._stopTimer();
       this._stopPoll();
+    },
+    expand() {
+      document.getElementById('gv-phone')?.classList.remove('gv-mini');
+    },
+    minimize() {
+      document.getElementById('gv-phone')?.classList.add('gv-mini');
     },
 
     _startTimer() {
@@ -491,8 +519,11 @@
         const secs = Math.floor((Date.now() - this.callStart) / 1000);
         const m = Math.floor(secs / 60);
         const s = secs % 60;
+        const t = m + ':' + String(s).padStart(2, '0');
         const el = document.getElementById('gv-phone-timer');
-        if (el) el.textContent = m + ':' + String(s).padStart(2, '0');
+        if (el) el.textContent = t;
+        const mini = document.getElementById('gv-mini-timer');
+        if (mini) mini.textContent = t;
       }, 1000);
     },
     _stopTimer() {
