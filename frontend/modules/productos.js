@@ -182,13 +182,18 @@ const ProductosSettings = {
         </div>
         <div class="pt-field">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
-            <label class="pt-label" style="margin-bottom:0;">Resumen coberturas (lo lee la IA)</label>
-            <button class="pt-btn-ia" onclick="ProductosSettings._generarResumen(${prod.id})" id="pt-btn-generar-ia" title="Generar resumen a partir del PDF subido">
+            <label class="pt-label" style="margin-bottom:0;">Resumen coberturas</label>
+            <button class="pt-btn-ia" onclick="ProductosSettings._generarResumen(${prod.id})" id="pt-btn-generar-ia" title="Genera resumen + argumentario desde el PDF">
               ${Icons.settings(12, '#7c3aed')} Generar con IA
             </button>
           </div>
           <textarea class="pt-input" id="pt-ed-coberturas" rows="3" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
-          ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;" id="pt-ia-badge">Generado por IA — editable manualmente</div>' : ''}
+          ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
+        </div>
+        <div class="pt-field">
+          <label class="pt-label">Argumentario de venta</label>
+          <textarea class="pt-input" id="pt-ed-argumentario" rows="6" placeholder="Se genera automaticamente con IA al pulsar el boton...">${this.esc(prod.argumentario_venta || '')}</textarea>
+          ${prod.argumentario_venta ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
         </div>
         <div class="pt-field">
           <label class="pt-label">Precio</label>
@@ -444,22 +449,15 @@ const ProductosSettings = {
 
   async _generarResumen(prodId) {
     const btn = document.getElementById('pt-btn-generar-ia');
-    if (btn) { btn.disabled = true; btn.textContent = 'Generando...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Generando resumen + argumentario...'; }
     try {
       const r = await API.post(`/productos/${prodId}/generar-resumen`, {});
-      const textarea = document.getElementById('pt-ed-coberturas');
-      if (textarea) textarea.value = r.resumen;
-      // Mostrar badge
-      let badge = document.getElementById('pt-ia-badge');
-      if (!badge) {
-        badge = document.createElement('div');
-        badge.id = 'pt-ia-badge';
-        badge.style.cssText = 'font-size:10px;color:#7c3aed;margin-top:2px;';
-        textarea?.parentElement?.appendChild(badge);
-      }
-      badge.textContent = 'Generado por IA — editable manualmente';
+      const cobEl = document.getElementById('pt-ed-coberturas');
+      const argEl = document.getElementById('pt-ed-argumentario');
+      if (cobEl) cobEl.value = r.resumen || '';
+      if (argEl) argEl.value = r.argumentario || '';
     } catch (e) {
-      alert(e.message || 'Error al generar resumen');
+      alert(e.message || 'Error al generar');
     }
     if (btn) { btn.disabled = false; btn.innerHTML = `${Icons.settings(12, '#7c3aed')} Generar con IA`; }
   },
@@ -470,6 +468,7 @@ const ProductosSettings = {
       nombre: document.getElementById('pt-ed-nombre')?.value,
       descripcion: document.getElementById('pt-ed-desc')?.value || null,
       resumen_coberturas: document.getElementById('pt-ed-coberturas')?.value || null,
+      argumentario_venta: document.getElementById('pt-ed-argumentario')?.value || null,
       precio_tipo: precioTipo,
       precio_base: precioTipo === 'fijo' ? (parseFloat(document.getElementById('pt-ed-precio')?.value) || null) : null,
       comision_valor: parseFloat(document.getElementById('pt-ed-comision')?.value) || null,

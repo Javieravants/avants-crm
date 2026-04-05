@@ -221,7 +221,7 @@ router.post('/productos', requireRole('admin', 'supervisor'), async (req, res) =
 router.put('/productos/:id', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     const fields = []; const vals = []; let idx = 1;
-    const editables = ['nombre', 'descripcion', 'resumen_coberturas', 'categoria_id',
+    const editables = ['nombre', 'descripcion', 'resumen_coberturas', 'argumentario_venta', 'categoria_id',
       'comision_tipo', 'comision_valor', 'puntos_base', 'precio_base', 'precio_tipo', 'activo', 'orden'];
     for (const key of editables) {
       if (req.body[key] !== undefined) {
@@ -373,36 +373,61 @@ router.post('/productos/:id/generar-resumen', requireRole('admin', 'supervisor')
     // Truncar a 8000 chars para no exceder limites del modelo
     const textoTruncado = textoCompleto.substring(0, 8000);
 
-    // Enviar a Claude Haiku
+    // Enviar a Claude Haiku — generar resumen + argumentario en paralelo
     let Anthropic;
     try { Anthropic = require('@anthropic-ai/sdk'); } catch {}
     if (!Anthropic || !process.env.ANTHROPIC_API_KEY) {
       return res.status(400).json({ error: 'ANTHROPIC_API_KEY no configurada' });
     }
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const modelo = 'claude-haiku-4-5-20251001';
 
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: `Eres un experto en seguros. Lee estas condiciones generales del producto "${prod.nombre}" y genera un resumen de coberturas en maximo 150 palabras, en espanol, en formato claro y directo para que un agente de ventas pueda explicarselo rapidamente a un cliente.
+    const [resumenR, argumentarioR] = await Promise.all([
+      // 1. Resumen de coberturas
+      client.messages.create({
+        model: modelo, max_tokens: 300,
+        messages: [{ role: 'user', content: `Eres un experto en seguros. Lee estas condiciones generales del producto "${prod.nombre}" y genera un resumen de coberturas en maximo 150 palabras, en espanol, en formato claro y directo para que un agente de ventas pueda explicarselo rapidamente a un cliente.
 
 Incluye: que cubre, que NO cubre (exclusiones principales), y el diferencial principal frente a otros seguros.
 
 TEXTO DEL DOCUMENTO:
 ${textoTruncado}
 
-Responde SOLO con el resumen, sin titulo ni encabezado.`
-      }],
-    });
+Responde SOLO con el resumen, sin titulo ni encabezado.` }],
+      }),
+      // 2. Argumentario de venta
+      client.messages.create({
+        model: modelo, max_tokens: 800,
+        messages: [{ role: 'user', content: `Basandote en estas condiciones generales del seguro "${prod.nombre}", genera un argumentario de ventas completo para un agente de call center. Incluye:
 
-    const resumen = response.content[0]?.text?.trim() || '';
+1. APERTURA: como presentar el producto en los primeros 30 segundos
+2. BENEFICIOS CLAVE: los 3-4 puntos mas potentes para el cliente
+3. OBJECIONES FRECUENTES y como rebatirlas:
+   - "Es muy caro" → respuesta
+   - "Ya tengo seguro" → respuesta
+   - "Lo tengo que pensar" → respuesta
+   - "No me interesa" → respuesta
+4. CIERRE: tecnicas de cierre especificas para este producto
+5. DIFERENCIAL: por que este seguro vs la competencia
 
-    // Guardar en BD
-    await pool.query('UPDATE productos SET resumen_coberturas = $1 WHERE id = $2', [resumen, prodId]);
+Maximo 400 palabras, en espanol, tono directo y practico.
 
-    res.json({ resumen, generado_por: 'ia' });
+TEXTO DEL DOCUMENTO:
+${textoTruncado}
+
+Responde SOLO con el argumentario, sin titulo inicial.` }],
+      }),
+    ]);
+
+    const resumen = resumenR.content[0]?.text?.trim() || '';
+    const argumentario = argumentarioR.content[0]?.text?.trim() || '';
+
+    // Guardar ambos en BD
+    await pool.query(
+      'UPDATE productos SET resumen_coberturas = $1, argumentario_venta = $2 WHERE id = $3',
+      [resumen, argumentario, prodId]);
+
+    res.json({ resumen, argumentario, generado_por: 'ia' });
   } catch (e) {
     console.error('[IA] Generar resumen error:', e.message);
     res.status(500).json({ error: e.message });
