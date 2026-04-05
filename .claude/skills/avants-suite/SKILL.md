@@ -523,6 +523,13 @@ ANTHROPIC_API_KEY=...
     - Panel contenido: `flex:1;min-width:0;overflow-y:auto` (ocupa TODO el resto)
     - Breakpoints: `@media(max-width:1280px)` paneles estrechos, `(max-width:768px)` layout vertical, `(min-height:900px)` mas espacio vertical
     - AUDITORIA: antes de push, verificar que no hay px fijos en contenedores principales
+20. **Proteccion del bloque script de index.html (CRITICA):**
+    - index.html tiene UN SOLO bloque `<script>` global que define GVPhone, CloudTalkWidget, SearchGlobal
+    - NUNCA declarar `const/let/var` con el mismo nombre dos veces en el mismo scope — duplicate const = SyntaxError silencioso que rompe TODO el bloque y ningun objeto se inicializa
+    - ANTES de push de cualquier cambio en index.html ejecutar: `node -e "const fs=require('fs');const h=fs.readFileSync('frontend/index.html','utf8');const m=h.match(/<script>([\\s\\S]*?)<\\/script>/g);if(m){try{new Function(m[m.length-1].replace(/<\\/?script>/g,''));console.log('OK')}catch(e){console.error('ERROR:',e.message)}}"`
+    - Si da ERROR → no hacer push, corregir primero
+    - Commit de referencia estable GVPhone: **f20a189** — si se rompe, restaurar desde ahi
+    - Despues de cambios en index.html: purgar Cloudflare + hard refresh (Cmd+Shift+R)
 
 ### CTI Architecture
 ```
