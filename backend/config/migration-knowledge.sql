@@ -28,3 +28,6 @@ CREATE TABLE IF NOT EXISTS knowledge_chat (
 );
 
 CREATE INDEX IF NOT EXISTS idx_kc_tenant ON knowledge_chat(tenant_id);
+
+-- Visibilidad: interno (confidencial) vs externo (puede llegar al cliente)
+ALTER TABLE knowledge_base ADD COLUMN IF NOT EXISTS visibilidad VARCHAR(20) NOT NULL DEFAULT 'interno';

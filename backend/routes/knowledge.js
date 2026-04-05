@@ -45,18 +45,19 @@ router.get('/', async (req, res) => {
 // POST /api/knowledge — crear entrada
 router.post('/', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
-    var { tipo, titulo, contenido, compania_id, vigente_hasta } = req.body;
+    var { tipo, titulo, contenido, compania_id, vigente_hasta, visibilidad } = req.body;
     if (!tipo || !titulo || !contenido) {
       return res.status(400).json({ error: 'tipo, titulo y contenido obligatorios' });
     }
     if (!TIPOS_VALIDOS.includes(tipo)) {
       return res.status(400).json({ error: 'Tipo invalido. Validos: ' + TIPOS_VALIDOS.join(', ') });
     }
+    var vis = (visibilidad === 'externo') ? 'externo' : 'interno';
 
     var r = await pool.query(
-      `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, vigente_hasta)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [req.tenantId, tipo, titulo, contenido, compania_id || null, vigente_hasta || null]);
+      `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, vigente_hasta, visibilidad)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.tenantId, tipo, titulo, contenido, compania_id || null, vigente_hasta || null, vis]);
     res.status(201).json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -65,7 +66,7 @@ router.post('/', requireRole('admin', 'supervisor'), async (req, res) => {
 router.put('/:id', requireRole('admin', 'supervisor'), async (req, res) => {
   try {
     var fields = []; var vals = []; var idx = 1;
-    for (var key of ['tipo', 'titulo', 'contenido', 'compania_id', 'vigente_hasta']) {
+    for (var key of ['tipo', 'titulo', 'contenido', 'compania_id', 'vigente_hasta', 'visibilidad']) {
       if (req.body[key] !== undefined) {
         fields.push(key + ' = $' + idx);
         vals.push(req.body[key]);
@@ -103,17 +104,16 @@ router.get('/context', async (req, res) => {
 
     // Conocimiento general de negocio (sin compania)
     var generalR = await pool.query(
-      `SELECT tipo, titulo, contenido FROM knowledge_base
+      `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
        WHERE tenant_id = $1 AND compania_id IS NULL
          AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
        ORDER BY updated_at DESC LIMIT 20`,
       [req.tenantId]);
 
-    // Conocimiento especifico de compania (si se proporciona)
     var companiaR = { rows: [] };
     if (companiaId) {
       companiaR = await pool.query(
-        `SELECT tipo, titulo, contenido FROM knowledge_base
+        `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
          WHERE tenant_id = $1 AND compania_id = $2
            AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
          ORDER BY updated_at DESC LIMIT 20`,
@@ -184,8 +184,8 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
         var k = parsed.conocimiento[i];
         if (k.titulo && k.contenido && TIPOS_VALIDOS.includes(k.tipo)) {
           var insertR = await pool.query(
-            `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id)
-             VALUES ($1, $2, $3, $4, $5) RETURNING id, titulo`,
+            `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, visibilidad)
+             VALUES ($1, $2, $3, $4, $5, 'interno') RETURNING id, titulo`,
             [req.tenantId, k.tipo, k.titulo, k.contenido, k.compania_id || null]);
           guardados.push(insertR.rows[0]);
         }

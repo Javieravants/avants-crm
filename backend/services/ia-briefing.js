@@ -151,9 +151,12 @@ CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provinc
   if (knowledgeGeneral.length || knowledgeCompania.length) {
     prompt += 'CONOCIMIENTO INTERNO DEL EQUIPO:\n';
     [...knowledgeGeneral, ...knowledgeCompania].forEach(k => {
-      prompt += `- [${k.tipo}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
+      const tag = k.visibilidad === 'externo'
+        ? 'EXTERNO - puedes mencionarlo al cliente'
+        : 'INTERNO - CONFIDENCIAL';
+      prompt += `- [${tag}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
     });
-    prompt += '\n';
+    prompt += '\nINSTRUCCION CRITICA: El conocimiento INTERNO es estrictamente confidencial. Usalo solo para orientar al agente en su estrategia. NUNCA lo menciones en mensajes, emails, propuestas ni en nada dirigido al cliente. El conocimiento EXTERNO si puede usarse en comunicaciones con el cliente.\n\n';
   }
 
   if (seguros.length) {

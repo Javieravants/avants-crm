@@ -1459,9 +1459,9 @@ const PersonasModule = {
     </div>`;
 
     // Chat IA
-    const chatHtml = `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #e8edf2;">
-      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${_ICO.gestion(14,'#7c3aed')} Consulta a la IA</div>
-      <div id="ia-chat-messages" style="min-height:100px;max-height:30vh;overflow-y:auto;margin-bottom:8px;"></div>
+    const chatHtml = `<div style="background:#f5f3ff;border-radius:10px;padding:12px;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${_ICO.gestion(14,'#7c3aed')} Consulta a la IA</div>
+      <div id="ia-chat-messages" style="min-height:60px;max-height:25vh;overflow-y:auto;margin-bottom:8px;"></div>
       <div style="display:flex;gap:6px;">
         <input id="ia-chat-input" class="ia-chat-input" placeholder="Pregunta sobre el producto o el cliente..." onkeydown="if(event.key==='Enter')PersonasModule._sendIAChat(${personaId})">
         <button onclick="PersonasModule._sendIAChat(${personaId})" class="ia-chat-send">${_ICO.gestion(14,'#fff')} Enviar</button>
@@ -1485,13 +1485,15 @@ const PersonasModule = {
 
     content.innerHTML = `<div style="width:100%;">
       ${iaHtml}
-      <div style="background:#e6f6fd;border-radius:10px;padding:14px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:700;color:#009DDD;margin-bottom:8px;">${_ICO.gestion(14,'#009DDD')} Contexto del cliente</div>
-        ${datosItems || '<div style="font-size:12px;color:#94a3b8;">Sin datos previos</div>'}
-      </div>
+      ${chatHtml}
+      <details style="margin-bottom:10px;" open>
+        <summary style="font-size:11px;font-weight:700;color:#009DDD;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;margin-bottom:6px;user-select:none;">${_ICO.gestion(14,'#009DDD')} Contexto del cliente</summary>
+        <div style="background:#e6f6fd;border-radius:10px;padding:12px;">
+          ${datosItems || '<div style="font-size:12px;color:#94a3b8;">Sin datos previos</div>'}
+        </div>
+      </details>
       ${histHtml}
       ${botonesHtml}
-      ${chatHtml}
     </div>`;
   },
 

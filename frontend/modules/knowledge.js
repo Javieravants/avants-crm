@@ -103,7 +103,7 @@ var KnowledgeModule = {
 
       var iaMsg = '<div class="kb-msg kb-msg-ia">' + this.esc(r.respuesta);
       if (r.guardados && r.guardados.length > 0) {
-        iaMsg += '<div class="kb-extracted">Guardado: ' + r.guardados.map(function(g) { return KnowledgeModule.esc(g.titulo); }).join(', ') + '</div>';
+        iaMsg += '<div class="kb-extracted">Guardado como conocimiento interno (confidencial): ' + r.guardados.map(function(g) { return KnowledgeModule.esc(g.titulo); }).join(', ') + '</div>';
       }
       iaMsg += '</div>';
       hist.innerHTML += iaMsg;
@@ -166,6 +166,9 @@ var KnowledgeModule = {
         '<div class="kb-item-head">' +
           '<span class="kb-item-tipo" style="background:' + tc.bg + ';color:' + tc.color + ';">' + item.tipo + '</span>' +
           '<span class="kb-item-title">' + KnowledgeModule.esc(item.titulo) + '</span>' +
+          (item.visibilidad === 'externo'
+            ? '<span class="kb-vis-ext">Externo</span>'
+            : '<span class="kb-vis-int">Interno</span>') +
           (item.compania_nombre ? '<span class="kb-item-comp">' + KnowledgeModule.esc(item.compania_nombre) + '</span>' : '') +
           (expired ? '<span class="kb-item-exp">Caducado</span>' : '') +
           '<button class="kb-item-del" onclick="KnowledgeModule._deleteItem(' + item.id + ')" title="Eliminar">&times;</button>' +
@@ -218,6 +221,8 @@ var KnowledgeModule = {
             '<input id="kb-new-titulo" class="kb-input" placeholder="Titulo corto..."></div>' +
           '<div class="kb-field"><label class="kb-label">Contenido</label>' +
             '<textarea id="kb-new-contenido" class="kb-input" rows="4" placeholder="El conocimiento..."></textarea></div>' +
+          '<div class="kb-field"><label class="kb-label">Visibilidad</label>' +
+            '<select id="kb-new-vis" class="kb-input"><option value="interno">Interno (solo equipo)</option><option value="externo">Externo (puede llegar al cliente)</option></select></div>' +
           '<div class="kb-field"><label class="kb-label">Vigente hasta (opcional)</label>' +
             '<input id="kb-new-vigente" class="kb-input" type="date"></div>' +
           '<button class="kb-btn-primary" onclick="KnowledgeModule._saveNewEntry()">Guardar</button>' +
@@ -233,6 +238,7 @@ var KnowledgeModule = {
       titulo: document.getElementById('kb-new-titulo').value,
       contenido: document.getElementById('kb-new-contenido').value,
       compania_id: document.getElementById('kb-new-comp').value || null,
+      visibilidad: document.getElementById('kb-new-vis').value || 'interno',
       vigente_hasta: document.getElementById('kb-new-vigente').value || null,
     };
     if (!data.titulo || !data.contenido) { alert('Titulo y contenido obligatorios'); return; }
@@ -282,6 +288,8 @@ var KnowledgeModule = {
       '.kb-item-exp{font-size:10px;color:#ef4444;font-weight:600;}' +
       '.kb-item-del{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;opacity:.4;}' +
       '.kb-item-del:hover{opacity:1;}' +
+      '.kb-vis-int{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#374151;color:#d1d5db;}' +
+      '.kb-vis-ext{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#e6f6fd;color:#0284c7;}' +
       '.kb-item-content{font-size:12px;color:#475569;margin-top:6px;line-height:1.5;}' +
       '.kb-empty{padding:40px;text-align:center;color:#94a3b8;font-size:13px;}' +
 
