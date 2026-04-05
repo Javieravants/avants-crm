@@ -152,3 +152,6 @@ CREATE TABLE IF NOT EXISTS rapeles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_rapeles_compania ON rapeles(compania_id);
+
+-- Precio flexible en productos
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_tipo VARCHAR(20) DEFAULT 'fijo';

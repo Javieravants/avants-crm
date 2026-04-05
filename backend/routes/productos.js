@@ -222,7 +222,7 @@ router.put('/productos/:id', requireRole('admin', 'supervisor'), async (req, res
   try {
     const fields = []; const vals = []; let idx = 1;
     const editables = ['nombre', 'descripcion', 'resumen_coberturas', 'categoria_id',
-      'comision_tipo', 'comision_valor', 'puntos_base', 'precio_base', 'activo', 'orden'];
+      'comision_tipo', 'comision_valor', 'puntos_base', 'precio_base', 'precio_tipo', 'activo', 'orden'];
     for (const key of editables) {
       if (req.body[key] !== undefined) {
         fields.push(`${key} = $${idx}`); vals.push(req.body[key]); idx++;

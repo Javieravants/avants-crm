@@ -108,7 +108,7 @@ const ProductosSettings = {
       <div class="pt-node-head pt-prod ${sel ? 'pt-selected' : ''}" onclick="ProductosSettings._selectProducto(${p.id})">
         <span class="pt-prod-dot"></span>
         <span class="pt-node-name">${this.esc(p.nombre)}</span>
-        ${p.precio_base ? `<span class="pt-node-price">${p.precio_base}€</span>` : ''}
+        ${p.precio_base && (!p.precio_tipo || p.precio_tipo === 'fijo') ? `<span class="pt-node-price">${p.precio_base}€</span>` : ''}
         ${p.comision_valor ? `<span class="pt-node-comm">${p.comision_valor}${p.comision_tipo === 'porcentaje' ? '%' : '€'}</span>` : ''}
         ${p.puntos_base ? `<span class="pt-node-pts">${p.puntos_base} pts</span>` : ''}
       </div>
@@ -190,25 +190,40 @@ const ProductosSettings = {
           <textarea class="pt-input" id="pt-ed-coberturas" rows="3" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
           ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;" id="pt-ia-badge">Generado por IA — editable manualmente</div>' : ''}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <div class="pt-field">
-            <label class="pt-label">Precio base</label>
-            <input class="pt-input" id="pt-ed-precio" type="number" step="0.01" value="${prod.precio_base || ''}">
+        <div class="pt-field">
+          <label class="pt-label">Precio</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select class="pt-input" id="pt-ed-precio-tipo" style="width:auto;" onchange="ProductosSettings._togglePrecio()">
+              <option value="fijo" ${(prod.precio_tipo || 'fijo') === 'fijo' ? 'selected' : ''}>Precio fijo</option>
+              <option value="tabla" ${prod.precio_tipo === 'tabla' ? 'selected' : ''}>Tabla de precios</option>
+              <option value="calculadora" ${prod.precio_tipo === 'calculadora' ? 'selected' : ''}>Calculadora CRM</option>
+              <option value="externo" ${prod.precio_tipo === 'externo' ? 'selected' : ''}>Externo</option>
+            </select>
+            <input class="pt-input" id="pt-ed-precio" type="number" step="0.01" value="${prod.precio_base || ''}" placeholder="€/mes" style="width:100px;${(prod.precio_tipo && prod.precio_tipo !== 'fijo') ? 'display:none;' : ''}">
+            <span id="pt-precio-info" style="font-size:11px;color:#94a3b8;${(!prod.precio_tipo || prod.precio_tipo === 'fijo') ? 'display:none;' : ''}">${
+              prod.precio_tipo === 'tabla' ? 'Ver tabla de precios en documentos' :
+              prod.precio_tipo === 'calculadora' ? 'Calculado por la calculadora del CRM' :
+              prod.precio_tipo === 'externo' ? 'Precio calculado externamente' : ''
+            }</span>
           </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <div class="pt-field">
-            <label class="pt-label">Comision (${prod.comision_tipo === 'porcentaje' ? '%' : '€'})</label>
-            <input class="pt-input" id="pt-ed-comision" type="number" step="0.01" value="${prod.comision_valor || ''}">
+            <label class="pt-label">Comision</label>
+            <div style="display:flex;gap:4px;">
+              <input class="pt-input" id="pt-ed-comision" type="number" step="0.01" value="${prod.comision_valor || ''}" style="flex:1;">
+              <select class="pt-input" id="pt-ed-comision-tipo" style="width:auto;" title="Tipo de comision">
+                <option value="porcentaje" ${prod.comision_tipo === 'porcentaje' ? 'selected' : ''}>%</option>
+                <option value="fijo" ${prod.comision_tipo === 'fijo' ? 'selected' : ''}>€</option>
+              </select>
+            </div>
           </div>
           <div class="pt-field">
             <label class="pt-label">Puntos base</label>
             <input class="pt-input" id="pt-ed-puntos" type="number" value="${prod.puntos_base || 0}">
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <select class="pt-input" id="pt-ed-comision-tipo" style="width:auto;">
-            <option value="porcentaje" ${prod.comision_tipo === 'porcentaje' ? 'selected' : ''}>% porcentaje</option>
-            <option value="fijo" ${prod.comision_tipo === 'fijo' ? 'selected' : ''}>€ fijo</option>
-          </select>
+        <div style="margin-top:8px;">
           <button class="pt-btn-primary" onclick="ProductosSettings._saveProducto(${id})">Guardar cambios</button>
         </div>
 
@@ -413,6 +428,20 @@ const ProductosSettings = {
   // GUARDAR
   // ══════════════════════════════════════════
 
+  _togglePrecio() {
+    const tipo = document.getElementById('pt-ed-precio-tipo')?.value;
+    const input = document.getElementById('pt-ed-precio');
+    const info = document.getElementById('pt-precio-info');
+    if (!input || !info) return;
+    const infoTexts = { tabla: 'Ver tabla de precios en documentos', calculadora: 'Calculado por la calculadora del CRM', externo: 'Precio calculado externamente' };
+    if (tipo === 'fijo') {
+      input.style.display = ''; info.style.display = 'none';
+    } else {
+      input.style.display = 'none'; info.style.display = '';
+      info.textContent = infoTexts[tipo] || '';
+    }
+  },
+
   async _generarResumen(prodId) {
     const btn = document.getElementById('pt-btn-generar-ia');
     if (btn) { btn.disabled = true; btn.textContent = 'Generando...'; }
@@ -436,11 +465,13 @@ const ProductosSettings = {
   },
 
   async _saveProducto(id) {
+    const precioTipo = document.getElementById('pt-ed-precio-tipo')?.value || 'fijo';
     await API.put(`/productos/${id}`, {
       nombre: document.getElementById('pt-ed-nombre')?.value,
       descripcion: document.getElementById('pt-ed-desc')?.value || null,
       resumen_coberturas: document.getElementById('pt-ed-coberturas')?.value || null,
-      precio_base: parseFloat(document.getElementById('pt-ed-precio')?.value) || null,
+      precio_tipo: precioTipo,
+      precio_base: precioTipo === 'fijo' ? (parseFloat(document.getElementById('pt-ed-precio')?.value) || null) : null,
       comision_valor: parseFloat(document.getElementById('pt-ed-comision')?.value) || null,
       comision_tipo: document.getElementById('pt-ed-comision-tipo')?.value,
       puntos_base: parseInt(document.getElementById('pt-ed-puntos')?.value) || 0,
