@@ -43,6 +43,11 @@ const ProductosSettings = {
   // ══════════════════════════════════════════
 
   _renderTree(container) {
+    // Quitar padding del card contenedor para que el layout ocupe todo el ancho
+    container.style.padding = '0';
+    container.style.margin = '0';
+    container.style.overflow = 'hidden';
+
     container.innerHTML = `
       <style>${this._getCSS()}</style>
       <div class="pt-layout">
@@ -732,9 +737,11 @@ const ProductosSettings = {
 
   _getCSS() {
     return `
-      .pt-layout{display:flex;height:calc(100vh - 180px);gap:0;}
-      .pt-tree{width:320px;min-width:250px;max-width:400px;overflow-y:auto;padding:12px;resize:horizontal;border-right:1px solid #e8edf2;flex-shrink:0;}
-      .pt-panel{flex:1;min-width:380px;max-width:700px;background:#f8fafc;overflow:hidden;display:flex;flex-direction:column;}
+      /* Override card padding cuando productos esta activo */
+      #settings-content:has(.pt-layout){padding:0!important;margin:0!important;border-radius:12px;overflow:hidden;}
+      .pt-layout{display:flex;height:calc(100vh - 180px);gap:0;width:100%;}
+      .pt-tree{width:280px;min-width:200px;max-width:400px;overflow-y:auto;padding:16px;resize:horizontal;border-right:1px solid #e8edf2;flex-shrink:0;}
+      .pt-panel{flex:1;min-width:0;background:#f8fafc;overflow:hidden;display:flex;flex-direction:column;}
 
       .pt-node{margin-bottom:2px;}
       .pt-node-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background .1s;font-size:13px;}
@@ -765,7 +772,7 @@ const ProductosSettings = {
       .pt-panel-head{padding:16px;border-bottom:1px solid #e8edf2;}
       .pt-panel-title{font-size:15px;font-weight:700;color:#0f172a;}
       .pt-panel-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
-      .pt-panel-body{padding:16px;overflow-y:auto;flex:1;}
+      .pt-panel-body{padding:24px 32px;overflow-y:auto;flex:1;}
       .pt-field{margin-bottom:10px;}
       .pt-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px;}
       .pt-input{width:100%;padding:7px 10px;border:1px solid #e8edf2;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;box-sizing:border-box;}
@@ -803,10 +810,14 @@ const ProductosSettings = {
       .pt-ta-coberturas{min-height:20vh;max-height:35vh;resize:vertical;}
       .pt-ta-argumentario{min-height:25vh;max-height:45vh;resize:vertical;}
 
+      @media(min-height:900px){
+        .pt-ta-coberturas{min-height:25vh;}
+        .pt-ta-argumentario{min-height:30vh;}
+      }
       @media(max-width:768px){
         .pt-layout{flex-direction:column;height:auto;}
         .pt-tree{width:100%!important;max-width:100%;resize:none;border-right:none;border-bottom:1px solid #e8edf2;max-height:40vh;overflow-y:auto;}
-        .pt-panel{width:100%!important;min-width:0;max-width:100%;}
+        .pt-panel{width:100%!important;min-width:0;}
       }
     `;
   },
