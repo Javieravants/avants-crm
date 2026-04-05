@@ -513,7 +513,16 @@ ANTHROPIC_API_KEY=...
 15. **Webhook CloudTalk:** formato `event.properties.*` (ticket #495931)
 16. **WhatsApp token temporal** — error 401 = regenerar en Meta Developers
 17. **SaaS-ready / Regla de oro** — NUNCA hardcodear nombres de empresa, producto o pipeline en logica de negocio. Todo por ID dinamico. Un cliente nuevo solo necesita configurar sus pipelines y agentes en Settings.
-18. **CTI Abstraction Layer** — NUNCA llamar directamente a CloudTalk/Twilio desde rutas o frontend. Backend: toda llamada pasa por `backend/services/cti.js` (CTI.call / CTI.hangup). Frontend: toda llamada pasa por `GVPhone.call()` que hace POST a `/api/cti/llamar`. El proveedor se configura con `CTI_PROVIDER` env var (cloudtalk | twilio | manual). Nuevo proveedor = nuevo adaptador en cti.js, cero cambios en rutas o frontend.
+18. **CTI Abstraction Layer** — NUNCA llamar directamente a CloudTalk/Twilio desde rutas o frontend. Todo pasa por `backend/services/cti.js` y `GVPhone.call()`. Proveedor via `CTI_PROVIDER` env var.
+19. **Responsive y aprovechamiento de espacio (OBLIGATORIA):**
+    - Contenedores principales: `flex:1` o `width:100%`, NUNCA anchos fijos
+    - Area contenido: `height:calc(100vh - 110px)` (menos header/tabs)
+    - Anchos paneles: `min-width` + `max-width` + `flex:1` para el panel principal
+    - Textareas: `min-height:20vh`, `max-height:45vh`, `resize:vertical`, `width:100%`
+    - Paneles laterales: ancho fijo solo en sidebar/arbol (`width:280px;flex-shrink:0`)
+    - Panel contenido: `flex:1;min-width:0;overflow-y:auto` (ocupa TODO el resto)
+    - Breakpoints: `@media(max-width:1280px)` paneles estrechos, `(max-width:768px)` layout vertical, `(min-height:900px)` mas espacio vertical
+    - AUDITORIA: antes de push, verificar que no hay px fijos en contenedores principales
 
 ### CTI Architecture
 ```

@@ -1483,7 +1483,7 @@ const PersonasModule = {
       document.head.appendChild(st);
     }
 
-    content.innerHTML = `<div style="max-width:640px;">
+    content.innerHTML = `<div style="width:100%;">
       ${iaHtml}
       <div style="background:#e6f6fd;border-radius:10px;padding:14px;margin-bottom:14px;">
         <div style="font-size:12px;font-weight:700;color:#009DDD;margin-bottom:8px;">${_ICO.gestion(14,'#009DDD')} Contexto del cliente</div>
