@@ -360,7 +360,7 @@ const App = {
 
   // === Usuarios ===
   async renderUsuarios() {
-    if (!Auth.hasRole('admin')) {
+    if (!Auth.hasRole('admin', 'superadmin')) {
       return this.renderPlaceholder('Acceso denegado', 'No tienes permiso para ver esta sección.');
     }
 

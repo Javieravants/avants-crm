@@ -61,7 +61,7 @@ const TicketsModule = {
             <option value="">Todos los tipos</option>
             ${typeOpts}
           </select>
-          ${Auth.hasRole('admin') ? `
+          ${Auth.hasRole('admin', 'superadmin') ? `
           <select class="form-control tramites-filter" id="filter-compania">
             <option value="">Todas las empresas</option>
             <option value="ADESLAS">ADESLAS</option>

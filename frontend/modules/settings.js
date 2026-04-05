@@ -4,7 +4,7 @@ const SettingsModule = {
   currentTab: 'ticket-types',
 
   async render() {
-    if (!Auth.hasRole('admin')) {
+    if (!Auth.hasRole('admin', 'superadmin')) {
       document.getElementById('main-content').innerHTML = `
         <h1 class="page-title">Acceso denegado</h1>
         <div class="card text-center" style="padding:64px;"><p class="text-light">No tienes permiso.</p></div>
