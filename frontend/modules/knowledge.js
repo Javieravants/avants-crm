@@ -103,7 +103,11 @@ var KnowledgeModule = {
 
       var iaMsg = '<div class="kb-msg kb-msg-ia">' + this.esc(r.respuesta);
       if (r.guardados && r.guardados.length > 0) {
-        iaMsg += '<div class="kb-extracted">Guardado como conocimiento interno (confidencial): ' + r.guardados.map(function(g) { return KnowledgeModule.esc(g.titulo); }).join(', ') + '</div>';
+        var visLabels = { admin: 'Solo admin', agentes: 'Solo equipo', todos: 'Publico' };
+        iaMsg += '<div class="kb-extracted">Guardado: ' + r.guardados.map(function(g) {
+          var vl = visLabels[g.visibilidad] || 'Solo equipo';
+          return KnowledgeModule.esc(g.titulo) + ' <span class="kb-vis-' + (g.visibilidad || 'agentes') + '" style="font-size:9px;">' + vl + '</span>';
+        }).join(', ') + '</div>';
       }
       iaMsg += '</div>';
       hist.innerHTML += iaMsg;
@@ -166,9 +170,11 @@ var KnowledgeModule = {
         '<div class="kb-item-head">' +
           '<span class="kb-item-tipo" style="background:' + tc.bg + ';color:' + tc.color + ';">' + item.tipo + '</span>' +
           '<span class="kb-item-title">' + KnowledgeModule.esc(item.titulo) + '</span>' +
-          (item.visibilidad === 'externo'
-            ? '<span class="kb-vis-ext">Externo</span>'
-            : '<span class="kb-vis-int">Interno</span>') +
+          (item.visibilidad === 'admin'
+            ? '<span class="kb-vis-admin" title="Solo visible para el administrador. No llega a agentes ni clientes.">Solo admin</span>'
+            : item.visibilidad === 'todos'
+            ? '<span class="kb-vis-todos" title="Puede usarse en comunicaciones con el cliente.">Publico</span>'
+            : '<span class="kb-vis-agentes" title="Visible para el equipo. Los agentes lo ven en briefings pero no llega al cliente.">Solo equipo</span>') +
           (item.compania_nombre ? '<span class="kb-item-comp">' + KnowledgeModule.esc(item.compania_nombre) + '</span>' : '') +
           (expired ? '<span class="kb-item-exp">Caducado</span>' : '') +
           '<button class="kb-item-del" onclick="KnowledgeModule._deleteItem(' + item.id + ')" title="Eliminar">&times;</button>' +
@@ -222,7 +228,7 @@ var KnowledgeModule = {
           '<div class="kb-field"><label class="kb-label">Contenido</label>' +
             '<textarea id="kb-new-contenido" class="kb-input" rows="4" placeholder="El conocimiento..."></textarea></div>' +
           '<div class="kb-field"><label class="kb-label">Visibilidad</label>' +
-            '<select id="kb-new-vis" class="kb-input"><option value="interno">Interno (solo equipo)</option><option value="externo">Externo (puede llegar al cliente)</option></select></div>' +
+            '<select id="kb-new-vis" class="kb-input"><option value="admin">Solo admin — confidencial</option><option value="agentes" selected>Solo equipo — agentes lo ven en briefings</option><option value="todos">Publico — puede llegar al cliente</option></select></div>' +
           '<div class="kb-field"><label class="kb-label">Vigente hasta (opcional)</label>' +
             '<input id="kb-new-vigente" class="kb-input" type="date"></div>' +
           '<button class="kb-btn-primary" onclick="KnowledgeModule._saveNewEntry()">Guardar</button>' +
@@ -288,8 +294,9 @@ var KnowledgeModule = {
       '.kb-item-exp{font-size:10px;color:#ef4444;font-weight:600;}' +
       '.kb-item-del{background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px;opacity:.4;}' +
       '.kb-item-del:hover{opacity:1;}' +
-      '.kb-vis-int{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#374151;color:#d1d5db;}' +
-      '.kb-vis-ext{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#e6f6fd;color:#0284c7;}' +
+      '.kb-vis-admin{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;}' +
+      '.kb-vis-agentes{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#fefce8;color:#a16207;border:1px solid #fde68a;}' +
+      '.kb-vis-todos{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:#f0fdf4;color:#15803d;border:1px solid #86efac;}' +
       '.kb-item-content{font-size:12px;color:#475569;margin-top:6px;line-height:1.5;}' +
       '.kb-empty{padding:40px;text-align:center;color:#94a3b8;font-size:13px;}' +
 

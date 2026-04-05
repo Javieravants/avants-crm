@@ -52,7 +52,7 @@ router.post('/', requireRole('admin', 'supervisor'), async (req, res) => {
     if (!TIPOS_VALIDOS.includes(tipo)) {
       return res.status(400).json({ error: 'Tipo invalido. Validos: ' + TIPOS_VALIDOS.join(', ') });
     }
-    var vis = (visibilidad === 'externo') ? 'externo' : 'interno';
+    var vis = ['admin', 'agentes', 'todos'].includes(visibilidad) ? visibilidad : 'agentes';
 
     var r = await pool.query(
       `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, vigente_hasta, visibilidad)
@@ -103,9 +103,11 @@ router.get('/context', async (req, res) => {
     var companiaId = req.query.compania_id;
 
     // Conocimiento general de negocio (sin compania)
+    // Excluir conocimiento 'admin' del contexto para briefings de agentes
     var generalR = await pool.query(
       `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
        WHERE tenant_id = $1 AND compania_id IS NULL
+         AND visibilidad IN ('agentes', 'todos')
          AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
        ORDER BY updated_at DESC LIMIT 20`,
       [req.tenantId]);
@@ -115,6 +117,7 @@ router.get('/context', async (req, res) => {
       companiaR = await pool.query(
         `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
          WHERE tenant_id = $1 AND compania_id = $2
+           AND visibilidad IN ('agentes', 'todos')
            AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
          ORDER BY updated_at DESC LIMIT 20`,
         [req.tenantId, companiaId]);
@@ -166,7 +169,7 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
     var response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
-      system: 'Eres un asistente que ayuda a gestionar el conocimiento de una correduria de seguros. El usuario te va a contar informacion sobre companias, campanas, argumentarios, objeciones o estrategias de negocio. Tu trabajo es:\n1. Confirmar lo que has entendido\n2. Extraer el conocimiento en formato estructurado\n\nCompanias disponibles: ' + companiasList + '\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "texto conversacional confirmando lo que has entendido",\n  "conocimiento": [\n    {\n      "tipo": "compania|negocio|campana|argumentario|objecion",\n      "titulo": "titulo corto",\n      "contenido": "el conocimiento extraido",\n      "compania_id": null\n    }\n  ]\n}\n\nSi el mensaje no contiene conocimiento extraible, devuelve conocimiento como array vacio [].',
+      system: 'Eres un asistente que ayuda a gestionar el conocimiento de una correduria de seguros. El usuario te va a contar informacion sobre companias, campanas, argumentarios, objeciones o estrategias de negocio. Tu trabajo es:\n1. Confirmar lo que has entendido\n2. Extraer el conocimiento en formato estructurado\n\nCompanias disponibles: ' + companiasList + '\n\nNiveles de visibilidad:\n- "admin": solo el admin lo ve (si el usuario dice "solo para mi", "confidencial", "no compartir")\n- "agentes": el equipo lo ve en briefings pero no llega al cliente (por defecto)\n- "todos": puede mencionarse al cliente (si el usuario dice "puedes decirle al cliente", "compartir con cliente")\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "texto conversacional confirmando lo que has entendido y el nivel de visibilidad asignado",\n  "conocimiento": [\n    {\n      "tipo": "compania|negocio|campana|argumentario|objecion",\n      "titulo": "titulo corto",\n      "contenido": "el conocimiento extraido",\n      "compania_id": null,\n      "visibilidad": "admin|agentes|todos"\n    }\n  ]\n}\n\nSi el mensaje no contiene conocimiento extraible, devuelve conocimiento como array vacio [].',
       messages: [{ role: 'user', content: mensaje }],
     });
 
@@ -183,10 +186,11 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
       for (var i = 0; i < parsed.conocimiento.length; i++) {
         var k = parsed.conocimiento[i];
         if (k.titulo && k.contenido && TIPOS_VALIDOS.includes(k.tipo)) {
+          var kVis = ['admin', 'agentes', 'todos'].includes(k.visibilidad) ? k.visibilidad : 'agentes';
           var insertR = await pool.query(
             `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, visibilidad)
-             VALUES ($1, $2, $3, $4, $5, 'interno') RETURNING id, titulo`,
-            [req.tenantId, k.tipo, k.titulo, k.contenido, k.compania_id || null]);
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, titulo, visibilidad`,
+            [req.tenantId, k.tipo, k.titulo, k.contenido, k.compania_id || null, kVis]);
           guardados.push(insertR.rows[0]);
         }
       }

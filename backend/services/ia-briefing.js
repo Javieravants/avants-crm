@@ -147,16 +147,20 @@ CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provinc
 
 `;
 
-  // Anadir conocimiento del centro de conocimiento
-  if (knowledgeGeneral.length || knowledgeCompania.length) {
-    prompt += 'CONOCIMIENTO INTERNO DEL EQUIPO:\n';
-    [...knowledgeGeneral, ...knowledgeCompania].forEach(k => {
-      const tag = k.visibilidad === 'externo'
-        ? 'EXTERNO - puedes mencionarlo al cliente'
-        : 'INTERNO - CONFIDENCIAL';
-      prompt += `- [${tag}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
-    });
-    prompt += '\nINSTRUCCION CRITICA: El conocimiento INTERNO es estrictamente confidencial. Usalo solo para orientar al agente en su estrategia. NUNCA lo menciones en mensajes, emails, propuestas ni en nada dirigido al cliente. El conocimiento EXTERNO si puede usarse en comunicaciones con el cliente.\n\n';
+  // Anadir conocimiento del centro de conocimiento (solo agentes + todos, nunca admin)
+  const kEquipo = [...knowledgeGeneral, ...knowledgeCompania].filter(k => k.visibilidad === 'agentes');
+  const kPublico = [...knowledgeGeneral, ...knowledgeCompania].filter(k => k.visibilidad === 'todos');
+
+  if (kEquipo.length || kPublico.length) {
+    if (kEquipo.length) {
+      prompt += 'CONOCIMIENTO RESTRINGIDO (solo para orientarte como agente, NO mencionar al cliente):\n';
+      kEquipo.forEach(k => { prompt += `- [SOLO EQUIPO] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`; });
+    }
+    if (kPublico.length) {
+      prompt += '\nCONOCIMIENTO QUE PUEDES COMPARTIR CON EL CLIENTE:\n';
+      kPublico.forEach(k => { prompt += `- [PUBLICO] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`; });
+    }
+    prompt += '\nINSTRUCCION CRITICA:\n- El conocimiento [SOLO EQUIPO] usalo para tu estrategia interna. NUNCA lo menciones al cliente.\n- El conocimiento [PUBLICO] si puedes usarlo con el cliente.\n- El conocimiento de nivel admin NO aparece en este briefing.\n\n';
   }
 
   if (seguros.length) {
