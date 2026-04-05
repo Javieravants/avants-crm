@@ -56,6 +56,16 @@ app.get('/', (req, res) => {
   res.send(html);
 });
 
+// Anti-cache para index.html (evitar que el navegador sirva version antigua)
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path === '/index.html') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 // Servir frontend estatico — sin cache para JS/CSS (cache bust por ?v=timestamp)
 app.use(express.static(path.join(__dirname, '../frontend'), {
   setHeaders(res, filePath) {
