@@ -688,6 +688,48 @@ dialer_config (
 
 ---
 
+## FLUJO DE GESTION DE LLAMADAS — LOGICA DE NEGOCIO
+
+### Horario de agentes
+- Manana: 9:30 - 14:00
+- Tarde: 16:00 - 19:00
+- Algunas agentes se quedan mas tiempo (configurable por agente)
+- Las agentes que nunca se quedan tiempo extra → se les incrementa 30 min en su jornada estandar (pendiente de implementar por agente)
+
+### Flujo post-llamada (GVPhone)
+- El agente SIEMPRE usa GVPhone para llamar — nunca otro softphone
+- Al colgar aparece popup post-llamada con resultado e IA pre-rellenando basandose en transcripcion
+
+### Flujo de llamada NO contestada — automatico
+1. Llamada no contestada → se envia WhatsApp + Email automatico al contacto
+2. Se reagenda automaticamente:
+   - Si el intento fue en franja manana (9:30-14:00) → reagendar en franja tarde (16:00-19:00)
+   - Si el intento fue en franja tarde (16:00-19:00) → reagendar en franja manana siguiente (9:30-14:00)
+3. En la agenda aparecen hasta 5-6 llamadas por franja de 30 minutos (no todos contestan, se sigue llamando en paralelo)
+4. Maximo 5 intentos por contacto
+5. Si a la 5a llamada no ha contestado ni respondido WhatsApp/email → estado "No contactable" automaticamente
+
+### Respuestas del contacto por WhatsApp
+- **"Llamame ahora"** → se anade a la cola del agente como siguiente llamada. Si agente libre → llama inmediatamente. Si en linea → avisa al contacto que en breve le llaman. Si otro agente libre → se puede derivar.
+- **Quiere hablar por WhatsApp** → la IA toma el control: pide datos (nombre, edad, provincia, n asegurados), rellena ficha en CRM, genera y envia presupuesto sin descuentos ni promociones. Al final del presupuesto: "Si desea ver descuentos y promociones especiales disponibles, responda AGENTE y nos ponemos en contacto con usted de inmediato". Si responde "AGENTE" → notificacion al equipo.
+
+### Logica de agenda
+- Maximo 5-6 llamadas por franja de 30 minutos
+- Franja manana: 9:30 - 14:00
+- Franja tarde: 16:00 - 19:00
+- Reagendados van a la franja contraria al intento fallido
+- Horario extendido configurable por agente
+
+### Regla SaaS (Regla 21) — todo configurable por tenant
+- Numero maximo de intentos (default: 5)
+- Numero de llamadas por franja de 30 min (default: 5-6)
+- Franjas horarias de manana y tarde
+- Plantillas de WhatsApp y email para no contestados
+- Horario extendido por agente
+- Palabra clave para solicitar agente (default: "AGENTE")
+
+---
+
 ## Catalogo de Productos — completado 05/04/2026
 
 ### Tablas BD (9 tablas en migration-productos.sql)
