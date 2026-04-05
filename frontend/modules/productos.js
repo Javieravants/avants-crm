@@ -310,11 +310,15 @@ const ProductosSettings = {
     if (!comp) return;
     this.selected = { type: 'compania', id: compId, data: comp };
 
-    // Cargar agentes asignados
-    let agentesAsignados = [];
+    // Cargar agentes y rapeles en paralelo
+    let agentesAsignados = [], rapeles = [];
     try {
-      const r = await API.get(`/companias/${compId}/agentes`);
-      agentesAsignados = r.agentes || [];
+      const [agR, rapR] = await Promise.all([
+        API.get(`/companias/${compId}/agentes`),
+        API.get(`/companias/${compId}/rapeles`),
+      ]);
+      agentesAsignados = agR.agentes || [];
+      rapeles = rapR.rapeles || [];
     } catch {}
     const asignadosSet = new Set(agentesAsignados.map(a => a.user_id));
 
@@ -352,6 +356,21 @@ const ProductosSettings = {
             </label>
           `).join('')}
         </div>
+
+        <div class="pt-section-title">Rapeles</div>
+        ${rapeles.map(r => {
+          const tramos = r.tramos || [];
+          return `<div class="pt-rapel-item" onclick="ProductosSettings._editRapel(${r.id}, ${compId})">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;font-weight:600;color:#0f172a;flex:1;">${this.esc(r.nombre)}</span>
+              <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#e6f6fd;color:#009DDD;font-weight:600;">${r.periodicidad}</span>
+              <span style="font-size:10px;color:#94a3b8;">${r.tipo}</span>
+            </div>
+            ${tramos.length ? `<div style="font-size:11px;color:#475569;margin-top:4px;">${tramos.map(t => `${t.desde || 0}-${t.hasta || '∞'}€ → ${t.porcentaje}%`).join(' · ')}</div>` : ''}
+            ${r.fecha_inicio ? `<div style="font-size:10px;color:#94a3b8;margin-top:2px;">${new Date(r.fecha_inicio).toLocaleDateString('es-ES')}${r.fecha_fin ? ' — ' + new Date(r.fecha_fin).toLocaleDateString('es-ES') : ''}</div>` : ''}
+          </div>`;
+        }).join('') || '<div class="pt-empty-docs">Sin rapeles configurados</div>'}
+        <button class="pt-add-child" onclick="ProductosSettings._addRapel(${compId})" style="margin-left:0;width:100%;">+ Anadir rapel</button>
       </div>
     `;
   },
@@ -428,6 +447,156 @@ const ProductosSettings = {
     } else {
       await API.delete(`/companias/${companiaId}/agentes/${userId}`);
     }
+  },
+
+  // ══════════════════════════════════════════
+  // RAPELES
+  // ══════════════════════════════════════════
+
+  _addRapel(compId) {
+    this._showRapelModal(null, compId);
+  },
+
+  async _editRapel(rapelId, compId) {
+    // Buscar en los datos cargados o hacer fetch
+    let rapeles = [];
+    try { const r = await API.get(`/companias/${compId}/rapeles`); rapeles = r.rapeles || []; } catch {}
+    const rapel = rapeles.find(r => r.id === rapelId);
+    this._showRapelModal(rapel, compId);
+  },
+
+  _showRapelModal(rapel, compId) {
+    const isEdit = !!rapel;
+    const tramos = (rapel?.tramos || []).length ? rapel.tramos : [{ desde: 0, hasta: 10000, porcentaje: 2 }];
+
+    // Crear overlay
+    let overlay = document.getElementById('pt-rapel-overlay');
+    if (overlay) overlay.remove();
+    overlay = document.createElement('div');
+    overlay.id = 'pt-rapel-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;width:480px;max-width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="padding:16px 20px;border-bottom:1px solid #e8edf2;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:15px;font-weight:700;color:#0f172a;">${isEdit ? 'Editar' : 'Nuevo'} rapel</span>
+          <button onclick="document.getElementById('pt-rapel-overlay').remove()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:20px;">
+          <div class="pt-field">
+            <label class="pt-label">Nombre</label>
+            <input class="pt-input" id="pt-rap-nombre" value="${this.esc(rapel?.nombre || '')}">
+          </div>
+          <div class="pt-field">
+            <label class="pt-label">Descripcion</label>
+            <textarea class="pt-input" id="pt-rap-desc" rows="2">${this.esc(rapel?.descripcion || '')}</textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="pt-field">
+              <label class="pt-label">Tipo</label>
+              <select class="pt-input" id="pt-rap-tipo">
+                <option value="produccion" ${rapel?.tipo === 'produccion' ? 'selected' : ''}>Produccion</option>
+                <option value="cartera" ${rapel?.tipo === 'cartera' ? 'selected' : ''}>Cartera</option>
+                <option value="calidad" ${rapel?.tipo === 'calidad' ? 'selected' : ''}>Calidad</option>
+              </select>
+            </div>
+            <div class="pt-field">
+              <label class="pt-label">Periodicidad</label>
+              <select class="pt-input" id="pt-rap-periodo">
+                <option value="mensual" ${rapel?.periodicidad === 'mensual' ? 'selected' : ''}>Mensual</option>
+                <option value="trimestral" ${rapel?.periodicidad === 'trimestral' ? 'selected' : ''}>Trimestral</option>
+                <option value="semestral" ${rapel?.periodicidad === 'semestral' ? 'selected' : ''}>Semestral</option>
+                <option value="anual" ${rapel?.periodicidad === 'anual' ? 'selected' : ''}>Anual</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="pt-field">
+              <label class="pt-label">Fecha inicio</label>
+              <input class="pt-input" id="pt-rap-inicio" type="date" value="${rapel?.fecha_inicio ? rapel.fecha_inicio.substring(0, 10) : ''}">
+            </div>
+            <div class="pt-field">
+              <label class="pt-label">Fecha fin</label>
+              <input class="pt-input" id="pt-rap-fin" type="date" value="${rapel?.fecha_fin ? rapel.fecha_fin.substring(0, 10) : ''}">
+            </div>
+          </div>
+
+          <div class="pt-section-title">Tramos</div>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;" id="pt-rap-tramos">
+            <thead>
+              <tr style="color:#94a3b8;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.3px;">
+                <td style="padding:4px 6px;">Desde</td>
+                <td style="padding:4px 6px;">Hasta</td>
+                <td style="padding:4px 6px;">%</td>
+                <td style="width:30px;"></td>
+              </tr>
+            </thead>
+            <tbody>
+              ${tramos.map((t, i) => `
+                <tr class="pt-tramo-row">
+                  <td style="padding:3px 2px;"><input type="number" class="pt-input pt-tramo-desde" value="${t.desde || 0}" style="padding:5px 6px;font-size:12px;"></td>
+                  <td style="padding:3px 2px;"><input type="number" class="pt-tramo-hasta pt-input" value="${t.hasta || ''}" placeholder="∞" style="padding:5px 6px;font-size:12px;"></td>
+                  <td style="padding:3px 2px;"><input type="number" step="0.1" class="pt-tramo-pct pt-input" value="${t.porcentaje || 0}" style="padding:5px 6px;font-size:12px;"></td>
+                  <td><button onclick="this.closest('tr').remove()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;">&times;</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <button onclick="ProductosSettings._addTramoRow()" class="pt-btn-sm" style="margin-top:6px;">+ Anadir tramo</button>
+
+          <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+            <button onclick="document.getElementById('pt-rapel-overlay').remove()" class="pt-btn-sm">Cancelar</button>
+            <button class="pt-btn-primary" onclick="ProductosSettings._saveRapel(${rapel?.id || 'null'}, ${compId})">Guardar</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  },
+
+  _addTramoRow() {
+    const tbody = document.querySelector('#pt-rap-tramos tbody');
+    if (!tbody) return;
+    const tr = document.createElement('tr');
+    tr.className = 'pt-tramo-row';
+    tr.innerHTML = `
+      <td style="padding:3px 2px;"><input type="number" class="pt-input pt-tramo-desde" value="0" style="padding:5px 6px;font-size:12px;"></td>
+      <td style="padding:3px 2px;"><input type="number" class="pt-tramo-hasta pt-input" placeholder="∞" style="padding:5px 6px;font-size:12px;"></td>
+      <td style="padding:3px 2px;"><input type="number" step="0.1" class="pt-tramo-pct pt-input" value="0" style="padding:5px 6px;font-size:12px;"></td>
+      <td><button onclick="this.closest('tr').remove()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px;">&times;</button></td>
+    `;
+    tbody.appendChild(tr);
+  },
+
+  async _saveRapel(rapelId, compId) {
+    // Leer tramos de la tabla
+    const tramos = [];
+    document.querySelectorAll('.pt-tramo-row').forEach(row => {
+      tramos.push({
+        desde: parseFloat(row.querySelector('.pt-tramo-desde')?.value) || 0,
+        hasta: row.querySelector('.pt-tramo-hasta')?.value ? parseFloat(row.querySelector('.pt-tramo-hasta').value) : null,
+        porcentaje: parseFloat(row.querySelector('.pt-tramo-pct')?.value) || 0,
+      });
+    });
+
+    const data = {
+      nombre: document.getElementById('pt-rap-nombre')?.value,
+      descripcion: document.getElementById('pt-rap-desc')?.value || null,
+      tipo: document.getElementById('pt-rap-tipo')?.value,
+      periodicidad: document.getElementById('pt-rap-periodo')?.value,
+      fecha_inicio: document.getElementById('pt-rap-inicio')?.value || null,
+      fecha_fin: document.getElementById('pt-rap-fin')?.value || null,
+      tramos,
+    };
+
+    if (rapelId) {
+      await API.put(`/rapeles/${rapelId}`, data);
+    } else {
+      await API.post(`/companias/${compId}/rapeles`, data);
+    }
+
+    document.getElementById('pt-rapel-overlay')?.remove();
+    this._selectCompania(compId); // refresh panel
   },
 
   // ══════════════════════════════════════════
@@ -529,6 +698,8 @@ const ProductosSettings = {
       .pt-agent-row:hover{background:#f4f6f9;}
       .pt-agent-name{font-weight:600;color:#0f172a;flex:1;}
       .pt-agent-role{font-size:10px;color:#94a3b8;}
+      .pt-rapel-item{padding:8px 10px;border:1px solid #e8edf2;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background .1s;}
+      .pt-rapel-item:hover{background:#f4f6f9;}
 
       @media(max-width:768px){
         .pt-layout{flex-direction:column;}

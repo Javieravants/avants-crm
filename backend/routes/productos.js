@@ -404,4 +404,64 @@ router.get('/ia/productos-faltantes/:personaId', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ══════════════════════════════════════════════
+// RAPELES
+// ══════════════════════════════════════════════
+
+// GET /api/companias/:id/rapeles
+router.get('/companias/:id/rapeles', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM rapeles
+      WHERE compania_id = $1 AND activo = true
+      ORDER BY created_at DESC
+    `, [req.params.id]);
+    res.json({ rapeles: rows });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/companias/:id/rapeles
+router.post('/companias/:id/rapeles', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const { nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos } = req.body;
+    if (!nombre) return res.status(400).json({ error: 'Nombre obligatorio' });
+    const r = await pool.query(
+      `INSERT INTO rapeles (compania_id, nombre, descripcion, tipo, periodicidad, fecha_inicio, fecha_fin, tramos)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [req.params.id, nombre, descripcion || null, tipo || 'produccion',
+       periodicidad || 'trimestral', fecha_inicio || null, fecha_fin || null,
+       JSON.stringify(tramos || [])]);
+    res.status(201).json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT /api/rapeles/:id
+router.put('/rapeles/:id', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const fields = []; const vals = []; let idx = 1;
+    for (const key of ['nombre', 'descripcion', 'tipo', 'periodicidad', 'fecha_inicio', 'fecha_fin', 'activo']) {
+      if (req.body[key] !== undefined) {
+        fields.push(`${key} = $${idx}`); vals.push(req.body[key]); idx++;
+      }
+    }
+    if (req.body.tramos !== undefined) {
+      fields.push(`tramos = $${idx}`); vals.push(JSON.stringify(req.body.tramos)); idx++;
+    }
+    if (!fields.length) return res.status(400).json({ error: 'Nada que actualizar' });
+    vals.push(req.params.id);
+    const r = await pool.query(
+      `UPDATE rapeles SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
+    if (!r.rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(r.rows[0]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// DELETE /api/rapeles/:id — soft delete
+router.delete('/rapeles/:id', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    await pool.query('UPDATE rapeles SET activo = false WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

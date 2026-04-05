@@ -135,3 +135,20 @@ CREATE TABLE IF NOT EXISTS dialer_config (
   horario_fin                 TIME DEFAULT '21:00',
   created_at                  TIMESTAMP DEFAULT NOW()
 );
+
+-- Rapeles por compania (tramos de produccion)
+CREATE TABLE IF NOT EXISTS rapeles (
+  id               SERIAL PRIMARY KEY,
+  compania_id      INTEGER NOT NULL REFERENCES companias(id) ON DELETE CASCADE,
+  nombre           VARCHAR(255) NOT NULL,
+  descripcion      TEXT,
+  tipo             VARCHAR(50) NOT NULL DEFAULT 'produccion',
+  periodicidad     VARCHAR(20) NOT NULL DEFAULT 'trimestral',
+  fecha_inicio     DATE,
+  fecha_fin        DATE,
+  tramos           JSONB DEFAULT '[]',
+  activo           BOOLEAN DEFAULT true,
+  created_at       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rapeles_compania ON rapeles(compania_id);
