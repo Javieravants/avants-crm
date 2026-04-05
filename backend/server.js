@@ -47,27 +47,25 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Cache bust: inyectar versión en index.html
+// Servir index.html — SIEMPRE desde el route handler, nunca desde static
 const BUILD_VERSION = Date.now();
 const fs = require('fs');
-app.get('/', (req, res) => {
+function serveIndex(req, res) {
   let html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
   html = html.replace(/\?v=[\w]+/g, `?v=${BUILD_VERSION}`);
+  // Inyectar version visible para debug
+  html = html.replace('</body>', `<!-- build:${BUILD_VERSION} --></body>`);
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.send(html);
-});
+}
+app.get('/', serveIndex);
+app.get('/index.html', serveIndex);
 
-// Anti-cache para index.html (evitar que el navegador sirva version antigua)
-app.use((req, res, next) => {
-  if (req.path === '/' || req.path === '/index.html') {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-  next();
-});
-
-// Servir frontend estatico — sin cache para JS/CSS (cache bust por ?v=timestamp)
+// Servir frontend estatico — EXCLUIR index.html (lo sirve el handler de arriba)
 app.use(express.static(path.join(__dirname, '../frontend'), {
+  index: false, // NO servir index.html desde static
   setHeaders(res, filePath) {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
       res.set('Cache-Control', 'no-cache, must-revalidate');
