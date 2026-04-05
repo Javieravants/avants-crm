@@ -74,9 +74,11 @@ var KnowledgeModule = {
           }).join('') +
         '</div>' +
         '<div class="kb-chat-input-wrap">' +
-          '<textarea id="kb-chat-input" class="kb-chat-input" rows="2" placeholder="Ej: DKV tiene campana especial este mes con 20% extra de comision..."></textarea>' +
+          '<textarea id="kb-chat-input" class="kb-chat-input" rows="2" placeholder="Escribe o pulsa el microfono para hablar..."></textarea>' +
+          '<button id="kb-mic-btn" class="kb-mic-btn" onclick="KnowledgeModule._toggleMic()" title="Hablar">&#127908;</button>' +
           '<button class="kb-chat-send" onclick="KnowledgeModule._sendChat()">Enviar</button>' +
         '</div>' +
+        '<div id="kb-mic-status" class="kb-mic-status" style="display:none;"></div>' +
       '</div>';
 
     var hist = document.getElementById('kb-chat-history');
@@ -123,6 +125,108 @@ var KnowledgeModule = {
       var thinking = document.getElementById('kb-thinking');
       if (thinking) { thinking.textContent = 'Error: ' + e.message; thinking.style.color = '#ef4444'; }
     }
+  },
+
+  // ══════════════════════════════════════════
+  // MICROFONO — grabar audio y transcribir
+  // ══════════════════════════════════════════
+
+  _micRecorder: null,
+  _micStream: null,
+  _micChunks: [],
+  _micTimer: null,
+  _micSecs: 0,
+
+  async _toggleMic() {
+    if (this._micRecorder && this._micRecorder.state === 'recording') {
+      this._stopMic();
+    } else {
+      this._startMic();
+    }
+  },
+
+  async _startMic() {
+    var btn = document.getElementById('kb-mic-btn');
+    var status = document.getElementById('kb-mic-status');
+    try {
+      this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch(e) {
+      alert('Necesitas permitir el acceso al microfono para usar esta funcion.');
+      return;
+    }
+    this._micChunks = [];
+    this._micRecorder = new MediaRecorder(this._micStream);
+    var self = this;
+    this._micRecorder.ondataavailable = function(e) { if (e.data.size > 0) self._micChunks.push(e.data); };
+    this._micRecorder.onstop = function() { self._processMicAudio(); };
+    this._micRecorder.start();
+
+    // UI
+    if (btn) { btn.textContent = '⏹'; btn.classList.add('kb-mic-recording'); }
+    this._micSecs = 0;
+    if (status) { status.style.display = 'flex'; status.textContent = '0:00'; }
+    this._micTimer = setInterval(function() {
+      self._micSecs++;
+      if (status) {
+        var m = Math.floor(self._micSecs / 60);
+        var s = self._micSecs % 60;
+        status.textContent = m + ':' + String(s).padStart(2, '0') + ' grabando...';
+      }
+      // Max 5 minutos
+      if (self._micSecs >= 300) self._stopMic();
+    }, 1000);
+  },
+
+  _stopMic: function() {
+    if (this._micRecorder && this._micRecorder.state === 'recording') {
+      this._micRecorder.stop();
+    }
+    if (this._micStream) {
+      this._micStream.getTracks().forEach(function(t) { t.stop(); });
+      this._micStream = null;
+    }
+    if (this._micTimer) { clearInterval(this._micTimer); this._micTimer = null; }
+    var btn = document.getElementById('kb-mic-btn');
+    if (btn) { btn.textContent = '⏳'; btn.classList.remove('kb-mic-recording'); }
+  },
+
+  async _processMicAudio() {
+    var btn = document.getElementById('kb-mic-btn');
+    var status = document.getElementById('kb-mic-status');
+    if (!this._micChunks.length) {
+      if (btn) btn.textContent = '\u{1F3A4}';
+      if (status) status.style.display = 'none';
+      return;
+    }
+
+    if (status) status.textContent = 'Transcribiendo...';
+
+    var blob = new Blob(this._micChunks, { type: 'audio/webm' });
+    var formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+
+    try {
+      var token = Auth.getToken();
+      var response = await fetch('/api/knowledge/transcribe-audio', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData,
+      });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error de transcripcion');
+
+      // Poner texto en el input
+      var input = document.getElementById('kb-chat-input');
+      if (input && data.transcripcion) {
+        input.value = data.transcripcion;
+        input.focus();
+      }
+    } catch(e) {
+      alert('Error transcribiendo audio: ' + e.message);
+    }
+
+    if (btn) btn.textContent = '\u{1F3A4}';
+    if (status) status.style.display = 'none';
   },
 
   // ══════════════════════════════════════════
@@ -288,6 +392,11 @@ var KnowledgeModule = {
       '.kb-chat-input:focus{outline:none;border-color:#009DDD;box-shadow:0 0 0 3px rgba(0,157,221,.1);}' +
       '.kb-chat-send{padding:10px 20px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;align-self:flex-end;}' +
       '.kb-chat-send:hover{background:#0088c2;}' +
+      '.kb-mic-btn{padding:10px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;font-size:18px;cursor:pointer;transition:all .15s;line-height:1;}' +
+      '.kb-mic-btn:hover{background:#f4f6f9;}' +
+      '.kb-mic-btn.kb-mic-recording{background:#ef4444;border-color:#ef4444;animation:kb-pulse 1s infinite;}' +
+      '.kb-mic-status{font-size:11px;color:#ef4444;font-weight:600;padding:4px 0;align-items:center;gap:6px;}' +
+      '@keyframes kb-pulse{0%,100%{opacity:1;}50%{opacity:.6;}}' +
 
       // Base
       '.kb-base-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-shrink:0;flex-wrap:wrap;}' +

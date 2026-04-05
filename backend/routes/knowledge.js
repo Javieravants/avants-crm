@@ -4,6 +4,8 @@ const pool = require('../config/db');
 const authMiddleware = require('../middleware/auth');
 const tenantMiddleware = require('../middleware/tenant');
 const requireRole = require('../middleware/roles');
+const multer = require('multer');
+const multerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -234,6 +236,48 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
       guardados: guardados,
       last_knowledge_id: lastId,
     });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════
+// TRANSCRIPCION DE AUDIO (voz → texto)
+// ══════════════════════════════════════════════
+
+// POST /api/knowledge/transcribe-audio — recibe audio, devuelve texto
+router.post('/transcribe-audio', requireRole('admin', 'supervisor'),
+  multerUpload.single('audio'), async function(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Archivo de audio obligatorio' });
+    if (!process.env.DEEPGRAM_API_KEY) return res.status(400).json({ error: 'DEEPGRAM_API_KEY no configurada' });
+
+    // Enviar buffer directamente a Deepgram
+    var response = await fetch('https://api.deepgram.com/v1/listen?' + new URLSearchParams({
+      model: 'nova-2',
+      language: 'es',
+      punctuate: 'true',
+      smart_format: 'true',
+    }).toString(), {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Token ' + process.env.DEEPGRAM_API_KEY,
+        'Content-Type': req.file.mimetype || 'audio/webm',
+      },
+      body: req.file.buffer,
+    });
+
+    if (!response.ok) {
+      var errText = await response.text();
+      return res.status(502).json({ error: 'Deepgram error: ' + errText.substring(0, 200) });
+    }
+
+    var data = await response.json();
+    var transcript = '';
+    if (data.results && data.results.channels && data.results.channels[0]) {
+      var alt = data.results.channels[0].alternatives;
+      if (alt && alt[0]) transcript = alt[0].transcript || '';
+    }
+
+    res.json({ transcripcion: transcript });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
