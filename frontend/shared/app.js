@@ -40,11 +40,12 @@ const App = {
     }
     if (!Auth.hasRole('admin', 'superadmin', 'supervisor')) {
       document.getElementById('nav-campanas')?.classList.add('hidden');
+      document.getElementById('nav-knowledge')?.classList.add('hidden');
     }
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'grabaciones',dialer:'agenda',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'grabaciones',dialer:'agenda',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',knowledge:'asistente',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
@@ -141,6 +142,7 @@ const App = {
       leads: () => PipelineModule.render(),
       pipeline: () => PipelineModule.render(),
       campanas: () => CampanasModule.render(),
+      knowledge: () => KnowledgeModule.render(),
       dialer: () => DialerModule.render(),
       informes: () => InformesModule.render(),
       'importar-polizas': () => ImportarPolizasModule.render(),

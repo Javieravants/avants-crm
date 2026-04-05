@@ -39,6 +39,7 @@ const polizasRoutes = require('./routes/polizas');
 const whatsappRoutes = require('./routes/whatsapp');
 const dialerRoutes = require('./routes/dialer');
 const productosRoutes = require('./routes/productos');
+const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -103,6 +104,7 @@ app.use('/api/dialer', dialerRoutes);
 app.use('/api/campanas', dialerRoutes);
 app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar, /api/ia/briefing, /api/ia/analizar-llamada
 app.use('/api', productosRoutes); // /api/companias, /api/productos, /api/categorias, /api/ia/productos-faltantes
+app.use('/api/knowledge', knowledgeRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -571,7 +573,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql', 'migration-knowledge.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);

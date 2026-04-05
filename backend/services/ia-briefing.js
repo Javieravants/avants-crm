@@ -110,6 +110,29 @@ async function generarBriefing(personaId) {
     productosFaltantes = catalogoR.rows.filter(p => !tieneSet.has(p.nombre.toLowerCase()));
   } catch {}
 
+  // Obtener conocimiento del centro de conocimiento
+  let knowledgeGeneral = [], knowledgeCompania = [];
+  try {
+    // Determinar compania del contacto (del primer seguro o deal)
+    const companiaId = seguros[0]?.compania || dealsOpen[0]?.compania || null;
+    const kbGeneralR = await pool.query(
+      `SELECT tipo, titulo, contenido FROM knowledge_base
+       WHERE compania_id IS NULL AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
+       ORDER BY updated_at DESC LIMIT 10`);
+    knowledgeGeneral = kbGeneralR.rows;
+
+    if (companiaId) {
+      // Buscar por nombre de compania en knowledge_base
+      const kbCompR = await pool.query(
+        `SELECT kb.tipo, kb.titulo, kb.contenido FROM knowledge_base kb
+         JOIN companias c ON c.id = kb.compania_id
+         WHERE c.nombre ILIKE $1 AND (kb.vigente_hasta IS NULL OR kb.vigente_hasta >= CURRENT_DATE)
+         ORDER BY kb.updated_at DESC LIMIT 10`,
+        ['%' + String(companiaId).substring(0, 50) + '%']);
+      knowledgeCompania = kbCompR.rows;
+    }
+  } catch {}
+
   // Construir contexto estructurado
   const contexto = {
     persona, edad, seguros, dealsOpen, llamadas, notas, propuestas, totalPrima, productosFaltantes,
@@ -123,6 +146,15 @@ async function generarBriefing(personaId) {
 CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provincia ? ', ' + persona.provincia : ''}
 
 `;
+
+  // Anadir conocimiento del centro de conocimiento
+  if (knowledgeGeneral.length || knowledgeCompania.length) {
+    prompt += 'CONOCIMIENTO INTERNO DEL EQUIPO:\n';
+    [...knowledgeGeneral, ...knowledgeCompania].forEach(k => {
+      prompt += `- [${k.tipo}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
+    });
+    prompt += '\n';
+  }
 
   if (seguros.length) {
     prompt += `SEGUROS CONTRATADOS (${seguros.length} seguros, ${totalPrima.toFixed(2)} EUR/mes total):\n`;
