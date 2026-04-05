@@ -1458,6 +1458,31 @@ const PersonasModule = {
       <button onclick="PersonasModule._showAddActivity(${personaId})" style="padding:7px 14px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px;">${_ICO.agendar(14,'#475569')} Agendar</button>
     </div>`;
 
+    // Chat IA
+    const chatHtml = `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #e8edf2;">
+      <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${_ICO.gestion(14,'#7c3aed')} Consulta a la IA</div>
+      <div id="ia-chat-messages" style="max-height:200px;overflow-y:auto;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:6px;">
+        <input id="ia-chat-input" class="ia-chat-input" placeholder="Pregunta sobre el producto o el cliente..." onkeydown="if(event.key==='Enter')PersonasModule._sendIAChat(${personaId})">
+        <button onclick="PersonasModule._sendIAChat(${personaId})" class="ia-chat-send">${_ICO.gestion(14,'#fff')} Enviar</button>
+      </div>
+    </div>`;
+
+    // CSS del chat
+    if (!document.getElementById('ia-chat-css')) {
+      const st = document.createElement('style'); st.id = 'ia-chat-css';
+      st.textContent = `
+        .ia-chat-input{flex:1;padding:8px 10px;border:1px solid #e8edf2;border-radius:8px;font-size:12px;font-family:inherit;color:#0f172a;}
+        .ia-chat-input:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+        .ia-chat-send{padding:8px 14px;border-radius:8px;border:none;background:#7c3aed;color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+        .ia-chat-send:hover{background:#6d28d9;}
+        .ia-chat-msg{padding:8px 10px;border-radius:8px;margin-bottom:6px;font-size:12px;line-height:1.5;max-width:90%;}
+        .ia-chat-user{background:#e6f6fd;color:#0f172a;margin-left:auto;}
+        .ia-chat-ia{background:#f5f3ff;color:#475569;border:1px solid #e9e5f5;}
+      `;
+      document.head.appendChild(st);
+    }
+
     content.innerHTML = `<div style="max-width:640px;">
       ${iaHtml}
       <div style="background:#e6f6fd;border-radius:10px;padding:14px;margin-bottom:14px;">
@@ -1466,6 +1491,7 @@ const PersonasModule = {
       </div>
       ${histHtml}
       ${botonesHtml}
+      ${chatHtml}
     </div>`;
   },
 
@@ -1493,6 +1519,54 @@ const PersonasModule = {
       wrap.innerHTML = '<div style="font-size:12px;color:#10b981;font-weight:600;padding:8px 0;">Nota guardada</div>';
       setTimeout(() => wrap.remove(), 1500);
     });
+  },
+
+  _iaChatHistory: [],
+  _iaChatPersonaId: null,
+
+  async _sendIAChat(personaId) {
+    const input = document.getElementById('ia-chat-input');
+    const msgs = document.getElementById('ia-chat-messages');
+    if (!input || !msgs) return;
+    const mensaje = input.value.trim();
+    if (!mensaje) return;
+
+    // Reset si cambio de contacto
+    if (this._iaChatPersonaId !== personaId) {
+      this._iaChatHistory = [];
+      this._iaChatPersonaId = personaId;
+    }
+
+    // Mostrar mensaje del usuario
+    msgs.innerHTML += `<div class="ia-chat-msg ia-chat-user">${this._esc(mensaje)}</div>`;
+    input.value = '';
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Indicador "pensando"
+    const thinkId = 'ia-think-' + Date.now();
+    msgs.innerHTML += `<div class="ia-chat-msg ia-chat-ia" id="${thinkId}" style="opacity:.5;">Pensando...</div>`;
+    msgs.scrollTop = msgs.scrollHeight;
+
+    try {
+      const r = await API.post('/ia/chat-llamada', {
+        personaId,
+        mensaje,
+        historial: this._iaChatHistory,
+      });
+
+      document.getElementById(thinkId)?.remove();
+      msgs.innerHTML += `<div class="ia-chat-msg ia-chat-ia">${this._esc(r.respuesta)}</div>`;
+      msgs.scrollTop = msgs.scrollHeight;
+
+      // Guardar en historial de sesion
+      this._iaChatHistory.push({ role: 'user', content: mensaje });
+      this._iaChatHistory.push({ role: 'assistant', content: r.respuesta });
+      // Limitar a ultimos 10 mensajes
+      if (this._iaChatHistory.length > 10) this._iaChatHistory = this._iaChatHistory.slice(-10);
+    } catch (e) {
+      document.getElementById(thinkId)?.remove();
+      msgs.innerHTML += `<div class="ia-chat-msg ia-chat-ia" style="color:#ef4444;">${e.message || 'Error'}</div>`;
+    }
   },
 
   _fmtRelative(date) {

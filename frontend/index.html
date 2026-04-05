@@ -160,6 +160,16 @@
       </button>
       <button id="gv-phone-register" class="gv-hidden" onclick="GVPhone.hangup()">Registrar llamada</button>
     </div>
+    <div id="gv-phone-ia" class="gv-hidden">
+      <div id="gv-ia-msgs" style="max-height:80px;overflow-y:auto;padding:0 12px;"></div>
+      <div style="display:flex;gap:4px;padding:6px 12px;">
+        <input id="gv-ia-input" placeholder="Pregunta rapida..." style="flex:1;padding:5px 8px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#e2e8f0;font-size:11px;font-family:inherit;" onkeydown="if(event.key==='Enter')GVPhone.sendIA()">
+        <button onclick="GVPhone.sendIA()" style="padding:5px 8px;border-radius:6px;border:none;background:#7c3aed;color:#fff;font-size:10px;font-weight:600;cursor:pointer;">IA</button>
+      </div>
+    </div>
+    <div id="gv-phone-ia-toggle" class="gv-hidden" style="text-align:center;padding:4px;">
+      <button onclick="GVPhone.toggleIA()" style="background:none;border:none;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;">IA Chat</button>
+    </div>
     <div id="gv-phone-provider" title="Proveedor CTI"></div>
   </div>
 
@@ -198,6 +208,10 @@
     #gv-phone-actions{padding:0 16px 14px;display:flex;justify-content:center;}
     #gv-phone-hangup{display:flex;align-items:center;gap:6px;padding:10px 24px;border-radius:10px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
     #gv-phone-hangup:hover{background:#dc2626;}
+    #gv-phone-ia{border-top:1px solid #1e293b;}
+    #gv-ia-msgs .gv-ia-msg{padding:4px 8px;border-radius:6px;margin:3px 0;font-size:10px;line-height:1.4;}
+    #gv-ia-msgs .gv-ia-user{background:#334155;color:#e2e8f0;margin-left:20%;}
+    #gv-ia-msgs .gv-ia-bot{background:#2d1b69;color:#c4b5fd;margin-right:20%;}
     #gv-phone-provider{padding:6px 16px;font-size:10px;color:#475569;border-top:1px solid #1e293b;text-align:center;}
     #gv-phone-manual{text-align:center;padding:4px 0;}
     #gv-phone-manual-num{font-size:22px;font-weight:800;color:#fff;letter-spacing:1px;margin-bottom:8px;user-select:all;}
@@ -363,6 +377,42 @@
       setTimeout(() => this.hide(), 2000);
     },
 
+    _iaHistory: [],
+    _iaOpen: false,
+
+    toggleIA() {
+      this._iaOpen = !this._iaOpen;
+      const el = document.getElementById('gv-phone-ia');
+      if (el) el.classList.toggle('gv-hidden', !this._iaOpen);
+    },
+
+    async sendIA() {
+      const input = document.getElementById('gv-ia-input');
+      const msgs = document.getElementById('gv-ia-msgs');
+      if (!input || !msgs) return;
+      const msg = input.value.trim();
+      if (!msg) return;
+
+      msgs.innerHTML += `<div class="gv-ia-msg gv-ia-user">${msg}</div>`;
+      input.value = '';
+      msgs.scrollTop = msgs.scrollHeight;
+
+      try {
+        const r = await API.post('/ia/chat-llamada', {
+          personaId: this.currentPersonaId,
+          mensaje: msg,
+          historial: this._iaHistory,
+        });
+        msgs.innerHTML += `<div class="gv-ia-msg gv-ia-bot">${r.respuesta}</div>`;
+        msgs.scrollTop = msgs.scrollHeight;
+        this._iaHistory.push({ role: 'user', content: msg });
+        this._iaHistory.push({ role: 'assistant', content: r.respuesta });
+        if (this._iaHistory.length > 10) this._iaHistory = this._iaHistory.slice(-10);
+      } catch (e) {
+        msgs.innerHTML += `<div class="gv-ia-msg gv-ia-bot" style="color:#ef4444;">${e.message || 'Error'}</div>`;
+      }
+    },
+
     setState(s) {
       this.state = s;
       const el = document.getElementById('gv-phone-status');
@@ -370,6 +420,8 @@
       const hangup = document.getElementById('gv-phone-hangup');
       const manual = document.getElementById('gv-phone-manual');
       const register = document.getElementById('gv-phone-register');
+      const iaToggle = document.getElementById('gv-phone-ia-toggle');
+      const iaPanel = document.getElementById('gv-phone-ia');
       if (!el) return;
 
       el.className = '';
@@ -377,6 +429,10 @@
       hangup.classList.add('gv-hidden');
       manual.classList.add('gv-hidden');
       register.classList.add('gv-hidden');
+      iaToggle?.classList.add('gv-hidden');
+      iaPanel?.classList.add('gv-hidden');
+      this._iaOpen = false;
+      this._iaHistory = [];
 
       if (s === 'dialing') {
         el.textContent = 'Marcando...';
@@ -388,12 +444,14 @@
         el.style.animation = '';
         timer.classList.remove('gv-hidden');
         hangup.classList.remove('gv-hidden');
+        iaToggle?.classList.remove('gv-hidden');
       } else if (s === 'manual') {
         el.textContent = '';
         el.style.animation = '';
         manual.classList.remove('gv-hidden');
         register.classList.remove('gv-hidden');
         hangup.classList.remove('gv-hidden');
+        iaToggle?.classList.remove('gv-hidden');
         document.getElementById('gv-phone-manual-num').textContent =
           document.getElementById('gv-phone-number').textContent;
         this._startTimer();

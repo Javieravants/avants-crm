@@ -895,4 +895,74 @@ router.post('/ia/analizar-llamada/:callHistoryId', async (req, res) => {
   }
 });
 
+// POST /api/ia/chat-llamada — chat IA en tiempo real durante llamada
+router.post('/ia/chat-llamada', async (req, res) => {
+  try {
+    const { personaId, mensaje, historial } = req.body;
+    if (!mensaje) return res.status(400).json({ error: 'mensaje obligatorio' });
+
+    let Anthropic;
+    try { Anthropic = require('@anthropic-ai/sdk'); } catch {}
+    if (!Anthropic || !process.env.ANTHROPIC_API_KEY) {
+      return res.status(400).json({ error: 'ANTHROPIC_API_KEY no configurada' });
+    }
+
+    // Construir contexto del cliente
+    let contexto = '';
+    if (personaId) {
+      const [personaR, segurosR, histR, productosR] = await Promise.all([
+        pool.query('SELECT nombre, provincia FROM personas WHERE id = $1', [personaId]),
+        pool.query(`SELECT compania, producto, prima_mensual FROM polizas
+                    WHERE persona_id = $1 AND estado NOT IN ('baja','rechazado') LIMIT 5`, [personaId]),
+        pool.query(`SELECT tipo, subtipo, titulo, created_at FROM contact_history
+                    WHERE persona_id = $1 ORDER BY created_at DESC LIMIT 5`, [personaId]),
+        pool.query(`SELECT p.nombre, p.resumen_coberturas, p.argumentario_venta, c.nombre as compania
+                    FROM productos p JOIN companias c ON c.id = p.compania_id
+                    WHERE p.activo = true AND p.resumen_coberturas IS NOT NULL LIMIT 10`),
+      ]);
+
+      const persona = personaR.rows[0];
+      if (persona) {
+        contexto += `\nCLIENTE: ${persona.nombre}${persona.provincia ? ', ' + persona.provincia : ''}`;
+      }
+      if (segurosR.rows.length) {
+        contexto += `\nSEGUROS QUE TIENE: ${segurosR.rows.map(s => `${s.compania} ${s.producto} (${s.prima_mensual || '?'} EUR/mes)`).join(', ')}`;
+      } else {
+        contexto += '\nSEGUROS: Ninguno contratado';
+      }
+      if (histR.rows.length) {
+        contexto += `\nULTIMAS INTERACCIONES: ${histR.rows.map(h => `${h.tipo} ${h.subtipo || ''} (${new Date(h.created_at).toLocaleDateString('es-ES')})`).join(', ')}`;
+      }
+      if (productosR.rows.length) {
+        contexto += '\nPRODUCTOS DISPONIBLES:';
+        productosR.rows.forEach(p => {
+          contexto += `\n- ${p.compania} ${p.nombre}: ${(p.resumen_coberturas || '').substring(0, 80)}`;
+        });
+      }
+    }
+
+    // Construir mensajes con historial
+    const messages = [];
+    if (Array.isArray(historial)) {
+      historial.forEach(h => {
+        messages.push({ role: h.role || 'user', content: h.content || h.mensaje || '' });
+      });
+    }
+    messages.push({ role: 'user', content: mensaje });
+
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      system: `Eres un asistente de ventas experto en seguros, ayudando a un agente durante una llamada en tiempo real. Responde de forma MUY concisa (maximo 3-4 lineas) y practica. El agente esta hablando con el cliente ahora mismo, no tiene tiempo para leer textos largos.${contexto}`,
+      messages,
+    });
+
+    const respuesta = response.content[0]?.text?.trim() || '';
+    res.json({ respuesta });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
