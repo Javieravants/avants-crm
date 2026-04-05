@@ -1396,11 +1396,31 @@ const PersonasModule = {
         <div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:8px;">${_ICO.gestion(14,'#1d4ed8')} Recomendacion IA</div>
         ${ia.tactica ? `<div style="font-size:13px;color:#0f172a;margin-bottom:5px;"><strong>Tactica:</strong> ${this._esc(ia.tactica)}</div>` : ''}
         ${ia.oportunidad ? `<div style="font-size:13px;color:#0f172a;margin-bottom:5px;"><strong>Oportunidad:</strong> ${this._esc(ia.oportunidad)}</div>` : ''}
-        ${ia.productos_recomendados?.length ? `<div style="font-size:12px;color:#10b981;margin-bottom:5px;"><strong>Productos:</strong> ${ia.productos_recomendados.join(', ')}</div>` : ''}
-        ${ia.tono ? `<div style="font-size:12px;color:#475569;margin-bottom:5px;"><strong>Tono:</strong> ${this._esc(ia.tono)}</div>` : ''}
-        ${ia.evitar?.length ? `<div style="font-size:12px;color:#991b1b;"><strong>Evitar:</strong> ${ia.evitar.join(', ')}</div>` : ''}
+        ${ia.productos_detalle?.length ? `
+          <div style="margin:8px 0 5px;"><strong style="font-size:12px;color:#10b981;">Productos recomendados:</strong></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${ia.productos_detalle.map((p, i) => `
+              <span class="ia-prod-pill" onclick="this.nextElementSibling.classList.toggle('ia-prod-hidden')"
+                style="padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;background:#e6f6fd;color:#009DDD;cursor:pointer;border:1px solid #b3e0f7;">
+                ${this._esc(p.nombre)}${p.precio ? ' ' + p.precio + '€' : ''}
+              </span>
+              <div class="ia-prod-hidden" style="width:100%;font-size:11px;color:#475569;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:4px;display:none;">
+                ${p.compania ? `<strong>${this._esc(p.compania)}</strong> → ${this._esc(p.categoria || '')}` : ''}
+                ${p.coberturas ? `<div style="margin-top:2px;">${this._esc(p.coberturas)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        ${ia.tono ? `<div style="font-size:12px;color:#475569;margin-top:5px;"><strong>Tono:</strong> ${this._esc(ia.tono)}</div>` : ''}
+        ${ia.evitar?.length ? `<div style="font-size:12px;color:#991b1b;margin-top:3px;"><strong>Evitar:</strong> ${ia.evitar.join(', ')}</div>` : ''}
         ${ia.resumen ? `<div style="font-size:12px;color:#475569;margin-top:8px;padding-top:8px;border-top:1px solid #bfdbfe;">${this._esc(ia.resumen)}</div>` : ''}
       </div>`;
+      // CSS for product pill toggle
+      if (!document.getElementById('ia-prod-css')) {
+        const st = document.createElement('style'); st.id = 'ia-prod-css';
+        st.textContent = '.ia-prod-hidden{display:none!important;} .ia-prod-pill:hover{background:#ccedf9!important;}';
+        document.head.appendChild(st);
+      }
     }
 
     // Datos reales

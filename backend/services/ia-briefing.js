@@ -94,9 +94,25 @@ async function generarBriefing(personaId) {
   // Total prima mensual de todas las fuentes
   const totalPrima = seguros.reduce((sum, s) => sum + s.prima, 0);
 
+  // Productos faltantes (gaps) — comparar con catalogo
+  let productosFaltantes = [];
+  try {
+    const tieneSet = new Set(seguros.map(s => (s.producto || '').toLowerCase()));
+    const catalogoR = await pool.query(`
+      SELECT p.nombre, p.resumen_coberturas, p.precio_base, p.comision_valor, p.puntos_base,
+             c.nombre as compania_nombre, cp.nombre as categoria_nombre
+      FROM productos p
+      JOIN companias c ON c.id = p.compania_id AND c.activa = true
+      LEFT JOIN categorias_producto cp ON cp.id = p.categoria_id
+      WHERE p.activo = true
+      ORDER BY p.comision_valor DESC NULLS LAST, p.puntos_base DESC
+    `);
+    productosFaltantes = catalogoR.rows.filter(p => !tieneSet.has(p.nombre.toLowerCase()));
+  } catch {}
+
   // Construir contexto estructurado
   const contexto = {
-    persona, edad, seguros, dealsOpen, llamadas, notas, propuestas, totalPrima,
+    persona, edad, seguros, dealsOpen, llamadas, notas, propuestas, totalPrima, productosFaltantes,
   };
 
   if (!client) return _briefingBasico(contexto);
@@ -144,12 +160,26 @@ CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provinc
     });
   }
 
+  if (productosFaltantes.length) {
+    // Agrupar por categoria
+    const porCat = {};
+    productosFaltantes.forEach(p => {
+      const cat = p.categoria_nombre || 'Otros';
+      if (!porCat[cat]) porCat[cat] = [];
+      porCat[cat].push(p);
+    });
+    prompt += '\nPRODUCTOS QUE LE FALTAN (oportunidades de venta):\n';
+    for (const [cat, prods] of Object.entries(porCat)) {
+      prompt += `- ${cat}: ${prods.map(p => p.nombre + (p.resumen_coberturas ? ' (' + p.resumen_coberturas.substring(0, 60) + ')' : '')).join(', ')}\n`;
+    }
+  }
+
   prompt += `
 IMPORTANTE:
-- Si tiene seguros → buscar huecos (dental, vida, hogar, mascotas, decesos)
-- Si no tiene seguros → primera venta, empezar por el producto mas facil de vender
-- Si tiene propuesta pendiente → recordarle y cerrar
+- Recomendar PRIMERO los productos faltantes con mayor comision o puntos
+- Si tiene propuesta pendiente → recordarle y cerrar antes de ofrecer nuevos
 - No sugerir productos que ya tiene
+- productos_recomendados debe contener nombres EXACTOS del catalogo
 
 Responde SOLO con JSON valido (sin markdown, sin backticks):
 {
@@ -158,7 +188,7 @@ Responde SOLO con JSON valido (sin markdown, sin backticks):
   "tono": "cercano|profesional|urgente",
   "evitar": ["cosa1 a no mencionar", "cosa2"],
   "resumen": "2-3 frases del contexto del cliente",
-  "productos_recomendados": ["producto1 que le falta", "producto2"]
+  "productos_recomendados": ["nombre exacto producto1", "nombre exacto producto2"]
 }`;
 
   try {
@@ -170,7 +200,15 @@ Responde SOLO con JSON valido (sin markdown, sin backticks):
 
     const text = response.content[0]?.text || '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) {
+      const result = JSON.parse(jsonMatch[0]);
+      // Enriquecer productos_recomendados con datos del catalogo
+      result.productos_detalle = (result.productos_recomendados || []).map(nombre => {
+        const found = productosFaltantes.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
+        return found ? { nombre: found.nombre, coberturas: found.resumen_coberturas, precio: found.precio_base, compania: found.compania_nombre, categoria: found.categoria_nombre } : { nombre };
+      });
+      return result;
+    }
     return _briefingBasico(contexto);
   } catch (e) {
     console.error('[IA] Briefing error:', e.message);
@@ -180,8 +218,9 @@ Responde SOLO con JSON valido (sin markdown, sin backticks):
 
 // Briefing basico sin IA
 function _briefingBasico(ctx) {
-  const { seguros, propuestas, llamadas, totalPrima } = ctx;
+  const { seguros, propuestas, llamadas, totalPrima, productosFaltantes } = ctx;
   const lastCall = llamadas[0];
+  const topGaps = (productosFaltantes || []).slice(0, 3);
 
   return {
     tactica: seguros.length
@@ -190,13 +229,17 @@ function _briefingBasico(ctx) {
     tono: 'cercano',
     oportunidad: propuestas.length
       ? `Propuesta pendiente: ${propuestas[0].producto || propuestas[0].tipo_poliza}`
-      : null,
+      : topGaps.length ? `Productos faltantes: ${topGaps.map(p => p.nombre).join(', ')}` : null,
     evitar: [],
     resumen: [
       lastCall ? `Ultima llamada: ${lastCall.subtipo || '?'} (${_fmtRelative(lastCall.created_at)})` : 'Sin llamadas previas',
       seguros.length ? `Seguros: ${seguros.map(s => s.producto).join(', ')}` : 'Sin seguros',
     ].join('. '),
-    productos_recomendados: [],
+    productos_recomendados: topGaps.map(p => p.nombre),
+    productos_detalle: topGaps.map(p => ({
+      nombre: p.nombre, coberturas: p.resumen_coberturas,
+      precio: p.precio_base, compania: p.compania_nombre, categoria: p.categoria_nombre,
+    })),
   };
 }
 

@@ -669,13 +669,37 @@ dialer_config (
 
 ---
 
+## Catalogo de Productos — completado 05/04/2026
+
+### Tablas BD (9 tablas en migration-productos.sql)
+companias, categorias_producto, productos, categoria_documentos,
+producto_documentos, compania_agentes, campanas_puntos,
+campana_producto_puntos, dialer_config
+
+### Backend (18 endpoints en routes/productos.js)
+CRUD companias, categorias, productos, documentos (upload S3),
+agentes por compania, productos faltantes para IA
+
+### Frontend (Settings → Productos)
+Arbol expandible: Compania → Categoria → Producto
+Panel lateral: edicion, docs con upload, agentes con checkboxes
+
+### Integracion IA
+- generarBriefing() lee catalogo de productos y calcula gaps
+- Prompt incluye "PRODUCTOS QUE LE FALTAN" con coberturas
+- Respuesta incluye productos_detalle[] con coberturas, precio, compania
+- Frontend muestra pills azules clicables que expanden coberturas
+
+---
+
 ## Pendientes prioritarios (abril 2026)
 1. ✅ Power Dialer Fase 1 — completado 03/04/2026
-2. ❌ Modulo Impagos (sidebar existe, modulo no)
-3. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
-4. ❌ Facebook Lead Ads (tablas existen, flujo no)
-5. ⏳ WhatsApp: plantillas, media, validacion firma
-6. ⏳ Bidireccional completo CRM → Pipedrive
-7. ⏳ Notificaciones tiempo real (Socket.IO)
-8. ⏳ PWA movil responsive
-9. ⏳ Migracion Railway → Hetzner VPS
+2. ✅ Catalogo Productos — completado 05/04/2026
+3. ❌ Modulo Impagos (sidebar existe, modulo no)
+4. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
+5. ❌ Facebook Lead Ads (tablas existen, flujo no)
+6. ⏳ WhatsApp: plantillas, media, validacion firma
+7. ⏳ Bidireccional completo CRM → Pipedrive
+8. ⏳ Notificaciones tiempo real (Socket.IO)
+9. ⏳ PWA movil responsive
+10. ⏳ Migracion Railway → Hetzner VPS
