@@ -135,7 +135,7 @@
 
   <!-- Gestavly Phone — marcador flotante propio -->
   <div id="gv-phone" class="gv-phone-hidden">
-    <div id="gv-phone-head">
+    <div id="gv-phone-head" onmousedown="GVPhone._onDragStart(event)" style="cursor:grab;">
       <div id="gv-phone-contact">
         <div id="gv-phone-name">—</div>
         <div id="gv-phone-number">—</div>
@@ -416,6 +416,7 @@
 
     show() {
       document.getElementById('gv-phone')?.classList.remove('gv-phone-hidden');
+      this._restorePosition();
     },
     hide() {
       document.getElementById('gv-phone')?.classList.add('gv-phone-hidden');
@@ -457,6 +458,48 @@
     },
     _stopPoll() {
       if (this.pollInterval) { clearInterval(this.pollInterval); this.pollInterval = null; }
+    },
+
+    // Drag — mover el panel por la pantalla
+    _dragData: null,
+    _onDragStart(e) {
+      if (e.target.closest('button')) return; // no arrastrar si clic en boton
+      e.preventDefault();
+      var el = document.getElementById('gv-phone');
+      var rect = el.getBoundingClientRect();
+      this._dragData = { ox: e.clientX - rect.left, oy: e.clientY - rect.top };
+      var self = this;
+      function onMove(ev) {
+        if (!self._dragData) return;
+        el.style.left = (ev.clientX - self._dragData.ox) + 'px';
+        el.style.top = (ev.clientY - self._dragData.oy) + 'px';
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        self._dragData = null;
+        // Guardar posicion
+        var r = el.getBoundingClientRect();
+        localStorage.setItem('gv-phone-pos', JSON.stringify({ x: r.left, y: r.top }));
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    },
+    _restorePosition() {
+      var saved = localStorage.getItem('gv-phone-pos');
+      if (!saved) return;
+      try {
+        var pos = JSON.parse(saved);
+        var el = document.getElementById('gv-phone');
+        if (el && pos.x != null) {
+          el.style.left = pos.x + 'px';
+          el.style.top = pos.y + 'px';
+          el.style.right = 'auto';
+          el.style.bottom = 'auto';
+        }
+      } catch(e) {}
     },
   };
 
