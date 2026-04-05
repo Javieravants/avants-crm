@@ -148,19 +148,38 @@ CLIENTE: ${persona.nombre}${edad ? ', ' + edad + ' años' : ''}${persona.provinc
 `;
 
   // Anadir conocimiento del centro de conocimiento (solo agentes + todos, nunca admin)
-  const kEquipo = [...knowledgeGeneral, ...knowledgeCompania].filter(k => k.visibilidad === 'agentes');
-  const kPublico = [...knowledgeGeneral, ...knowledgeCompania].filter(k => k.visibilidad === 'todos');
+  // Separar: general (mercado/negocio) vs compania especifica
+  const kGenEquipo = knowledgeGeneral.filter(k => k.visibilidad === 'agentes');
+  const kGenPublico = knowledgeGeneral.filter(k => k.visibilidad === 'todos');
+  const kCompEquipo = knowledgeCompania.filter(k => k.visibilidad === 'agentes');
+  const kCompPublico = knowledgeCompania.filter(k => k.visibilidad === 'todos');
+  const hasKnowledge = kGenEquipo.length || kGenPublico.length || kCompEquipo.length || kCompPublico.length;
 
-  if (kEquipo.length || kPublico.length) {
-    if (kEquipo.length) {
-      prompt += 'CONOCIMIENTO RESTRINGIDO (solo para orientarte como agente, NO mencionar al cliente):\n';
-      kEquipo.forEach(k => { prompt += `- [SOLO EQUIPO] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`; });
+  if (hasKnowledge) {
+    if (kGenEquipo.length || kGenPublico.length) {
+      prompt += 'CONTEXTO DE MERCADO Y NEGOCIO:\n';
+      [...kGenEquipo, ...kGenPublico].forEach(k => {
+        const tag = k.visibilidad === 'todos' ? 'PUBLICO' : 'SOLO EQUIPO';
+        prompt += `- [${tag}] [${k.tipo.toUpperCase()}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
+      });
     }
-    if (kPublico.length) {
-      prompt += '\nCONOCIMIENTO QUE PUEDES COMPARTIR CON EL CLIENTE:\n';
-      kPublico.forEach(k => { prompt += `- [PUBLICO] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`; });
+    if (kCompEquipo.length || kCompPublico.length) {
+      prompt += '\nCONOCIMIENTO ESPECIFICO DE LA COMPANIA DE ESTA LLAMADA:\n';
+      [...kCompEquipo, ...kCompPublico].forEach(k => {
+        const tag = k.visibilidad === 'todos' ? 'PUBLICO' : 'SOLO EQUIPO';
+        prompt += `- [${tag}] [${k.tipo.toUpperCase()}] ${k.titulo}: ${k.contenido.substring(0, 150)}\n`;
+      });
     }
-    prompt += '\nINSTRUCCION CRITICA:\n- El conocimiento [SOLO EQUIPO] usalo para tu estrategia interna. NUNCA lo menciones al cliente.\n- El conocimiento [PUBLICO] si puedes usarlo con el cliente.\n- El conocimiento de nivel admin NO aparece en este briefing.\n\n';
+    prompt += `
+REGLAS DE USO DEL CONOCIMIENTO — OBLIGATORIAS:
+1. AISLAMIENTO POR COMPANIA: el conocimiento de una compania SOLO se usa en el contexto de esa compania. NUNCA lo uses para hablar de otra ni para comparar.
+2. INFORMACION DE MERCADO [MERCADO]: describe situaciones del sector. Usalo para orientar, NUNCA para atribuir problemas a una compania concreta.
+3. RESTRICCIONES [RESTRICCION]: indica que NO se puede ofrecer en ciertos casos. Usalo para evitar productos inadecuados, NUNCA como argumento contra la compania.
+4. PROHIBIDO CRITICAR COMPANIAS: nunca hagas afirmaciones negativas sobre ninguna compania delante del cliente, ni directa ni indirectamente.
+5. [SOLO EQUIPO] = estrategia interna, NUNCA mencionarlo al cliente. [PUBLICO] = usable con el cliente.
+6. El conocimiento de nivel admin NO aparece en este briefing.
+
+`;
   }
 
   if (seguros.length) {

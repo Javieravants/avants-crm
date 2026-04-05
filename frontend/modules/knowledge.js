@@ -133,7 +133,7 @@ var KnowledgeModule = {
       '<option value="">Todos los tipos</option>' +
       '<option value="negocio">Negocio</option><option value="compania">Compania</option>' +
       '<option value="campana">Campana</option><option value="argumentario">Argumentario</option>' +
-      '<option value="objecion">Objecion</option></select>';
+      '<option value="objecion">Objecion</option><option value="restriccion">Restriccion</option><option value="mercado">Mercado</option></select>';
 
     var compFilter = '<select id="kb-filter-comp" class="kb-filter" onchange="KnowledgeModule._filterBase()">' +
       '<option value="">Todas las companias</option>' +
@@ -163,6 +163,8 @@ var KnowledgeModule = {
         campana: { bg: '#fefce8', color: '#854d0e' },
         argumentario: { bg: '#faf5ff', color: '#7c3aed' },
         objecion: { bg: '#fef2f2', color: '#991b1b' },
+        restriccion: { bg: '#fff7ed', color: '#c2410c' },
+        mercado: { bg: '#f5f3ff', color: '#6d28d9' },
       };
       var tc = tipoCfg[item.tipo] || tipoCfg.negocio;
 
@@ -220,7 +222,7 @@ var KnowledgeModule = {
         '<div class="kb-modal-head">Nueva entrada<button onclick="document.getElementById(\'kb-modal\').remove()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;">&times;</button></div>' +
         '<div class="kb-modal-body">' +
           '<div class="kb-field"><label class="kb-label">Tipo</label>' +
-            '<select id="kb-new-tipo" class="kb-input"><option value="negocio">Negocio</option><option value="compania">Compania</option><option value="campana">Campana</option><option value="argumentario">Argumentario</option><option value="objecion">Objecion</option></select></div>' +
+            '<select id="kb-new-tipo" class="kb-input"><option value="negocio">Negocio</option><option value="compania">Compania</option><option value="campana">Campana</option><option value="argumentario">Argumentario</option><option value="objecion">Objecion</option><option value="restriccion">Restriccion</option><option value="mercado">Mercado</option></select></div>' +
           '<div class="kb-field"><label class="kb-label">Compania (opcional)</label>' +
             '<select id="kb-new-comp" class="kb-input"><option value="">General</option>' + compOpts + '</select></div>' +
           '<div class="kb-field"><label class="kb-label">Titulo</label>' +

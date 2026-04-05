@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-const TIPOS_VALIDOS = ['compania', 'negocio', 'campana', 'argumentario', 'objecion'];
+const TIPOS_VALIDOS = ['compania', 'negocio', 'campana', 'argumentario', 'objecion', 'restriccion', 'mercado'];
 
 // ══════════════════════════════════════════════
 // CRUD KNOWLEDGE BASE
@@ -103,15 +103,17 @@ router.get('/context', async (req, res) => {
     var companiaId = req.query.compania_id;
 
     // Conocimiento general de negocio (sin compania)
-    // Excluir conocimiento 'admin' del contexto para briefings de agentes
+    // General: negocio + mercado (sin compania_id). Excluir visibilidad admin.
     var generalR = await pool.query(
       `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
        WHERE tenant_id = $1 AND compania_id IS NULL
+         AND tipo IN ('negocio', 'mercado')
          AND visibilidad IN ('agentes', 'todos')
          AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
        ORDER BY updated_at DESC LIMIT 20`,
       [req.tenantId]);
 
+    // Compania: solo conocimiento de ESA compania (aislamiento)
     var companiaR = { rows: [] };
     if (companiaId) {
       companiaR = await pool.query(
@@ -169,7 +171,7 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
     var response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
-      system: 'Eres un asistente que ayuda a gestionar el conocimiento de una correduria de seguros. El usuario te va a contar informacion sobre companias, campanas, argumentarios, objeciones o estrategias de negocio. Tu trabajo es:\n1. Confirmar lo que has entendido\n2. Extraer el conocimiento en formato estructurado\n\nCompanias disponibles: ' + companiasList + '\n\nNiveles de visibilidad:\n- "admin": solo el admin lo ve (si el usuario dice "solo para mi", "confidencial", "no compartir")\n- "agentes": el equipo lo ve en briefings pero no llega al cliente (por defecto)\n- "todos": puede mencionarse al cliente (si el usuario dice "puedes decirle al cliente", "compartir con cliente")\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "texto conversacional confirmando lo que has entendido y el nivel de visibilidad asignado",\n  "conocimiento": [\n    {\n      "tipo": "compania|negocio|campana|argumentario|objecion",\n      "titulo": "titulo corto",\n      "contenido": "el conocimiento extraido",\n      "compania_id": null,\n      "visibilidad": "admin|agentes|todos"\n    }\n  ]\n}\n\nSi el mensaje no contiene conocimiento extraible, devuelve conocimiento como array vacio [].',
+      system: 'Eres un asistente que ayuda a gestionar el conocimiento de una correduria de seguros. El usuario te va a contar informacion sobre companias, campanas, argumentarios, objeciones, restricciones o situaciones del mercado. Tu trabajo es:\n1. Confirmar lo que has entendido\n2. Extraer el conocimiento en formato estructurado\n\nCompanias disponibles: ' + companiasList + '\n\nTipos de conocimiento:\n- "compania": info general de la compania\n- "negocio": info interna del negocio/estrategia\n- "campana": campanas temporales\n- "argumentario": como vender, que decir\n- "objecion": como responder objeciones\n- "restriccion": limitaciones operativas (zonas, edades, condiciones especiales de una compania)\n- "mercado": info del sector que afecta a todas las companias\n\nNiveles de visibilidad:\n- "admin": solo el admin lo ve ("solo para mi", "confidencial")\n- "agentes": el equipo lo ve en briefings, no llega al cliente (por defecto)\n- "todos": puede mencionarse al cliente ("compartir con cliente")\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "texto confirmando lo entendido, tipo y visibilidad asignados",\n  "conocimiento": [\n    {\n      "tipo": "compania|negocio|campana|argumentario|objecion|restriccion|mercado",\n      "titulo": "titulo corto",\n      "contenido": "el conocimiento extraido",\n      "compania_id": null,\n      "visibilidad": "admin|agentes|todos"\n    }\n  ]\n}\n\nSi no hay conocimiento extraible, devuelve conocimiento como array vacio [].',
       messages: [{ role: 'user', content: mensaje }],
     });
 
