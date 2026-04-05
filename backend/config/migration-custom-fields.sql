@@ -27,7 +27,7 @@ UPDATE deals SET
   tipo_poliza = COALESCE(tipo_poliza, datos_extra->>'tipo_poliza'),
   frecuencia_pago = COALESCE(frecuencia_pago, datos_extra->>'frecuencia_pago'),
   descuento = COALESCE(descuento, datos_extra->>'descuento'),
-  num_asegurados = COALESCE(num_asegurados, (datos_extra->>'n_asegurados')::INTEGER),
+  num_asegurados = COALESCE(num_asegurados, NULLIF(regexp_replace(datos_extra->>'n_asegurados', '[^0-9]', '', 'g'), '')::INTEGER),
   iban = COALESCE(iban, datos_extra->>'iban'),
   observaciones = COALESCE(observaciones, datos_extra->>'observaciones')
 WHERE datos_extra IS NOT NULL AND datos_extra != '{}';
