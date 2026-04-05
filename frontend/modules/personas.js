@@ -1245,6 +1245,7 @@ const PersonasModule = {
         <audio controls preload="none" style="width:100%;height:36px;border-radius:6px;">
           <source src="${this._esc(meta.grabacion_url)}">
         </audio>
+        ${meta.cloudtalk_call_id ? `<button onclick="PersonasModule._showTranscripcion('${this._esc(meta.cloudtalk_call_id)}')" style="margin-top:6px;padding:4px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;color:#009DDD;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Ver transcripcion</button>` : ''}
       </div>`;
     }
 
@@ -1580,6 +1581,40 @@ const PersonasModule = {
     if (d === 1) return 'ayer';
     if (d < 30) return 'hace ' + d + ' dias';
     return new Date(date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  },
+
+  async _showTranscripcion(callId) {
+    // Buscar transcripcion por cloudtalk_call_id
+    try {
+      const r = await API.get('/transcriptions?contact_id=' + (this._fichaPersona?.id || ''));
+      const t = (r.transcriptions || []).find(function(t) { return t.cloudtalk_call_id === callId; });
+      if (!t) { alert('Transcripcion no disponible todavia. Se procesa automaticamente tras la llamada (min 2 min).'); return; }
+
+      // Modal con resumen + transcripcion
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:800;display:flex;align-items:center;justify-content:center;padding:20px;';
+      overlay.innerHTML = `<div style="background:#fff;border-radius:12px;width:640px;max-width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e8edf2;">
+          <span style="font-size:15px;font-weight:700;">Transcripcion de llamada</span>
+          <button onclick="this.closest('[style]').parentElement.remove()" style="background:none;border:none;font-size:20px;color:#94a3b8;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:20px;overflow-y:auto;flex:1;">
+          ${t.resumen_ia ? `<div style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px;">
+            <div style="font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:6px;">Resumen IA</div>
+            <div style="font-size:13px;color:#0f172a;line-height:1.5;">${this._esc(t.resumen_ia)}</div>
+            ${t.resultado_llamada ? `<div style="margin-top:8px;"><span style="padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;background:#e6f6fd;color:#009DDD;">${t.resultado_llamada}</span></div>` : ''}
+          </div>` : ''}
+          ${t.estado === 'completado' && t.transcripcion ? `
+            <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px;">Transcripcion completa</div>
+            <div style="font-size:12px;color:#475569;line-height:1.6;white-space:pre-wrap;background:#f8fafc;border:1px solid #e8edf2;border-radius:8px;padding:14px;max-height:40vh;overflow-y:auto;">${this._esc(t.transcripcion)}</div>
+          ` : `<div style="color:#94a3b8;font-size:13px;">Estado: ${t.estado}${t.error_mensaje ? ' — ' + this._esc(t.error_mensaje) : ''}</div>`}
+        </div>
+      </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
   },
 
   // === Grabar póliza — formulario completo con 3 secciones ===

@@ -40,6 +40,7 @@ const whatsappRoutes = require('./routes/whatsapp');
 const dialerRoutes = require('./routes/dialer');
 const productosRoutes = require('./routes/productos');
 const knowledgeRoutes = require('./routes/knowledge');
+const transcriptionsRoutes = require('./routes/transcriptions');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -105,6 +106,7 @@ app.use('/api/campanas', dialerRoutes);
 app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar, /api/ia/briefing, /api/ia/analizar-llamada
 app.use('/api', productosRoutes); // /api/companias, /api/productos, /api/categorias, /api/ia/productos-faltantes
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/transcriptions', transcriptionsRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -247,6 +249,31 @@ app.post('/webhook/cloudtalk', async (req, res) => {
           console.error('[IA] Auto-analisis error:', e.message);
         }
       }, 30000);
+    }
+
+    // Transcripcion automatica: solo si hay grabacion y llamada >= 120s
+    if (recording_url && talking_time >= 120 && process.env.DEEPGRAM_API_KEY) {
+      // Crear registro y procesar en background (no bloquear webhook)
+      pool.query(
+        `INSERT INTO call_transcriptions
+           (tenant_id, contact_id, cloudtalk_call_id, recording_url, duracion_segundos,
+            direction, agent_email, estado)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pendiente') RETURNING id`,
+        [tenantId, personaId, String(call_id), recording_url, talking_time,
+         direction || null, agentEmail || null]
+      ).then(function(r) {
+        var transcriptionId = r.rows[0]?.id;
+        if (!transcriptionId) return;
+        // Esperar 60s para que CloudTalk procese la grabacion
+        setTimeout(function() {
+          var deepgram = require('./services/deepgram');
+          deepgram.transcribirAudio(recording_url, transcriptionId).catch(function(e) {
+            console.error('[Deepgram] Background error:', e.message);
+          });
+        }, 60000);
+      }).catch(function(e) {
+        console.error('[Deepgram] Insert error:', e.message);
+      });
     }
   } catch (err) {
     console.error('[CloudTalk] Webhook error:', err.message);
@@ -573,7 +600,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql', 'migration-knowledge.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql', 'migration-knowledge.sql', 'migration-transcriptions.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);
