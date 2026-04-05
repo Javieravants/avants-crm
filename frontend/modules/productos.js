@@ -181,8 +181,14 @@ const ProductosSettings = {
           <textarea class="pt-input" id="pt-ed-desc" rows="2">${this.esc(prod.descripcion || '')}</textarea>
         </div>
         <div class="pt-field">
-          <label class="pt-label">Resumen coberturas (lo lee la IA)</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+            <label class="pt-label" style="margin-bottom:0;">Resumen coberturas (lo lee la IA)</label>
+            <button class="pt-btn-ia" onclick="ProductosSettings._generarResumen(${prod.id})" id="pt-btn-generar-ia" title="Generar resumen a partir del PDF subido">
+              ${Icons.settings(12, '#7c3aed')} Generar con IA
+            </button>
+          </div>
           <textarea class="pt-input" id="pt-ed-coberturas" rows="3" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
+          ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;" id="pt-ia-badge">Generado por IA — editable manualmente</div>' : ''}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
           <div class="pt-field">
@@ -406,6 +412,28 @@ const ProductosSettings = {
   // ══════════════════════════════════════════
   // GUARDAR
   // ══════════════════════════════════════════
+
+  async _generarResumen(prodId) {
+    const btn = document.getElementById('pt-btn-generar-ia');
+    if (btn) { btn.disabled = true; btn.textContent = 'Generando...'; }
+    try {
+      const r = await API.post(`/productos/${prodId}/generar-resumen`, {});
+      const textarea = document.getElementById('pt-ed-coberturas');
+      if (textarea) textarea.value = r.resumen;
+      // Mostrar badge
+      let badge = document.getElementById('pt-ia-badge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'pt-ia-badge';
+        badge.style.cssText = 'font-size:10px;color:#7c3aed;margin-top:2px;';
+        textarea?.parentElement?.appendChild(badge);
+      }
+      badge.textContent = 'Generado por IA — editable manualmente';
+    } catch (e) {
+      alert(e.message || 'Error al generar resumen');
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = `${Icons.settings(12, '#7c3aed')} Generar con IA`; }
+  },
 
   async _saveProducto(id) {
     await API.put(`/productos/${id}`, {
@@ -700,6 +728,9 @@ const ProductosSettings = {
       .pt-agent-role{font-size:10px;color:#94a3b8;}
       .pt-rapel-item{padding:8px 10px;border:1px solid #e8edf2;border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background .1s;}
       .pt-rapel-item:hover{background:#f4f6f9;}
+      .pt-btn-ia{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;border:1px solid #c4b5fd;background:#f5f3ff;color:#7c3aed;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;}
+      .pt-btn-ia:hover{background:#ede9fe;border-color:#7c3aed;}
+      .pt-btn-ia:disabled{opacity:.5;cursor:wait;}
 
       @media(max-width:768px){
         .pt-layout{flex-direction:column;}

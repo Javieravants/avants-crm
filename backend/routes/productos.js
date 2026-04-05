@@ -317,6 +317,99 @@ router.delete('/documentos/:tipo/:id', requireRole('admin', 'supervisor'), async
 });
 
 // ══════════════════════════════════════════════
+// GENERAR RESUMEN COBERTURAS CON IA
+// ══════════════════════════════════════════════
+
+// POST /api/productos/:id/generar-resumen
+router.post('/productos/:id/generar-resumen', requireRole('admin', 'supervisor'), async (req, res) => {
+  try {
+    const prodId = req.params.id;
+
+    // Obtener producto
+    const prodR = await pool.query('SELECT * FROM productos WHERE id = $1', [prodId]);
+    if (!prodR.rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    const prod = prodR.rows[0];
+
+    // Buscar PDF: primero docs del producto, luego de la categoria
+    let pdfUrl = null;
+    const propDocs = await pool.query(
+      `SELECT archivo_url FROM producto_documentos WHERE producto_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [prodId]);
+    if (propDocs.rows.length) {
+      pdfUrl = propDocs.rows[0].archivo_url;
+    } else if (prod.categoria_id) {
+      const catDocs = await pool.query(
+        `SELECT archivo_url FROM categoria_documentos WHERE categoria_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [prod.categoria_id]);
+      if (catDocs.rows.length) pdfUrl = catDocs.rows[0].archivo_url;
+    }
+
+    if (!pdfUrl) {
+      return res.status(400).json({ error: 'No hay documentos PDF para este producto. Sube un PDF primero.' });
+    }
+
+    // Descargar PDF
+    let pdfBuffer;
+    if (pdfUrl.startsWith('http')) {
+      const r = await fetch(pdfUrl);
+      if (!r.ok) return res.status(502).json({ error: 'No se pudo descargar el PDF' });
+      pdfBuffer = Buffer.from(await r.arrayBuffer());
+    } else {
+      // Archivo local
+      const localPath = path.join(__dirname, '../..', pdfUrl);
+      if (!fs.existsSync(localPath)) return res.status(404).json({ error: 'PDF no encontrado en disco' });
+      pdfBuffer = fs.readFileSync(localPath);
+    }
+
+    // Extraer texto del PDF
+    const pdfParse = require('pdf-parse');
+    const pdfData = await pdfParse(pdfBuffer);
+    const textoCompleto = pdfData.text || '';
+
+    if (textoCompleto.length < 50) {
+      return res.status(400).json({ error: 'El PDF no contiene texto legible (puede ser imagen/escaneado)' });
+    }
+
+    // Truncar a 8000 chars para no exceder limites del modelo
+    const textoTruncado = textoCompleto.substring(0, 8000);
+
+    // Enviar a Claude Haiku
+    let Anthropic;
+    try { Anthropic = require('@anthropic-ai/sdk'); } catch {}
+    if (!Anthropic || !process.env.ANTHROPIC_API_KEY) {
+      return res.status(400).json({ error: 'ANTHROPIC_API_KEY no configurada' });
+    }
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      messages: [{
+        role: 'user',
+        content: `Eres un experto en seguros. Lee estas condiciones generales del producto "${prod.nombre}" y genera un resumen de coberturas en maximo 150 palabras, en espanol, en formato claro y directo para que un agente de ventas pueda explicarselo rapidamente a un cliente.
+
+Incluye: que cubre, que NO cubre (exclusiones principales), y el diferencial principal frente a otros seguros.
+
+TEXTO DEL DOCUMENTO:
+${textoTruncado}
+
+Responde SOLO con el resumen, sin titulo ni encabezado.`
+      }],
+    });
+
+    const resumen = response.content[0]?.text?.trim() || '';
+
+    // Guardar en BD
+    await pool.query('UPDATE productos SET resumen_coberturas = $1 WHERE id = $2', [resumen, prodId]);
+
+    res.json({ resumen, generado_por: 'ia' });
+  } catch (e) {
+    console.error('[IA] Generar resumen error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ══════════════════════════════════════════════
 // AGENTES POR COMPANIA
 // ══════════════════════════════════════════════
 
