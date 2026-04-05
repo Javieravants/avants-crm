@@ -83,6 +83,8 @@ var KnowledgeModule = {
     if (hist) hist.scrollTop = hist.scrollHeight;
   },
 
+  _lastKnowledgeId: null,
+
   async _sendChat() {
     var input = document.getElementById('kb-chat-input');
     var hist = document.getElementById('kb-chat-history');
@@ -90,21 +92,26 @@ var KnowledgeModule = {
     var msg = input.value.trim();
     if (!msg) return;
 
-    // Mostrar mensaje del usuario
     hist.innerHTML += '<div class="kb-msg kb-msg-user">' + this.esc(msg) + '</div>';
     hist.innerHTML += '<div class="kb-msg kb-msg-ia" id="kb-thinking" style="opacity:.5;">Pensando...</div>';
     hist.scrollTop = hist.scrollHeight;
     input.value = '';
 
     try {
-      var r = await API.post('/knowledge/chat', { mensaje: msg });
+      var body = { mensaje: msg };
+      if (this._lastKnowledgeId) body.last_knowledge_id = this._lastKnowledgeId;
+
+      var r = await API.post('/knowledge/chat', body);
       var thinking = document.getElementById('kb-thinking');
       if (thinking) thinking.remove();
 
-      var iaMsg = '<div class="kb-msg kb-msg-ia">' + this.esc(r.respuesta);
+      // Guardar last_knowledge_id para comandos de cambio
+      if (r.last_knowledge_id) this._lastKnowledgeId = r.last_knowledge_id;
+
+      var iaMsg = '<div class="kb-msg kb-msg-ia">' + this.esc(r.respuesta).replace(/\\n/g, '<br>');
       if (r.guardados && r.guardados.length > 0) {
         var visLabels = { admin: 'Solo admin', agentes: 'Solo equipo', todos: 'Publico' };
-        iaMsg += '<div class="kb-extracted">Guardado: ' + r.guardados.map(function(g) {
+        iaMsg += '<div class="kb-extracted">' + r.guardados.map(function(g) {
           var vl = visLabels[g.visibilidad] || 'Solo equipo';
           return KnowledgeModule.esc(g.titulo) + ' <span class="kb-vis-' + (g.visibilidad || 'agentes') + '" style="font-size:9px;">' + vl + '</span>';
         }).join(', ') + '</div>';

@@ -167,11 +167,30 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
       'SELECT id, nombre FROM companias WHERE tenant_id = $1 AND activa = true', [req.tenantId]);
     var companiasList = companiasR.rows.map(function(c) { return c.id + ':' + c.nombre; }).join(', ');
 
+    // Detectar comando de cambio de visibilidad
+    var cambioMatch = mensaje.match(/cambia(?:lo|r)\s+a\s+(solo\s*admin|solo\s*equipo|publico|p[uú]blico)/i);
+    if (cambioMatch && req.body.last_knowledge_id) {
+      var nuevoVis = cambioMatch[1].toLowerCase().replace(/\s+/g, '');
+      var visMap = { soloadmin: 'admin', soloequipo: 'agentes', publico: 'todos', público: 'todos' };
+      var newVis = visMap[nuevoVis] || 'agentes';
+      var visLabels = { admin: 'Solo admin', agentes: 'Solo equipo', todos: 'Publico' };
+      await pool.query(
+        'UPDATE knowledge_base SET visibilidad = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3',
+        [newVis, req.body.last_knowledge_id, req.tenantId]);
+      return res.json({
+        respuesta: 'Actualizado a ' + visLabels[newVis],
+        guardados: [],
+        last_knowledge_id: req.body.last_knowledge_id,
+      });
+    }
+
     var client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    var systemPrompt = 'Eres un asistente que gestiona el conocimiento de una correduria de seguros.\n\nCompanias: ' + companiasList + '\n\nTipos: compania, negocio, campana, argumentario, objecion, restriccion, mercado\n\nREGLAS DE VISIBILIDAD (OBLIGATORIAS — inferir del contenido):\n\nAsigna "admin" cuando contenga: datos financieros (margenes, comisiones en %, facturacion, costes), info estrategica confidencial, objetivos numericos, rendimiento de agentes, contratos, precios de coste, o el usuario diga "solo para mi"/"confidencial".\n\nAsigna "agentes" cuando contenga: instrucciones operativas, campanas/incentivos internos, restricciones de venta, argumentarios, objeciones, info de mercado para estrategia. Es el valor por defecto cuando no esta claro.\n\nAsigna "todos" cuando el usuario diga explicitamente "puedes decirselo al cliente"/"es publico", o sea info de ventajas/ofertas que el cliente puede conocer.\n\nPRIORIDAD: si el usuario especifica nivel explicitamente, SIEMPRE usar ese nivel.\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "Confirmacion con formato:\\nGuardado: [titulo]\\nTipo: [tipo]\\nVisibilidad: [nivel] — [explicacion breve de por que]\\n\\nQuieres cambiarlo? Puedes decirme: cambialo a solo admin / cambialo a solo equipo / cambialo a publico",\n  "conocimiento": [{"tipo":"...","titulo":"...","contenido":"...","compania_id":null,"visibilidad":"admin|agentes|todos"}]\n}\n\nSi no hay conocimiento extraible, devuelve conocimiento como array vacio.';
+
     var response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 800,
-      system: 'Eres un asistente que ayuda a gestionar el conocimiento de una correduria de seguros. El usuario te va a contar informacion sobre companias, campanas, argumentarios, objeciones, restricciones o situaciones del mercado. Tu trabajo es:\n1. Confirmar lo que has entendido\n2. Extraer el conocimiento en formato estructurado\n\nCompanias disponibles: ' + companiasList + '\n\nTipos de conocimiento:\n- "compania": info general de la compania\n- "negocio": info interna del negocio/estrategia\n- "campana": campanas temporales\n- "argumentario": como vender, que decir\n- "objecion": como responder objeciones\n- "restriccion": limitaciones operativas (zonas, edades, condiciones especiales de una compania)\n- "mercado": info del sector que afecta a todas las companias\n\nNiveles de visibilidad:\n- "admin": solo el admin lo ve ("solo para mi", "confidencial")\n- "agentes": el equipo lo ve en briefings, no llega al cliente (por defecto)\n- "todos": puede mencionarse al cliente ("compartir con cliente")\n\nResponde SOLO con JSON valido (sin markdown):\n{\n  "respuesta": "texto confirmando lo entendido, tipo y visibilidad asignados",\n  "conocimiento": [\n    {\n      "tipo": "compania|negocio|campana|argumentario|objecion|restriccion|mercado",\n      "titulo": "titulo corto",\n      "contenido": "el conocimiento extraido",\n      "compania_id": null,\n      "visibilidad": "admin|agentes|todos"\n    }\n  ]\n}\n\nSi no hay conocimiento extraible, devuelve conocimiento como array vacio [].',
+      system: systemPrompt,
       messages: [{ role: 'user', content: mensaje }],
     });
 
@@ -184,6 +203,7 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
 
     // Guardar conocimiento extraido en knowledge_base
     var guardados = [];
+    var lastId = null;
     if (parsed.conocimiento && parsed.conocimiento.length > 0) {
       for (var i = 0; i < parsed.conocimiento.length; i++) {
         var k = parsed.conocimiento[i];
@@ -191,9 +211,10 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
           var kVis = ['admin', 'agentes', 'todos'].includes(k.visibilidad) ? k.visibilidad : 'agentes';
           var insertR = await pool.query(
             `INSERT INTO knowledge_base (tenant_id, tipo, titulo, contenido, compania_id, visibilidad)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, titulo, visibilidad`,
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, titulo, visibilidad, tipo`,
             [req.tenantId, k.tipo, k.titulo, k.contenido, k.compania_id || null, kVis]);
           guardados.push(insertR.rows[0]);
+          lastId = insertR.rows[0].id;
         }
       }
     }
@@ -211,6 +232,7 @@ router.post('/chat', requireRole('admin', 'supervisor'), async (req, res) => {
     res.json({
       respuesta: parsed.respuesta,
       guardados: guardados,
+      last_knowledge_id: lastId,
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
