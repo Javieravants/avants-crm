@@ -20,6 +20,7 @@ const SettingsModule = {
         <button class="tab-btn active" data-tab="ticket-types">Tipos de trámites</button>
         <button class="tab-btn" data-tab="ticket-columns">Columnas / Bandejas</button>
         <button class="tab-btn" data-tab="users">Usuarios</button>
+        <button class="tab-btn" data-tab="productos">Productos</button>
         ${isSuperadmin ? '<button class="tab-btn" data-tab="importar-polizas">Importación de Pólizas</button>' : ''}
       </div>
       <div class="card" style="margin-top:16px;" id="settings-content">
@@ -47,6 +48,7 @@ const SettingsModule = {
       if (this.currentTab === 'ticket-types') await this.renderTicketTypes(content);
       else if (this.currentTab === 'ticket-columns') await this.renderTicketColumns(content);
       else if (this.currentTab === 'users') await this.renderUsers(content);
+      else if (this.currentTab === 'productos') await ProductosSettings.render(content);
       else if (this.currentTab === 'importar-polizas') await this.renderImportarPolizas(content);
     } catch (err) {
       content.innerHTML = `<p style="color:#c62828">${err.message}</p>`;
