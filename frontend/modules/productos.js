@@ -187,12 +187,12 @@ const ProductosSettings = {
               ${Icons.settings(12, '#7c3aed')} Generar con IA
             </button>
           </div>
-          <textarea class="pt-input" id="pt-ed-coberturas" style="min-height:200px;resize:vertical;" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
+          <textarea class="pt-input pt-ta-coberturas" id="pt-ed-coberturas" placeholder="Cobertura hospitalaria, dental incluido, urgencias 24h...">${this.esc(prod.resumen_coberturas || '')}</textarea>
           ${prod.resumen_coberturas ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
         </div>
         <div class="pt-field">
           <label class="pt-label">Argumentario de venta</label>
-          <textarea class="pt-input" id="pt-ed-argumentario" style="min-height:300px;resize:vertical;" placeholder="Se genera automaticamente con IA al pulsar el boton...">${this.esc(prod.argumentario_venta || '')}</textarea>
+          <textarea class="pt-input pt-ta-argumentario" id="pt-ed-argumentario" placeholder="Se genera automaticamente con IA al pulsar el boton...">${this.esc(prod.argumentario_venta || '')}</textarea>
           ${prod.argumentario_venta ? '<div style="font-size:10px;color:#7c3aed;margin-top:2px;">Generado por IA — editable</div>' : ''}
         </div>
         <div class="pt-field">
@@ -732,9 +732,9 @@ const ProductosSettings = {
 
   _getCSS() {
     return `
-      .pt-layout{display:flex;gap:16px;min-height:400px;}
-      .pt-tree{flex:1;min-width:0;}
-      .pt-panel{width:550px;flex-shrink:0;background:#f8fafc;border:1px solid #e8edf2;border-radius:12px;overflow:hidden;}
+      .pt-layout{display:flex;height:calc(100vh - 180px);gap:0;}
+      .pt-tree{width:320px;min-width:250px;max-width:400px;overflow-y:auto;padding:12px;resize:horizontal;border-right:1px solid #e8edf2;flex-shrink:0;}
+      .pt-panel{flex:1;min-width:380px;max-width:700px;background:#f8fafc;overflow:hidden;display:flex;flex-direction:column;}
 
       .pt-node{margin-bottom:2px;}
       .pt-node-head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;transition:background .1s;font-size:13px;}
@@ -765,7 +765,7 @@ const ProductosSettings = {
       .pt-panel-head{padding:16px;border-bottom:1px solid #e8edf2;}
       .pt-panel-title{font-size:15px;font-weight:700;color:#0f172a;}
       .pt-panel-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
-      .pt-panel-body{padding:16px;overflow-y:auto;max-height:calc(100vh - 300px);}
+      .pt-panel-body{padding:16px;overflow-y:auto;flex:1;}
       .pt-field{margin-bottom:10px;}
       .pt-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.3px;display:block;margin-bottom:3px;}
       .pt-input{width:100%;padding:7px 10px;border:1px solid #e8edf2;border-radius:8px;font-size:13px;font-family:inherit;color:#0f172a;box-sizing:border-box;}
@@ -799,9 +799,14 @@ const ProductosSettings = {
       .pt-btn-ia:hover{background:#ede9fe;border-color:#7c3aed;}
       .pt-btn-ia:disabled{opacity:.5;cursor:wait;}
 
+      /* Textareas responsive */
+      .pt-ta-coberturas{min-height:20vh;max-height:35vh;resize:vertical;}
+      .pt-ta-argumentario{min-height:25vh;max-height:45vh;resize:vertical;}
+
       @media(max-width:768px){
-        .pt-layout{flex-direction:column;}
-        .pt-panel{width:100%;}
+        .pt-layout{flex-direction:column;height:auto;}
+        .pt-tree{width:100%!important;max-width:100%;resize:none;border-right:none;border-bottom:1px solid #e8edf2;max-height:40vh;overflow-y:auto;}
+        .pt-panel{width:100%!important;min-width:0;max-width:100%;}
       }
     `;
   },

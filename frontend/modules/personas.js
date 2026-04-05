@@ -1461,7 +1461,7 @@ const PersonasModule = {
     // Chat IA
     const chatHtml = `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #e8edf2;">
       <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${_ICO.gestion(14,'#7c3aed')} Consulta a la IA</div>
-      <div id="ia-chat-messages" style="max-height:200px;overflow-y:auto;margin-bottom:8px;"></div>
+      <div id="ia-chat-messages" style="min-height:100px;max-height:30vh;overflow-y:auto;margin-bottom:8px;"></div>
       <div style="display:flex;gap:6px;">
         <input id="ia-chat-input" class="ia-chat-input" placeholder="Pregunta sobre el producto o el cliente..." onkeydown="if(event.key==='Enter')PersonasModule._sendIAChat(${personaId})">
         <button onclick="PersonasModule._sendIAChat(${personaId})" class="ia-chat-send">${_ICO.gestion(14,'#fff')} Enviar</button>
