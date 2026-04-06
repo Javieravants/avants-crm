@@ -4,6 +4,7 @@
  * USO:
  *   node backend/scripts/register-webhooks.js https://tu-dominio.com
  *   node backend/scripts/register-webhooks.js --list     # ver webhooks activos
+ *   node backend/scripts/register-webhooks.js --clean    # eliminar duplicados, conservar el más reciente por evento
  *   node backend/scripts/register-webhooks.js --delete   # eliminar todos los webhooks
  */
 
@@ -37,6 +38,42 @@ async function deleteAllWebhooks() {
     const data = await res.json();
     console.log(`Eliminado webhook ${w.id}: ${data.success ? 'OK' : 'ERROR'}`);
   }
+}
+
+async function cleanDuplicates() {
+  const webhooks = await listWebhooks();
+  if (webhooks.length === 0) return;
+
+  // Agrupar por evento (action.object)
+  const groups = {};
+  for (const w of webhooks) {
+    const key = `${w.event_action}.${w.event_object}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(w);
+  }
+
+  let kept = 0, removed = 0;
+  console.log('=== Limpieza de duplicados ===\n');
+
+  for (const [event, items] of Object.entries(groups)) {
+    // Ordenar por ID desc — el más alto es el más reciente
+    items.sort((a, b) => b.id - a.id);
+    const keep = items[0];
+    const dupes = items.slice(1);
+
+    console.log(`${event}: ${items.length} webhook(s)`);
+    console.log(`  ✅ Conservar ID ${keep.id} (${keep.subscription_url})`);
+    kept++;
+
+    for (const d of dupes) {
+      const res = await fetch(`${BASE_URL}/webhooks/${d.id}?api_token=${API_TOKEN}`, { method: 'DELETE' });
+      const data = await res.json();
+      console.log(`  🗑  Eliminar ID ${d.id} → ${data.success ? 'OK' : 'ERROR'}`);
+      if (data.success) removed++;
+    }
+  }
+
+  console.log(`\nResultado: ${kept} conservados, ${removed} eliminados, ${kept} eventos únicos`);
 }
 
 async function registerWebhooks(baseUrl) {
@@ -88,6 +125,8 @@ const args = process.argv.slice(2);
   try {
     if (args.includes('--list')) {
       await listWebhooks();
+    } else if (args.includes('--clean')) {
+      await cleanDuplicates();
     } else if (args.includes('--delete')) {
       await deleteAllWebhooks();
     } else if (args[0] && args[0].startsWith('http')) {
@@ -96,7 +135,8 @@ const args = process.argv.slice(2);
       console.log('Uso:');
       console.log('  node backend/scripts/register-webhooks.js https://tu-dominio.com');
       console.log('  node backend/scripts/register-webhooks.js --list');
-      console.log('  node backend/scripts/register-webhooks.js --delete');
+      console.log('  node backend/scripts/register-webhooks.js --clean    # eliminar duplicados');
+      console.log('  node backend/scripts/register-webhooks.js --delete   # eliminar TODOS');
       console.log('\nNota: necesitas una URL pública. Para desarrollo usa ngrok:');
       console.log('  npx ngrok http 3000');
       console.log('  → copia la URL https://xxxx.ngrok-free.app');
