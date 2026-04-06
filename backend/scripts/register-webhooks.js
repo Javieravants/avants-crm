@@ -48,6 +48,9 @@ async function registerWebhooks(baseUrl) {
     { action: 'delete', object: 'deal' },
     { action: 'create', object: 'person' },
     { action: 'change', object: 'person' },
+    { action: 'create', object: 'activity' },
+    { action: 'change', object: 'activity' },
+    { action: 'delete', object: 'activity' },
   ];
 
   console.log(`Registrando webhooks en: ${webhookUrl}\n`);

@@ -581,9 +581,15 @@ async function handleActivity(action, data) {
       "UPDATE tareas SET estado = 'hecha' WHERE pipedrive_activity_id = $1",
       [data.id]
     );
+  } else if (action === 'deleted') {
+    // Cancelar tarea al eliminar actividad en Pipedrive
+    await pool.query(
+      "UPDATE tareas SET estado = 'cancelada' WHERE pipedrive_activity_id = $1 AND estado = 'pendiente'",
+      [data.id]
+    );
   }
 
-  console.log(`[Webhook] Activity #${data.id} (${tipo}) → persona: ${personaId}`);
+  console.log(`[Webhook] Activity #${data.id} (${action}/${tipo}) → persona: ${personaId}`);
 }
 
 // Sincronizar label de Pipedrive → etiquetas CRM
