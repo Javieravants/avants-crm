@@ -358,10 +358,16 @@
       if (this.callId) {
         API.post('/cti/colgar', { callId: this.callId }).catch(() => {});
       }
+      var dur = this.callStart ? Math.floor((Date.now() - this.callStart) / 1000) : 0;
+      var cid = this.currentPersonaId;
       this.setState('ended');
       this._stopTimer();
       this._stopPoll();
-      setTimeout(() => this.hide(), 2000);
+      setTimeout(() => this.hide(), 1500);
+      // Abrir popup post-llamada
+      if (cid && typeof CallResultsPopup !== 'undefined') {
+        setTimeout(function() { CallResultsPopup.open(cid, dur); }, 500);
+      }
     },
 
     setState(s) {
@@ -536,6 +542,7 @@
   <script src="/modules/call-drawer.js?v=BUILD"></script>
   <script src="/modules/campanas.js?v=BUILD"></script>
   <script src="/modules/knowledge.js?v=BUILD"></script>
+  <script src="/modules/call-results.js?v=BUILD"></script>
   <script src="/modules/dialer.js?v=BUILD"></script>
   <script src="/modules/dashboard.js?v=BUILD"></script>
   <script src="/shared/app.js?v=BUILD"></script>
