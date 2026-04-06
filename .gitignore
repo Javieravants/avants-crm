@@ -6,3 +6,6 @@ backend/uploads/
 *.tmp
 backups/
 .claude/audit.log
+uploads/
+backend/server.js.bak
+frontend/shared/app.js.bak
