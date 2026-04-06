@@ -753,14 +753,101 @@ Panel lateral: edicion, docs con upload, agentes con checkboxes
 
 ---
 
+## Centro de Conocimiento — completado 05/04/2026
+
+### Tablas BD
+- `knowledge_base`: tipo (compania/negocio/campana/argumentario/objecion/restriccion/mercado), visibilidad (admin/agentes/todos), vigente_hasta, compania_id, tenant_id
+- `knowledge_chat`: mensaje_usuario, respuesta_ia, conocimiento_extraido, tenant_id
+
+### Backend (8 endpoints en routes/knowledge.js)
+GET/POST/PUT/DELETE /api/knowledge, POST /api/knowledge/chat (IA extrae y guarda),
+GET /api/knowledge/chat (historial), GET /api/knowledge/context (briefing),
+POST /api/knowledge/transcribe-audio (Deepgram voz→texto)
+
+### Frontend (modulo knowledge en sidebar)
+Tab "Chat con la IA": conversacional, IA infiere visibilidad, boton microfono (Deepgram)
+Tab "Base de conocimiento": tabla filtrable, badges color por tipo y visibilidad, caducidad
+Inferencia inteligente: datos financieros→admin, operativo→agentes, cliente→todos
+Cambio por comando: "cambialo a solo admin" actualiza el ultimo registro
+
+### Integracion con briefing
+Conocimiento inyectado en prompt: [SOLO EQUIPO] vs [PUBLICO], aislamiento por compania,
+reglas de mercado/restriccion, admin nunca aparece en briefings
+
+---
+
+## Transcripcion automatica — completado 06/04/2026
+
+### Tabla BD: call_transcriptions
+contact_id, cloudtalk_call_id, recording_url, transcripcion, resumen_ia,
+resultado_llamada, estado (pendiente/procesando/completado/error), deepgram_job_id
+
+### Servicio: backend/services/deepgram.js
+Deepgram API REST (nova-2, espanol, diarize, smart_format)
+Se dispara: webhook CloudTalk call_ended + talking_time >= 120s + DEEPGRAM_API_KEY
+Flujo: webhook → 60s delay → transcribir → resumen IA Haiku → guardar
+Env: DEEPGRAM_API_KEY
+
+### Endpoints: routes/transcriptions.js
+GET /api/transcriptions?contact_id=X, GET /api/transcriptions/:id
+
+### Frontend
+Boton "Ver transcripcion" en historial llamadas, modal con resumen IA + texto completo
+
+---
+
+## Popup post-llamada — completado 06/04/2026
+
+### Tabla BD: call_results
+contact_id, agent_id, resultado, accion_siguiente, compania_derivacion_id,
+propuestas_enviadas[], notas, mensaje_whatsapp, ia_sugerencia_*, created_at
+
+### Backend: routes/call-results.js
+POST /suggest (IA analiza duracion+historial+knowledge),
+POST / (guarda + ejecuta WA/agendar/derivar + INSERT contact_history),
+GET /?contact_id=X
+
+### Frontend: modules/call-results.js
+3 pasos: Resultado (6 opciones + IA) → Accion → Ejecutar
+Se dispara desde GVPhone.hangup() automaticamente
+
+---
+
+## Panel de Supervision — completado 06/04/2026
+
+### Tablas BD
+- `agent_sessions`: estado (activo/en_llamada/post_llamada/pausa_*/formacion/inactivo), socket_id, turno, pausa_inicio
+- `supervisor_messages`: from_user_id, to_user_id (null=todos), tipo (aviso/alerta/formacion), confirmado_at
+
+### Socket.io (activado)
+Servidor: http.createServer(app) + SocketServer en server.js
+Cliente: /socket.io/socket.io.js en index.html, App._initSocket()
+Eventos: agent:identify, agent:estado, agent:pausa, agent:ping, supervision:update, agent:mensaje
+Inactividad: cada 60s detecta >15min sin ping → alerta supervisor
+Rooms: por tenant_id
+
+### Backend: routes/supervision.js
+GET /agentes, GET /stats-hoy, POST /mensaje (Socket.io), POST /formacion, GET /mensajes
+
+### Frontend: modules/supervision.js (solo admin/supervisor)
+Grid tarjetas por agente: estado+color, tiempo, stats dia (llamadas/interesados/ventas)
+Modal enviar mensaje (destinatario, tipo, texto) → popup bloqueante en agente
+Actualizacion tiempo real via Socket.io + backup polling 30s
+
+---
+
 ## Pendientes prioritarios (abril 2026)
 1. ✅ Power Dialer Fase 1 — completado 03/04/2026
 2. ✅ Catalogo Productos — completado 05/04/2026
-3. ❌ Modulo Impagos (sidebar existe, modulo no)
-4. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
-5. ❌ Facebook Lead Ads (tablas existen, flujo no)
-6. ⏳ WhatsApp: plantillas, media, validacion firma
-7. ⏳ Bidireccional completo CRM → Pipedrive
-8. ⏳ Notificaciones tiempo real (Socket.IO)
-9. ⏳ PWA movil responsive
-10. ✅ Migracion a Hetzner VPS — completada
+3. ✅ Centro de Conocimiento — completado 05/04/2026
+4. ✅ Transcripcion automatica Deepgram — completado 06/04/2026
+5. ✅ Popup post-llamada inteligente — completado 06/04/2026
+6. ✅ Panel Supervision tiempo real — completado 06/04/2026
+7. ✅ Migracion a Hetzner VPS — completada
+8. ⏳ Notificaciones tiempo real (Socket.IO activado, ampliar)
+9. ❌ Modulo Impagos (sidebar existe, modulo no)
+10. ❌ Modulo Usuarios admin (sidebar existe, modulo no)
+11. ❌ Facebook Lead Ads (tablas existen, flujo no)
+12. ⏳ WhatsApp: plantillas, media, validacion firma
+13. ⏳ Bidireccional completo CRM → Pipedrive
+14. ⏳ PWA movil responsive
