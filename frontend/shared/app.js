@@ -60,7 +60,19 @@ const App = {
     const lastRoute = localStorage.getItem('lastRoute');
     const isAdmin = Auth.hasRole('admin', 'superadmin');
     const defaultRoute = isAdmin ? 'dashboard' : 'pipeline';
-    this.navigate(lastRoute || defaultRoute);
+    // Leer URL al arrancar
+    const _path = window.location.pathname;
+    const _contacto = _path.match(/^\/contactos\/(\d+)/);
+    const _urlMod = _path.replace(/^\//, '').split('/')[0];
+    const _validMods = ['dashboard','personas','pipeline','fichate','tickets','campanas','dialer','calculadora','grabaciones','informes','impagos','supervision','knowledge','import','settings','assistant','usuarios'];
+    if (_contacto) {
+      window._pendingContacto = parseInt(_contacto[1]);
+      this.navigate('personas');
+    } else if (_urlMod && _validMods.includes(_urlMod)) {
+      this.navigate(_urlMod);
+    } else {
+      this.navigate(lastRoute || defaultRoute);
+    }
 
     this.startNotificationPolling();
   },

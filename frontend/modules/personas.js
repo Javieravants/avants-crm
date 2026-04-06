@@ -77,6 +77,13 @@ const PersonasModule = {
       </div>
     `;
 
+    // Abrir contacto directo si viene de URL /contactos/:id
+    if (window._pendingContacto) {
+      const pid = window._pendingContacto;
+      window._pendingContacto = null;
+      setTimeout(() => this.showFicha(pid), 600);
+    }
+
     // Búsqueda con debounce
     let searchTimeout;
     document.getElementById('search-personas').addEventListener('input', (e) => {
