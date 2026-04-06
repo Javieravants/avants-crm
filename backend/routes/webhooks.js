@@ -519,7 +519,15 @@ function getPhone(arr) {
 async function handleActivity(action, data) {
   if (!data.id) return;
 
-  const tipoMap = { call: 'llamada', note: 'nota', task: 'nota', meeting: 'nota', email: 'email' };
+  const tipoMap = {
+    call: 'llamada',
+    email: 'email',
+    meeting: 'reunion',
+    lunch: 'reunion',
+    task: 'tarea',
+    deadline: 'tarea',
+    note: 'nota'
+  };
   const tipo = tipoMap[data.type] || 'nota';
   const isDone = data.done || false;
 
@@ -557,7 +565,7 @@ async function handleActivity(action, data) {
   registrarEvento(personaId, tipo, {
     deal_id: dealId,
     subtipo,
-    titulo: (data.subject || data.type || '').substring(0, 255),
+    titulo: (data.subject || tipo).substring(0, 255),
     descripcion: data.note || data.public_description || '',
     metadata: {
       pipedrive_activity_id: data.id,

@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authMiddleware);
 router.use(tenantMiddleware);
 
-const TIPOS_VALIDOS = ['llamada', 'nota', 'etapa', 'email', 'tramite', 'propuesta', 'poliza', 'facebook'];
+const TIPOS_VALIDOS = ['llamada', 'nota', 'etapa', 'email', 'tramite', 'propuesta', 'poliza', 'facebook', 'reunion', 'tarea'];
 
 // GET /api/history/recordings/list — llamadas CloudTalk con grabación
 router.get('/recordings/list', async (req, res) => {

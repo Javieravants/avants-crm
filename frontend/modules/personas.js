@@ -1167,6 +1167,8 @@ const PersonasModule = {
       poliza:    { ico: _ICO.polizas(18,'#10b981'),      bg: '#f0fdf4', stroke: '#10b981' },
       whatsapp:  { ico: _ICO.whatsapp(18,'#25D366'),      bg: '#f0fdf4', stroke: '#25D366' },
       facebook:  { ico: _ICO.llamada(18,'#1d6ef5'),      bg: '#eff6ff', stroke: '#1d6ef5' },
+      reunion:   { ico: _ICO.agenda(18,'#0284c7'),        bg: '#e0f2fe', stroke: '#0284c7' },
+      tarea:     { ico: _ICO.gestion(18,'#ea580c'),       bg: '#fff7ed', stroke: '#ea580c' },
     };
     const cfg = CFG[h.tipo] || CFG.nota;
     const desc = this._stripHtml(h.descripcion || '');
@@ -1638,7 +1640,7 @@ const PersonasModule = {
       if (Array.isArray(hist) && hist.length > 0) {
         histHtml = hist.map(h => {
           const time = this._fmtRelative(h.created_at);
-          const tipoCfg = { llamada:'#009DDD', nota:'#d97706', etapa:'#8b5cf6', email:'#10b981', poliza:'#10b981', propuesta:'#7c3aed' };
+          const tipoCfg = { llamada:'#009DDD', nota:'#d97706', etapa:'#8b5cf6', email:'#10b981', poliza:'#10b981', propuesta:'#7c3aed', reunion:'#0284c7', tarea:'#ea580c' };
           const color = tipoCfg[h.tipo] || '#94a3b8';
           return `<div style="padding:8px 0;border-bottom:1px solid #f0f2f5;font-size:12px;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
