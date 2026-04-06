@@ -95,15 +95,6 @@ const App = {
       if (module) this.navigate(module);
     });
 
-    window.addEventListener('popstate', (e) => {
-      const module = e.state?.module || localStorage.getItem('lastRoute') || 'dashboard';
-      document.querySelectorAll('.sidebar-link').forEach(el => {
-        el.classList.toggle('active', el.dataset.module === module);
-      });
-      this.currentModule = module;
-      this.loadModule(module);
-    });
-
     document.getElementById('btn-logout').addEventListener('click', () => {
       if (this.notifInterval) clearInterval(this.notifInterval);
       Auth.logout();
@@ -123,7 +114,6 @@ const App = {
       el.classList.toggle('active', el.dataset.module === moduleName);
     });
 
-    history.pushState({ module: moduleName }, '', '/' + moduleName);
     this.currentModule = moduleName;
     localStorage.setItem('lastRoute', moduleName);
     this.loadModule(moduleName);
