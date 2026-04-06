@@ -1222,7 +1222,17 @@ const PersonasModule = {
       body = `<div style="font-size:15px;font-weight:700;color:#0f172a;">${meta.total_mensual}</div>
         ${meta.puntos ? `<div style="font-size:11px;color:#7c3aed;margin-top:2px;">${meta.puntos} pts campaña</div>` : ''}`;
     } else if (desc) {
-      body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(desc.substring(0, 300))}${desc.length > 300 ? '...' : ''}</div>`;
+      if (h.tipo === 'nota' && desc.length > 300) {
+        const uid = 'nota-exp-' + h.id;
+        body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">
+          <span id="${uid}-short">${this._esc(desc.substring(0, 300))}...</span>
+          <span id="${uid}-full" style="display:none;">${this._esc(desc)}</span>
+        </div>
+        <button onclick="event.stopPropagation();var s=document.getElementById('${uid}-short'),f=document.getElementById('${uid}-full'),b=this;if(f.style.display==='none'){f.style.display='inline';s.style.display='none';b.textContent='Ocultar';}else{f.style.display='none';s.style.display='inline';b.textContent='Ver nota completa';}"
+          style="margin-top:6px;padding:3px 10px;border-radius:6px;border:1px solid #e8edf2;background:#fff;color:#d97706;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Ver nota completa</button>`;
+      } else {
+        body = `<div style="font-size:13px;color:#475569;white-space:pre-wrap;line-height:1.5;">${this._esc(desc.substring(0, 300))}${desc.length > 300 ? '...' : ''}</div>`;
+      }
     }
 
     // Botón devolver llamada — caso de negocio crítico
