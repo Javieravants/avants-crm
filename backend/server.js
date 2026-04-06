@@ -4,6 +4,8 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server: SocketServer } = require('socket.io');
 
 // Diagnóstico de arranque
 const envKeys = Object.keys(process.env).filter(k =>
@@ -42,6 +44,7 @@ const productosRoutes = require('./routes/productos');
 const knowledgeRoutes = require('./routes/knowledge');
 const transcriptionsRoutes = require('./routes/transcriptions');
 const callResultsRoutes = require('./routes/call-results');
+const supervisionRoutes = require('./routes/supervision');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -109,6 +112,7 @@ app.use('/api', productosRoutes); // /api/companias, /api/productos, /api/catego
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/transcriptions', transcriptionsRoutes);
 app.use('/api/call-results', callResultsRoutes);
+app.use('/api/supervision', supervisionRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Webhook CloudTalk — sin auth (CloudTalk Workflow Automation)
@@ -602,7 +606,7 @@ async function initPipelineTables() {
 // Auto-migración de tablas adicionales
 async function initExtraMigrations() {
   const fs = require('fs');
-  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql', 'migration-knowledge.sql', 'migration-transcriptions.sql', 'migration-call-results.sql'];
+  const extras = ['migration-grabaciones.sql', 'migration-calculadora.sql', 'migration-tramites-v2.sql', 'migration-users-empresa.sql', 'migration-indices.sql', 'migration-documentos.sql', 'migration-contact-history.sql', 'migration-tareas.sql', 'migration-multi-tenant.sql', 'migration-etiquetas.sql', 'migration-polizas.sql', 'migration-grabar-poliza.sql', 'migration-usuarios-historicos.sql', 'migration-pdf-poliza.sql', 'migration-fix-agentes-polizas.sql', 'migration-propuestas-v2.sql', 'migration-fix-created-at-polizas.sql', 'migration-fix-mes-alta.sql', 'migration-dialer.sql', 'migration-productos.sql', 'migration-knowledge.sql', 'migration-transcriptions.sql', 'migration-call-results.sql', 'migration-supervision.sql'];
   for (const file of extras) {
     try {
       const migPath = path.join(__dirname, 'config', file);
@@ -617,7 +621,107 @@ async function initExtraMigrations() {
   console.log('Migraciones extras verificadas');
 }
 
-app.listen(PORT, async () => {
+// Socket.io — tiempo real para supervision
+const server = http.createServer(app);
+const io = new SocketServer(server, { cors: { origin: '*' } });
+app.set('io', io); // accesible desde rutas via req.app.get('io')
+
+// Socket.io eventos
+io.on('connection', (socket) => {
+  socket.on('agent:identify', async ({ user_id, tenant_id }) => {
+    if (!user_id || !tenant_id) return;
+    socket.userId = user_id;
+    socket.tenantId = tenant_id;
+    socket.join('tenant:' + tenant_id);
+    socket.join('agent:' + user_id);
+
+    // Determinar turno
+    var hora = new Date().getHours();
+    var turno = (hora >= 9 && hora < 15) ? 'manana' : 'tarde';
+
+    // Upsert agent_session
+    await pool.query(
+      `INSERT INTO agent_sessions (tenant_id, user_id, estado, socket_id, turno, ultima_actividad)
+       VALUES ($1, $2, 'activo', $3, $4, NOW())
+       ON CONFLICT (tenant_id, user_id) DO UPDATE SET
+         estado = 'activo', socket_id = $3, turno = $4, ultima_actividad = NOW(),
+         estado_desde = NOW(), updated_at = NOW()`,
+      [tenant_id, user_id, socket.id, turno]);
+
+    // Notificar supervisores
+    io.to('tenant:' + tenant_id).emit('supervision:update');
+  });
+
+  socket.on('agent:estado', async ({ estado }) => {
+    if (!socket.userId) return;
+    await pool.query(
+      `UPDATE agent_sessions SET estado = $1, estado_desde = NOW(), ultima_actividad = NOW(), updated_at = NOW()
+       WHERE user_id = $2 AND tenant_id = $3`,
+      [estado, socket.userId, socket.tenantId]);
+    io.to('tenant:' + socket.tenantId).emit('supervision:update');
+  });
+
+  socket.on('agent:pausa', async ({ tipo }) => {
+    if (!socket.userId) return;
+    var estado = tipo === 'formacion' ? 'formacion' : (tipo === 'urgente' ? 'pausa_urgente' : 'pausa_programada');
+    await pool.query(
+      `UPDATE agent_sessions SET estado = $1, pausa_inicio = NOW(), pausa_tipo = $2,
+       estado_desde = NOW(), ultima_actividad = NOW(), updated_at = NOW()
+       WHERE user_id = $3 AND tenant_id = $4`,
+      [estado, tipo, socket.userId, socket.tenantId]);
+    io.to('tenant:' + socket.tenantId).emit('supervision:update');
+  });
+
+  socket.on('agent:pausa_fin', async () => {
+    if (!socket.userId) return;
+    await pool.query(
+      `UPDATE agent_sessions SET estado = 'activo', pausa_inicio = NULL, pausa_tipo = NULL,
+       estado_desde = NOW(), ultima_actividad = NOW(), updated_at = NOW()
+       WHERE user_id = $1 AND tenant_id = $2`,
+      [socket.userId, socket.tenantId]);
+    io.to('tenant:' + socket.tenantId).emit('supervision:update');
+  });
+
+  socket.on('agent:ping', async () => {
+    if (!socket.userId) return;
+    await pool.query(
+      'UPDATE agent_sessions SET ultima_actividad = NOW() WHERE user_id = $1 AND tenant_id = $2',
+      [socket.userId, socket.tenantId]);
+  });
+
+  socket.on('agent:confirmar_mensaje', async ({ mensaje_id }) => {
+    if (!socket.userId) return;
+    await pool.query('UPDATE supervisor_messages SET confirmado_at = NOW() WHERE id = $1', [mensaje_id]);
+    io.to('tenant:' + socket.tenantId).emit('supervision:update');
+  });
+
+  socket.on('disconnect', async () => {
+    if (!socket.userId) return;
+    await pool.query(
+      `UPDATE agent_sessions SET estado = 'inactivo', socket_id = NULL, updated_at = NOW()
+       WHERE user_id = $1 AND tenant_id = $2`,
+      [socket.userId, socket.tenantId]).catch(() => {});
+    io.to('tenant:' + socket.tenantId).emit('supervision:update');
+  });
+});
+
+// Deteccion de inactividad cada 60s
+setInterval(async () => {
+  try {
+    var inactivos = await pool.query(
+      `UPDATE agent_sessions SET estado = 'inactivo', updated_at = NOW()
+       WHERE estado IN ('activo','post_llamada')
+         AND ultima_actividad < NOW() - INTERVAL '15 minutes'
+         AND socket_id IS NOT NULL
+       RETURNING tenant_id, user_id`);
+    inactivos.rows.forEach(function(r) {
+      io.to('tenant:' + r.tenant_id).emit('supervision:update');
+      io.to('agent:' + r.user_id).emit('agent:alerta_inactividad');
+    });
+  } catch(e) {}
+}, 60000);
+
+server.listen(PORT, async () => {
   console.log(`Avants CRM corriendo en http://localhost:${PORT}`);
   await initFichateTables();
   await initPipelineTables();

@@ -41,11 +41,12 @@ const App = {
     if (!Auth.hasRole('admin', 'superadmin', 'supervisor')) {
       document.getElementById('nav-campanas')?.classList.add('hidden');
       document.getElementById('nav-knowledge')?.classList.add('hidden');
+      document.getElementById('nav-supervision')?.classList.add('hidden');
     }
 
     // Inyectar iconos SVG en sidebar
     if (typeof Icons !== 'undefined') {
-      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'grabaciones',dialer:'agenda',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',knowledge:'asistente',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
+      const icoMap = {dashboard:'dashboard',personas:'contactos',pipeline:'pipeline',campanas:'grabaciones',dialer:'agenda',fichate:'fichate',tickets:'tickets',calculadora:'calculadora',grabaciones:'grabaciones',informes:'informes',impagos:'impagos',supervision:'contactos',knowledge:'asistente',importar:'importar','importar-polizas':'polizas',settings:'settings',asistente:'asistente',usuarios:'usuarios'};
       Object.entries(icoMap).forEach(([id, fn]) => {
         const el = document.getElementById('ico-' + id);
         if (el && Icons[fn]) el.innerHTML = Icons[fn](16);
@@ -53,6 +54,7 @@ const App = {
     }
 
     this.setupNavigation();
+    this._initSocket();
 
     // Recordar última ruta visitada
     const lastRoute = localStorage.getItem('lastRoute');
@@ -143,6 +145,7 @@ const App = {
       pipeline: () => PipelineModule.render(),
       campanas: () => CampanasModule.render(),
       knowledge: () => KnowledgeModule.render(),
+      supervision: () => SupervisionModule.render(),
       dialer: () => DialerModule.render(),
       informes: () => InformesModule.render(),
       'importar-polizas': () => ImportarPolizasModule.render(),
@@ -158,6 +161,45 @@ const App = {
   },
 
   // === Notificaciones ===
+  _initSocket() {
+    if (typeof io === 'undefined') return;
+    const user = Auth.getUser();
+    if (!user) return;
+    this.socket = io();
+    this.socket.emit('agent:identify', { user_id: user.id, tenant_id: user.tenant_id || 1 });
+
+    // Ping de actividad cada 60s
+    this._pingInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        this.socket.emit('agent:ping');
+      }
+    }, 60000);
+
+    // Escuchar mensajes del supervisor
+    this.socket.on('agent:mensaje', (data) => {
+      this._showSupervisorMessage(data);
+    });
+
+    // Alerta de inactividad
+    this.socket.on('agent:alerta_inactividad', () => {
+      this._showSupervisorMessage({ mensaje: 'Llevas mas de 15 minutos inactivo. Tu supervisor ha sido notificado.', tipo: 'alerta' });
+    });
+  },
+
+  _showSupervisorMessage(data) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+    var tipoCfg = { aviso: { bg: '#eff6ff', border: '#3b82f6', icon: 'ℹ️' }, alerta: { bg: '#fef2f2', border: '#ef4444', icon: '⚠️' }, formacion: { bg: '#f0fdf4', border: '#10b981', icon: '📚' } };
+    var tc = tipoCfg[data.tipo] || tipoCfg.aviso;
+    overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px;width:400px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);border-top:4px solid ' + tc.border + ';text-align:center;">' +
+      '<div style="font-size:32px;margin-bottom:8px;">' + tc.icon + '</div>' +
+      '<div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:12px;">Mensaje del supervisor</div>' +
+      '<div style="font-size:13px;color:#475569;line-height:1.5;margin-bottom:16px;white-space:pre-wrap;">' + (data.mensaje || '') + '</div>' +
+      (data.from ? '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px;">— ' + data.from + '</div>' : '') +
+      '<button onclick="this.closest(\'[style]\').remove();' + (data.id ? 'App.socket?.emit(\'agent:confirmar_mensaje\',{mensaje_id:' + data.id + '});' : '') + '" style="padding:10px 24px;border-radius:8px;border:none;background:#009DDD;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Entendido</button></div>';
+    document.body.appendChild(overlay);
+  },
+
   startNotificationPolling() {
     this.checkNotifications();
     this.notifInterval = setInterval(() => this.checkNotifications(), 30000);
