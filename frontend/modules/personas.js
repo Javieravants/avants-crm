@@ -420,7 +420,7 @@ const PersonasModule = {
               ${(p.deals||[]).map(d=>{
                 const stCfg = d.pipedrive_status==='won' ? {bg:'#d1fae5',color:'#065f46',label:'Ganado'} : d.pipedrive_status==='lost' ? {bg:'#f1f5f9',color:'#94a3b8',label:'Perdido'} : {bg:'#e6f6fd',color:'#007ab8',label:'Activo'};
                 const plColor = (d.pipeline_nombre||'').includes('DENTAL')?'#10b981':(d.pipeline_nombre||'').includes('MASCOT')?'#f59e0b':(d.pipeline_nombre||'').includes('DECES')?'#94a3b8':'#009DDD';
-                return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;${d.pipedrive_status==='lost'?'opacity:.6;':''}">
+                return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;${d.pipedrive_status==='lost'?'opacity:.6;':''}" onclick="PersonasModule._openDealDrawer(${d.id})" title="Ver detalle del deal">
                 <span style="display:flex;align-items:center">${_ICO.cierre(14,stCfg.color)}</span>
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:12px;font-weight:600;${d.pipedrive_status==='lost'?'text-decoration:line-through;':''}">${this._esc(d.producto||d.compania||'Deal')}</div>
@@ -1579,6 +1579,117 @@ const PersonasModule = {
     } catch (e) {
       document.getElementById(thinkId)?.remove();
       msgs.innerHTML += `<div class="ia-chat-msg ia-chat-ia" style="color:#ef4444;">${e.message || 'Error'}</div>`;
+    }
+  },
+
+  // === Deal drawer — vista detalle inline ===
+  async _openDealDrawer(dealId) {
+    // Cerrar drawer previo si existe
+    document.getElementById('deal-drawer-overlay')?.remove();
+
+    // Overlay + drawer
+    const overlay = document.createElement('div');
+    overlay.id = 'deal-drawer-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.3);z-index:900;display:flex;justify-content:flex-end;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+    const drawer = document.createElement('div');
+    drawer.style.cssText = 'width:min(460px,90vw);height:100%;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.08);overflow-y:auto;padding:24px 20px;font-family:var(--font-family);animation:dd-slide .2s ease;';
+    drawer.innerHTML = '<p style="color:#94a3b8;font-size:13px;">Cargando deal...</p>';
+    overlay.appendChild(drawer);
+    document.body.appendChild(overlay);
+
+    // CSS animacion
+    if (!document.getElementById('deal-drawer-css')) {
+      const st = document.createElement('style'); st.id = 'deal-drawer-css';
+      st.textContent = '@keyframes dd-slide{from{transform:translateX(100%)}to{transform:translateX(0)}}';
+      document.head.appendChild(st);
+    }
+
+    try {
+      const [deal, historial] = await Promise.all([
+        API.get(`/pipeline/deals/${dealId}`),
+        API.get(`/history/deal/${dealId}?limit=50`)
+      ]);
+
+      const d = deal;
+      const hist = (historial.data || []);
+      const stCfg = d.pipedrive_status === 'won' ? { bg:'#d1fae5', color:'#065f46', label:'Ganado' }
+        : d.pipedrive_status === 'lost' ? { bg:'#f1f5f9', color:'#94a3b8', label:'Perdido' }
+        : { bg:'#e6f6fd', color:'#007ab8', label:'Activo' };
+
+      // Normalizar nombres de campos (pipeline endpoint usa stage_name/pipeline_name)
+      d.pipeline_nombre = d.pipeline_nombre || d.pipeline_name || '';
+      d.etapa_nombre = d.etapa_nombre || d.stage_name || '';
+
+      // Campos del deal
+      const campos = [
+        { label: 'Compañia', value: d.compania },
+        { label: 'Producto', value: d.producto },
+        { label: 'Pipeline', value: d.pipeline_nombre },
+        { label: 'Etapa', value: d.etapa_nombre },
+        { label: 'Prima', value: d.prima ? d.prima + '€' : null },
+        { label: 'Agente', value: d.agente_nombre },
+        { label: 'Creado', value: d.created_at ? new Date(d.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' }) : null },
+      ].filter(c => c.value);
+
+      // Historial del deal
+      let histHtml = '';
+      if (Array.isArray(hist) && hist.length > 0) {
+        histHtml = hist.map(h => {
+          const time = this._fmtRelative(h.created_at);
+          const tipoCfg = { llamada:'#009DDD', nota:'#d97706', etapa:'#8b5cf6', email:'#10b981', poliza:'#10b981', propuesta:'#7c3aed' };
+          const color = tipoCfg[h.tipo] || '#94a3b8';
+          return `<div style="padding:8px 0;border-bottom:1px solid #f0f2f5;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span style="font-weight:700;color:${color};">${h.tipo}</span>
+              ${h.subtipo ? `<span style="color:#94a3b8;">${h.subtipo}</span>` : ''}
+              <span style="margin-left:auto;color:#94a3b8;font-size:11px;">${time}</span>
+            </div>
+            ${h.titulo ? `<div style="color:#0f172a;font-weight:600;">${this._esc(h.titulo)}</div>` : ''}
+            ${h.descripcion ? `<div style="color:#475569;margin-top:2px;white-space:pre-wrap;">${this._esc((h.descripcion || '').substring(0, 200))}${(h.descripcion || '').length > 200 ? '...' : ''}</div>` : ''}
+          </div>`;
+        }).join('');
+      } else {
+        histHtml = '<div style="font-size:13px;color:#94a3b8;padding:12px 0;">Sin historial para este deal</div>';
+      }
+
+      // Enlace a Pipedrive
+      const pdLink = d.pipedrive_id
+        ? `<a href="https://avantssl.pipedrive.com/deal/${d.pipedrive_id}" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;font-size:11px;font-weight:600;text-decoration:none;font-family:inherit;">
+             ${_ICO.propuesta(14,'#475569')} Ver en Pipedrive
+           </a>`
+        : '';
+
+      drawer.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#0f172a;">${this._esc(d.producto || d.compania || 'Deal')}</div>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <span style="padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;background:${stCfg.bg};color:${stCfg.color};">${stCfg.label}</span>
+              ${d.pipeline_nombre ? `<span style="padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;background:#e6f6fd;color:#009DDD;">${this._esc(d.pipeline_nombre)}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="document.getElementById('deal-drawer-overlay')?.remove()" style="width:32px;height:32px;border-radius:8px;border:1px solid #e8edf2;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#94a3b8;">✕</button>
+        </div>
+
+        <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:20px;">
+          ${campos.map(c => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f2f5;">
+            <span style="font-size:12px;color:#94a3b8;font-weight:600;">${c.label}</span>
+            <span style="font-size:12px;color:#0f172a;font-weight:600;">${this._esc(c.value)}</span>
+          </div>`).join('')}
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;">Historial del deal</div>
+          ${pdLink}
+        </div>
+        <div>${histHtml}</div>
+      `;
+    } catch (e) {
+      drawer.innerHTML = `<p style="color:#ef4444;font-size:13px;">Error cargando deal: ${e.message}</p>
+        <button onclick="document.getElementById('deal-drawer-overlay')?.remove()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:1px solid #e8edf2;background:#fff;color:#475569;font-size:12px;cursor:pointer;">Cerrar</button>`;
     }
   },
 

@@ -81,6 +81,31 @@ router.get('/:persona_id', async (req, res) => {
   }
 });
 
+// GET /api/history/deal/:deal_id — historial de un deal específico
+router.get('/deal/:deal_id', async (req, res) => {
+  const dealId = req.params.deal_id;
+  const limit = parseInt(req.query.limit) || 50;
+  const offset = parseInt(req.query.offset) || 0;
+
+  try {
+    const [dataR, countR] = await Promise.all([
+      pool.query(`
+        SELECT ch.*, u.nombre as agente_nombre
+        FROM contact_history ch
+        LEFT JOIN users u ON ch.agente_id = u.id
+        WHERE ch.deal_id = $1 AND ch.tenant_id = $2
+        ORDER BY ch.created_at DESC
+        LIMIT $3 OFFSET $4
+      `, [dealId, req.tenantId, limit, offset]),
+      pool.query('SELECT COUNT(*) as total FROM contact_history WHERE deal_id = $1 AND tenant_id = $2', [dealId, req.tenantId])
+    ]);
+
+    res.json({ success: true, data: dataR.rows, total: parseInt(countR.rows[0].total) });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // POST /api/history
 router.post('/', async (req, res) => {
   const { persona_id, deal_id, tipo, subtipo, titulo, descripcion, metadata, agente_id, origen } = req.body;

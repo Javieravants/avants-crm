@@ -70,6 +70,8 @@ router.post('/pipedrive', async (req, res) => {
       await handlePerson(normalizedAction, current);
     } else if (entity === 'activity') {
       await handleActivity(normalizedAction, current);
+    } else if (entity === 'note') {
+      await handleNote(normalizedAction, current);
     }
   } catch (err) {
     console.error('[Webhook] Error procesando:', err.message, err.stack);
@@ -449,6 +451,11 @@ async function handlePerson(action, data) {
   const phone = getPhone(data.phone);
   const dni = getField(data, PERSON_FIELDS.dni) || getField(data, PERSON_FIELDS.dni_alt) || null;
 
+  // Debug: log raw phone/email para diagnosticar payloads inesperados
+  if (!email || !phone) {
+    console.log(`[Webhook][Person#${pipedriveId}] raw email=${JSON.stringify(data.email)} phone=${JSON.stringify(data.phone)} → parsed email=${email} phone=${phone}`);
+  }
+
   if (action === 'added') {
     const existing = await pool.query('SELECT id FROM personas WHERE pipedrive_person_id = $1', [pipedriveId]);
     if (existing.rows.length > 0) return;
@@ -590,6 +597,107 @@ async function handleActivity(action, data) {
   }
 
   console.log(`[Webhook] Activity #${data.id} (${action}/${tipo}) → persona: ${personaId}`);
+}
+
+// =============================================
+// NOTE
+// =============================================
+async function handleNote(action, data) {
+  if (!data.id) return;
+
+  const pdNoteId = String(data.id);
+
+  // Resolver persona: por person_id → fallback por deal_id
+  let personaId = null, dealId = null;
+
+  if (data.person_id) {
+    const pR = await pool.query('SELECT id FROM personas WHERE pipedrive_person_id = $1', [data.person_id]);
+    if (pR.rows[0]) personaId = pR.rows[0].id;
+  }
+  if (data.deal_id) {
+    const dR = await pool.query('SELECT id, persona_id FROM deals WHERE pipedrive_id = $1', [data.deal_id]);
+    if (dR.rows[0]) {
+      dealId = dR.rows[0].id;
+      if (!personaId) personaId = dR.rows[0].persona_id;
+    }
+  }
+
+  if (!personaId) {
+    console.log(`[Webhook] Note #${pdNoteId} sin persona asociada — skip`);
+    return;
+  }
+
+  // Resolver agente
+  let agenteId = null;
+  if (data.user_id) {
+    try {
+      const uR = await fetch(`https://api.pipedrive.com/v1/users/${data.user_id}?api_token=${process.env.PIPEDRIVE_API_KEY}`);
+      const uD = await uR.json();
+      if (uD.data?.email) {
+        const agR = await pool.query('SELECT id FROM users WHERE email = $1 AND activo = true', [uD.data.email]);
+        if (agR.rows[0]) agenteId = agR.rows[0].id;
+      }
+    } catch {}
+  }
+
+  // Limpiar HTML
+  const contenido = (data.content || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const titulo = contenido.substring(0, 255).split('\n')[0];
+
+  const metadata = {
+    pipedrive_note_id: data.id,
+    deal_id: data.deal_id,
+    org_id: data.org_id,
+    pinned: data.pinned_to_deal_flag || data.pinned_to_person_flag || false
+  };
+
+  if (action === 'added') {
+    // Deduplicar
+    const exists = await pool.query(
+      "SELECT id FROM contact_history WHERE metadata->>'pipedrive_note_id' = $1",
+      [pdNoteId]
+    );
+    if (exists.rows.length > 0) return;
+
+    registrarEvento(personaId, 'nota', {
+      deal_id: dealId,
+      titulo,
+      descripcion: contenido,
+      metadata,
+      agente_id: agenteId,
+      origen: 'pipedrive'
+    });
+  } else if (action === 'updated') {
+    // Actualizar nota existente o insertar si no existe
+    const exists = await pool.query(
+      "SELECT id FROM contact_history WHERE metadata->>'pipedrive_note_id' = $1",
+      [pdNoteId]
+    );
+    if (exists.rows.length > 0) {
+      await pool.query(
+        `UPDATE contact_history SET titulo = $1, descripcion = $2, metadata = $3
+         WHERE id = $4`,
+        [titulo, contenido, JSON.stringify(metadata), exists.rows[0].id]
+      );
+    } else {
+      registrarEvento(personaId, 'nota', {
+        deal_id: dealId,
+        titulo,
+        descripcion: contenido,
+        metadata,
+        agente_id: agenteId,
+        origen: 'pipedrive'
+      });
+    }
+  }
+
+  console.log(`[Webhook] Note #${pdNoteId} (${action}) → persona: ${personaId}`);
 }
 
 // Sincronizar label de Pipedrive → etiquetas CRM
