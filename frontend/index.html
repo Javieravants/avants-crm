@@ -11,7 +11,13 @@
 </head>
 <body>
 
-  <!-- LOGIN -->
+  <!-- Botón hamburguesa móvil -->
+<button id="mobile-menu-btn" onclick="document.getElementById(&quot;sidebar&quot;).classList.toggle(&quot;mobile-open&quot;);document.getElementById(&quot;sidebar-overlay&quot;).classList.toggle(&quot;active&quot;);">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+</button>
+<div id="sidebar-overlay" onclick="document.getElementById(&quot;sidebar&quot;).classList.remove(&quot;mobile-open&quot;);document.getElementById(&quot;sidebar-overlay&quot;).classList.remove(&quot;active&quot;);"></div>
+
+<!-- LOGIN -->
   <div id="login-view" class="login-wrapper hidden">
     <div class="login-box">
       <h1>Gestavly</h1>

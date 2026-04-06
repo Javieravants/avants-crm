@@ -191,7 +191,6 @@ const PersonasModule = {
 
   // === FICHA DE PERSONA ===
   async showFicha(personaId) {
-    history.pushState({ module: 'personas', personaId }, '', '/contactos/' + personaId);
     const container = document.getElementById('main-content');
     container.innerHTML = '<p class="text-light">Cargando ficha...</p>';
 
