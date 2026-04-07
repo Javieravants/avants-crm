@@ -125,4 +125,107 @@ router.post('/propuesta', checkSecret, async (req, res) => {
   }
 });
 
+
+// POST /api/sync/grabacion — Guardar grabación/póliza desde grabaciones externas
+router.post('/grabacion', checkSecret, async (req, res) => {
+  try {
+    const {
+      pipedrive_deal_id, compania, producto, tipo_producto,
+      prima_mensual, forma_pago, n_solicitud, n_poliza,
+      fecha_efecto, campana_puntos, descuento, descuento_contra,
+      dental, nota_estructurada, datos_titular, asegurados_data
+    } = req.body;
+
+    if (!pipedrive_deal_id) {
+      return res.status(400).json({ error: 'pipedrive_deal_id requerido' });
+    }
+
+    // Buscar deal y persona
+    let persona_id = null;
+    let deal_id = null;
+
+    try {
+      const dealRes = await pool.query(
+        'SELECT id, persona_id FROM deals WHERE pipedrive_id = $1 LIMIT 1',
+        [parseInt(pipedrive_deal_id)]
+      );
+      if (dealRes.rows[0]) {
+        deal_id = dealRes.rows[0].id;
+        persona_id = dealRes.rows[0].persona_id;
+      }
+    } catch(e) {
+      console.log('[sync/grabacion] No se pudo buscar deal:', e.message);
+    }
+
+    // Calcular prima anual
+    const primaMensual = parseFloat(prima_mensual) || 0;
+    const formaP = (forma_pago || 'MENSUAL').toUpperCase();
+    const multiplicador = formaP === 'ANUAL' ? 1 : formaP === 'SEMESTRAL' ? 2 : formaP === 'TRIMESTRAL' ? 4 : 12;
+    const primaAnual = primaMensual * multiplicador;
+
+    // Insertar en polizas (la grabación crea una póliza)
+    const result = await pool.query(`
+      INSERT INTO polizas (
+        persona_id, deal_id, pipedrive_deal_id,
+        compania, producto, tipo_producto,
+        n_solicitud, n_poliza, fecha_efecto,
+        forma_pago, descuento, descuento_contra,
+        prima_mensual, prima_anual,
+        campana_puntos, dental, carencias,
+        datos_titular, asegurados_data,
+        nota_estructurada, estado, agente_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,NULL,$17,$18,$19,'grabado',NULL)
+      RETURNING id
+    `, [
+      persona_id || null,
+      deal_id || null,
+      parseInt(pipedrive_deal_id),
+      compania || 'ADESLAS',
+      producto || tipo_producto || 'SALUD',
+      tipo_producto || 'SALUD',
+      n_solicitud || null,
+      n_poliza || null,
+      fecha_efecto || null,
+      forma_pago || 'MENSUAL',
+      parseFloat(descuento) || 0,
+      parseFloat(descuento_contra) || 0,
+      primaMensual,
+      primaAnual,
+      parseInt(campana_puntos) || 0,
+      dental || null,
+      JSON.stringify(datos_titular || {}),
+      JSON.stringify(asegurados_data || []),
+      nota_estructurada || null
+    ]);
+
+    const polizaId = result.rows[0]?.id || null;
+
+    // Registrar en historial
+    if (persona_id) {
+      await pool.query(`
+        INSERT INTO contact_history (persona_id, tipo, titulo, descripcion, origen)
+        VALUES ($1, 'nota', $2, $3, 'grabacion_externa')
+      `, [
+        persona_id,
+        'Grabación póliza ' + (producto || tipo_producto || 'ADESLAS') + ' — ' + primaMensual.toFixed(2) + '€/mes',
+        nota_estructurada || ''
+      ]);
+
+      // Marcar deal como ganado si existe
+      if (deal_id) {
+        await pool.query(
+          "UPDATE deals SET estado = 'won', pipedrive_status = 'won', updated_at = NOW() WHERE id = $1",
+          [deal_id]
+        );
+      }
+    }
+
+    res.json({ ok: true, poliza_id: polizaId });
+
+  } catch (err) {
+    console.error('[sync/grabacion] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
