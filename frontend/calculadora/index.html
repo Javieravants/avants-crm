@@ -1018,6 +1018,43 @@ window.onload = function() {
     if (dealId) {
         cargarDatosDeal(dealId);
     } else {
+        // Pre-rellenar datos desde URL (cuando se abre desde Gestavly)
+        const titular = document.querySelector('#asegurados-container .asegurado-card');
+        if (titular) {
+            const nombre = urlParams.get('nombre');
+            const fechaNac = urlParams.get('fecha_nac');
+            const provincia = urlParams.get('provincia');
+            const localidad = urlParams.get('localidad');
+            const sexo = urlParams.get('sexo');
+
+            if (nombre) {
+                const inp = titular.querySelector('.asegurado-nombre');
+                if (inp) inp.value = nombre;
+            }
+            if (fechaNac) {
+                const inp = titular.querySelector('.asegurado-fecha');
+                if (inp) inp.value = fechaNac;
+            }
+            if (provincia) {
+                const sel = titular.querySelector('.asegurado-provincia');
+                if (sel) {
+                    sel.value = provincia;
+                    sel.dispatchEvent(new Event('change'));
+                    // Esperar a que se carguen las localidades
+                    setTimeout(() => {
+                        if (localidad) {
+                            const selLoc = titular.querySelector('.asegurado-localidad');
+                            if (selLoc) selLoc.value = localidad;
+                        }
+                        calcularTodo();
+                    }, 300);
+                }
+            }
+            if (sexo) {
+                const sel = titular.querySelector('.asegurado-sexo');
+                if (sel) sel.value = sexo;
+            }
+        }
         calcularTodo();
     }
 };

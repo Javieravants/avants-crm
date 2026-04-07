@@ -1308,7 +1308,17 @@ const PersonasModule = {
       if (p.nombre) params.set('nombre', p.nombre);
       if (p.telefono) params.set('telefono', p.telefono);
       if (p.email) params.set('email', p.email);
+      if (p.fecha_nacimiento) params.set('fecha_nac', p.fecha_nacimiento);
+      if (p.provincia) params.set('provincia', p.provincia);
+      if (p.localidad) params.set('localidad', p.localidad);
+      if (p.sexo) params.set('sexo', p.sexo);
       params.set('persona_id', personaId);
+      // Pasar deal_id activo si existe
+      const dealActivo = p.deals && p.deals.find(d => d.estado === 'open' || d.pipedrive_status === 'open');
+      if (dealActivo) params.set('deal_id', dealActivo.pipedrive_id || dealActivo.id);
+      // Pasar token para que pueda guardar en Gestavly
+      const token = Auth.getToken();
+      if (token) params.set('token', token);
     }
     const qs = params.toString() ? '?' + params.toString() : '';
     const content = document.getElementById('persona-tab-content');
