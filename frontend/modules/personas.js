@@ -1153,6 +1153,37 @@ const PersonasModule = {
       }
 
       wrap.insertAdjacentHTML('beforeend', items.map(h => this._renderHistoryCard(h)).join(''));
+
+      // Cargar grabaciones CloudTalk al inicio del historial (solo primera página)
+      if (this._historialOffset === 0 || this._historialOffset === items.length) {
+        try {
+          const grabRes = await API.get(\`/personas/\${personaId}/grabaciones\`);
+          const grabaciones = grabRes.grabaciones || [];
+          if (grabaciones.length > 0) {
+            const grabHTML = grabaciones.map(g => {
+              const dur = g.duracion_segundos || 0;
+              const fecha = g.fecha_llamada ? new Date(g.fecha_llamada).toLocaleString('es-ES') : '';
+              return \`<div style="background:#f4f6f9;border-radius:10px;padding:10px 14px;margin-bottom:8px;border-left:3px solid #009DDD;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span style="font-size:12px;font-weight:700;color:#009DDD;">🎙 Grabación CloudTalk</span>
+                  <span style="font-size:11px;color:#64748b;margin-left:auto;">\${fecha}</span>
+                </div>
+                <div style="font-size:12px;color:#475569;margin-bottom:6px;">
+                  \${g.agente_nombre || 'Agente'} · \${Math.floor(dur/60)}m \${dur%60}s · \${g.tipo_llamada === 'outgoing' ? 'Saliente' : 'Entrante'}
+                </div>
+                <audio controls preload="none" style="width:100%;height:32px;border-radius:6px;">
+                  <source src="\${g.audio_url}">
+                </audio>
+              </div>\`;
+            }).join('');
+            const seccion = \`<div style="margin-bottom:16px;">
+              <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Grabaciones de llamadas (\${grabaciones.length})</div>
+              \${grabHTML}
+            </div>\`;
+            wrap.insertAdjacentHTML('afterbegin', seccion);
+          }
+        } catch(e) { /* silencioso */ }
+      }
       this._historialOffset += items.length;
       more.style.display = this._historialOffset < total ? 'block' : 'none';
     } catch (e) {
