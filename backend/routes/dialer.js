@@ -909,6 +909,8 @@ router.post('/ia/chat-llamada', async (req, res) => {
 
     // Construir contexto del cliente
     let contexto = '';
+    let conocimiento = '';
+    const tenantId = req.tenantId || 1;
     if (personaId) {
       const [personaR, segurosR, histR, productosR] = await Promise.all([
         pool.query('SELECT nombre, provincia FROM personas WHERE id = $1', [personaId]),
@@ -939,6 +941,52 @@ router.post('/ia/chat-llamada', async (req, res) => {
           contexto += `\n- ${p.compania} ${p.nombre}: ${(p.resumen_coberturas || '').substring(0, 80)}`;
         });
       }
+
+      // Conocimiento interno del Centro de Conocimiento
+      try {
+        // Conocimiento general (sin compania)
+        const kbGenR = await pool.query(
+          `SELECT tipo, titulo, contenido, visibilidad FROM knowledge_base
+           WHERE tenant_id = $1 AND compania_id IS NULL
+             AND visibilidad IN ('agentes', 'todos')
+             AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
+           ORDER BY updated_at DESC LIMIT 15`,
+          [tenantId]);
+
+        // Detectar companias del contacto (seguros + deals open)
+        const companias = new Set(segurosR.rows.map(s => s.compania).filter(Boolean));
+        const dealsOpenR = await pool.query(
+          `SELECT compania FROM deals WHERE persona_id = $1 AND pipedrive_status = 'open'`, [personaId]);
+        dealsOpenR.rows.forEach(d => { if (d.compania) companias.add(d.compania); });
+
+        // Conocimiento de cada compania vinculada al contacto
+        let kbComp = [];
+        for (const compNombre of companias) {
+          const kbCompR = await pool.query(
+            `SELECT kb.tipo, kb.titulo, kb.contenido, kb.visibilidad, c.nombre as compania
+             FROM knowledge_base kb
+             JOIN companias c ON c.id = kb.compania_id
+             WHERE kb.tenant_id = $1 AND c.nombre ILIKE $2
+               AND kb.visibilidad IN ('agentes', 'todos')
+               AND (kb.vigente_hasta IS NULL OR kb.vigente_hasta >= CURRENT_DATE)
+             ORDER BY kb.updated_at DESC LIMIT 10`,
+            [tenantId, '%' + String(compNombre).substring(0, 50) + '%']);
+          kbComp = kbComp.concat(kbCompR.rows);
+        }
+
+        const allKb = [...kbGenR.rows, ...kbComp];
+        if (allKb.length) {
+          conocimiento = '\n\nCONOCIMIENTO INTERNO DEL EQUIPO (usalo para responder preguntas):';
+          allKb.forEach(k => {
+            const tag = k.visibilidad === 'todos' ? 'PUBLICO' : 'SOLO EQUIPO';
+            const comp = k.compania ? k.compania + ' - ' : '';
+            conocimiento += `\n[${k.tipo.toUpperCase()} - ${tag}] ${comp}${k.titulo}: ${k.contenido.substring(0, 200)}`;
+          });
+          conocimiento += '\n\nPrioriza SIEMPRE el conocimiento interno sobre tu conocimiento general. Si el conocimiento interno contradice algo que crees saber, usa el interno.';
+        }
+      } catch (e) {
+        console.error('[IA Chat] Error obteniendo knowledge:', e.message);
+      }
     }
 
     // Construir mensajes con historial
@@ -954,7 +1002,7 @@ router.post('/ia/chat-llamada', async (req, res) => {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 200,
-      system: `Eres un asistente de ventas experto en seguros, ayudando a un agente durante una llamada en tiempo real. Responde de forma MUY concisa (maximo 3-4 lineas) y practica. El agente esta hablando con el cliente ahora mismo, no tiene tiempo para leer textos largos.${contexto}`,
+      system: `Eres un asistente de ventas experto en seguros, ayudando a un agente durante una llamada en tiempo real. Responde de forma MUY concisa (maximo 3-4 lineas) y practica. El agente esta hablando con el cliente ahora mismo, no tiene tiempo para leer textos largos.${contexto}${conocimiento}`,
       messages,
     });
 
