@@ -380,4 +380,22 @@ router.post('/:id/notas', async (req, res) => {
   }
 });
 
+// GET /api/personas/:id/grabaciones — Grabaciones de CloudTalk vinculadas al contacto
+router.get('/:id/grabaciones', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT cr.id, cr.cloudtalk_id, cr.agente_nombre, cr.duracion_segundos,
+             cr.fecha_llamada, cr.tipo_llamada, cr.audio_url,
+             cr.numero_externo, cr.transcripcion
+      FROM call_recordings cr
+      WHERE cr.persona_id = $1
+      ORDER BY cr.fecha_llamada DESC
+      LIMIT 100
+    `, [req.params.id]);
+    res.json({ grabaciones: rows });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
