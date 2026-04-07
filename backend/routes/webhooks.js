@@ -502,13 +502,17 @@ function getField(obj, key) {
 }
 
 function getEmail(arr) {
-  if (!arr || !Array.isArray(arr)) return null;
+  if (!arr) return null;
+  // Nuevo formato Pipedrive (desde mar-2026): objeto directo {value: "..."}
+  if (!Array.isArray(arr)) return arr?.value || (typeof arr === 'string' ? arr : null);
   const p = arr.find((e) => e.primary) || arr[0];
   return p?.value || null;
 }
 
 function getPhone(arr) {
-  if (!arr || !Array.isArray(arr)) return null;
+  if (!arr) return null;
+  // Nuevo formato Pipedrive (desde mar-2026): objeto directo {value: "..."}
+  if (!Array.isArray(arr)) return arr?.value || (typeof arr === 'string' ? arr : null);
   const p = arr.find((e) => e.primary) || arr[0];
   return p?.value || null;
 }
@@ -587,7 +591,7 @@ async function handleActivity(action, data) {
         `INSERT INTO tareas (persona_id, deal_id, agente_id, tipo, titulo, descripcion, fecha_venc, hora_venc, estado, pipedrive_activity_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pendiente', $9)`,
         [personaId, dealId, agenteId, data.type || 'task', data.subject || '',
-         data.note || '', data.due_date || null, data.due_time || null, data.id]
+         data.note || '', data.due_date || null, (typeof data.due_time === 'object' ? data.due_time?.value : data.due_time) || null, data.id]
       );
     }
   } else if (action === 'updated' && isDone) {
