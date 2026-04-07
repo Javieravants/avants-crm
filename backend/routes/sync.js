@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
+const { generarPDFPropuesta } = require('../utils/pdf-generator');
 
 // Clave secreta compartida con la calculadora de Ionos
 const SYNC_SECRET = 'gstv_sync_2026_adeslas';
@@ -82,7 +83,41 @@ router.post('/propuesta', checkSecret, async (req, res) => {
       ]);
     }
 
-    res.json({ ok: true, propuesta_id: result.rows[0]?.id || null });
+    const propuestaId = result.rows[0]?.id || null;
+
+    // Generar PDF con los datos que ya tenemos
+    if (propuestaId) {
+      setImmediate(async () => {
+        try {
+          const prop = {
+            id: propuestaId,
+            persona_id: persona_id,
+            compania: compania || 'ADESLAS',
+            producto: modalidad || 'MULTIPRODUCTO',
+            prima_mensual: parseFloat(prima_mensual) || 0,
+            prima_anual: parseFloat(prima_anual) || 0,
+            campana_puntos: parseInt(campana_puntos) || 0,
+            asegurados_data: asegurados_data || [],
+            desglose: productos || {},
+            nota_contenido: nota || null,
+            _persona: { nombre: 'Cliente' }
+          };
+
+          // Cargar nombre de persona si existe
+          if (persona_id) {
+            const pRes = await pool.query('SELECT nombre FROM personas WHERE id = $1', [persona_id]);
+            if (pRes.rows[0]) prop._persona = { nombre: pRes.rows[0].nombre };
+          }
+
+          const pdfUrl = await generarPDFPropuesta(prop);
+          await pool.query('UPDATE propuestas SET pdf_url = $1, pipedrive_synced = true WHERE id = $2', [pdfUrl, propuestaId]);
+          console.log('[sync] PDF generado:', pdfUrl);
+        } catch(e) {
+          console.log('[sync] Error PDF:', e.message);
+        }
+      });
+    }
+    res.json({ ok: true, propuesta_id: propuestaId });
 
   } catch (err) {
     console.error('[sync] Error:', err.message);
