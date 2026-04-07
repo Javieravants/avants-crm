@@ -3249,73 +3249,65 @@ function showStatus(msg, type) {
 // GUARDAR EN GESTAVLY (llamado automáticamente desde guardarEnPipedrive)
 // ============================================
 async function guardarEnGestavlySilencioso() {
+  // Sync silencioso con Gestavly usando clave secreta — sin necesidad de login
   try {
-    let token = localStorage.getItem('token');
-    if (!token) try { token = window.parent?.Auth?.getToken?.(); } catch(e) {}
-    if (!token) try { token = window.parent?.localStorage?.getItem('token'); } catch(e) {}
-    if (!token) return; // No estamos en Gestavly, salir silenciosamente
+    if (!dealId) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const personaIdVal = params.get('persona_id');
-    if (!personaIdVal) return; // Sin persona_id, no hacemos nada
-
-    const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
-
-    // Recoger total mensual
     const totalEl = document.getElementById('totalMensual');
     const totalMensual = totalEl ? parseFloat(totalEl.textContent.replace(/[^0-9,.]/g,'').replace(',','.')) || 0 : 0;
 
-    // Recoger puntos
-    const puntosEl = document.querySelector('.puntos-total, #puntos-total, [id*="puntos"]');
+    const puntosEl = document.querySelector('[id*="puntos"][id*="total"], .puntos-total-num');
     const totalPuntos = puntosEl ? parseInt(puntosEl.textContent.replace(/\D/g,'')) || 0 : 0;
 
-    // Recoger modalidad
     const modalidadEl = document.querySelector('#modalidadSalud, select[id*="modalidad"]');
-    const modalidad = modalidadEl ? modalidadEl.value : 'ADESLAS';
+    const modalidad = modalidadEl ? modalidadEl.value : 'MULTIPRODUCTO';
 
-    // Generar nota
     const nota = typeof generarNota === 'function' ? generarNota() : '';
-
-    // Recoger asegurados
     const asegurados = typeof obtenerAsegurados === 'function' ? obtenerAsegurados() : [];
 
-    // Guardar propuesta
-    await fetch('/api/calculadora/propuestas', {
+    await fetch('https://app.gestavly.com/api/sync/propuesta', {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sync-secret': 'gstv_sync_2026_adeslas'
+      },
       body: JSON.stringify({
-        persona_id: parseInt(personaIdVal),
-        deal_id: dealId ? parseInt(dealId) : null,
-        pipedrive_deal_id: dealId ? parseInt(dealId) : null,
+        pipedrive_deal_id: dealId,
         compania: 'ADESLAS',
-        modalidad: modalidad || 'MULTIPRODUCTO',
+        modalidad: modalidad,
         prima_mensual: totalMensual,
         prima_anual: totalMensual * 12,
         campana_puntos: totalPuntos,
         nota: nota,
-        asegurados_data: JSON.stringify(asegurados)
+        asegurados_data: asegurados
       })
     });
-
-    // Crear entrada en historial
-    await fetch('/api/history', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        persona_id: parseInt(personaIdVal),
-        tipo: 'nota',
-        titulo: 'Propuesta ADESLAS ' + (modalidad || '') + ' — ' + totalMensual.toFixed(2) + '€/mes',
-        descripcion: nota,
-        origen: 'calculadora'
-      })
-    });
-
-    // Notificar al iframe padre para recargar la ficha
-    try { window.parent.postMessage({ type: 'propuesta-guardada', persona_id: parseInt(personaIdVal) }, '*'); } catch(e) {}
-
+    console.log('[Gestavly] Sync silencioso OK');
   } catch(e) {
-    console.warn('[Gestavly] Error al guardar silencioso:', e.message);
-    // No mostrar error — es silencioso
+    console.log('[Gestavly] Sync silencioso error:', e.message);
+    // Silencioso — no interrumpir flujo
+  }
+}
+
+// ============================================
+// SYNC SILENCIOSO CON GESTAVLY
+// Se llama automáticamente al guardar en Pipedrive
+// Las agentes no ven nada — funciona en background
+// ============================================
+async function sincronizarConGestavly(datosPropuesta) {
+  try {
+    await fetch('https://app.gestavly.com/api/sync/propuesta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-sync-secret': 'gstv_sync_2026_adeslas'
+      },
+      body: JSON.stringify(datosPropuesta)
+    });
+    // Silencioso — no mostramos nada al agente
+  } catch(e) {
+    // Silencioso — si falla no interrumpimos el flujo normal
+    console.log('[Gestavly sync] Error silencioso:', e.message);
   }
 }
 </script>

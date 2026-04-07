@@ -45,6 +45,7 @@ const knowledgeRoutes = require('./routes/knowledge');
 const transcriptionsRoutes = require('./routes/transcriptions');
 const callResultsRoutes = require('./routes/call-results');
 const supervisionRoutes = require('./routes/supervision');
+const syncRoutes = require('./routes/sync');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -107,6 +108,7 @@ app.use('/api/polizas', polizasRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/dialer', dialerRoutes);
 app.use('/api/campanas', dialerRoutes);
+app.use('/api/sync', syncRoutes); // Público — sin auth
 app.use('/api', dialerRoutes); // /api/cti/llamar, /api/cti/colgar, /api/ia/briefing, /api/ia/analizar-llamada
 app.use('/api', productosRoutes); // /api/companias, /api/productos, /api/categorias, /api/ia/productos-faltantes
 app.use('/api/knowledge', knowledgeRoutes);
